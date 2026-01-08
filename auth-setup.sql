@@ -51,7 +51,13 @@ CREATE POLICY "Users can update their own profile"
 -- Update existing RLS policies for admin_users to support auth
 -- ============================================================================
 
--- Allow the trigger/service role to insert admin records
+-- IMPORTANT: Temporarily disable RLS to allow trigger to work
+-- It will be re-enabled after policies are set up
+ALTER TABLE admin_users DISABLE ROW LEVEL SECURITY;
+
+-- Allow the trigger/service role to insert admin records (most permissive for system operations)
+DROP POLICY IF EXISTS "Admin users: System can insert admins" ON admin_users;
+
 CREATE POLICY "Admin users: System can insert admins"
   ON admin_users
   FOR INSERT
@@ -59,55 +65,43 @@ CREATE POLICY "Admin users: System can insert admins"
 
 -- Allow authenticated users to read admin_users (for verification)
 DROP POLICY IF EXISTS "Admin users: Public read (limited)" ON admin_users;
+DROP POLICY IF EXISTS "Admin users: Authenticated users can verify admin status" ON admin_users;
 
-CREATE POLICY "Admin users: Authenticated users can verify admin status"
+CREATE POLICY "Admin users: Authenticated read own record"
   ON admin_users
   FOR SELECT
   USING (
-    auth.role() = 'authenticated'
-    AND (
-      -- Users can see their own admin record
-      id = auth.uid()
-      -- OR admins can see all admin records
-      OR EXISTS (
-        SELECT 1 FROM admin_users
-        WHERE admin_users.id = auth.uid()
-        AND admin_users.is_active = true
-      )
-    )
+    auth.uid() = id
+    OR auth.role() = 'service_role'
   );
 
--- Admin can insert new admins
+-- Allow users to insert their own admin record (for direct registration)
 DROP POLICY IF EXISTS "Admin users: Admin insert" ON admin_users;
 
-CREATE POLICY "Admin users: Admin insert"
+CREATE POLICY "Admin users: User insert own"
   ON admin_users
   FOR INSERT
   WITH CHECK (
     auth.uid() = id
-    OR EXISTS (
-      SELECT 1 FROM admin_users
-      WHERE admin_users.id = auth.uid()
-      AND admin_users.is_active = true
-      AND admin_users.role = 'admin'
-    )
   );
 
 -- Admin can update admin records
 DROP POLICY IF EXISTS "Admin users: Admin update" ON admin_users;
 
-CREATE POLICY "Admin users: Admin update"
+CREATE POLICY "Admin users: Admin update own"
   ON admin_users
   FOR UPDATE
   USING (
     auth.uid() = id
-    OR EXISTS (
-      SELECT 1 FROM admin_users
-      WHERE admin_users.id = auth.uid()
-      AND admin_users.is_active = true
-      AND admin_users.role = 'admin'
-    )
+    OR auth.role() = 'service_role'
+  )
+  WITH CHECK (
+    auth.uid() = id
+    OR auth.role() = 'service_role'
   );
+
+-- Re-enable RLS now that policies are set up
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- Trigger to create profile entry and check for admin email when user signs up
