@@ -1,0 +1,40 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+---
+
+<PublicLayout title="Mi Cuenta" description="Gestiona tu cuenta de usuario">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <div class="bg-white rounded-lg shadow p-6">
+      <h1 class="text-3xl font-display font-bold text-brand-navy mb-4">
+        Mi Cuenta
+      </h1>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Sidebar */}
+        <div class="md:col-span-1">
+          <nav class="space-y-2">
+            <a href="/mi-cuenta" class="block px-4 py-2 bg-brand-navy text-white rounded font-semibold">
+              Mi Perfil
+            </a>
+            <a href="/pedidos" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
+              Mis Pedidos
+            </a>
+            <a href="/direcciones" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
+              Direcciones
+            </a>
+            <a href="/metodos-pago" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
+              Métodos de Pago
+            </a>
+          </nav>
+        </div>
+
+        {/* Main Content */}
+        <div class="md:col-span-2">
+          <p class="text-neutral-600 text-center py-12">
+            ℹ️ Contenido disponible pronto - Asegúrate de estar autenticado
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</PublicLayout>

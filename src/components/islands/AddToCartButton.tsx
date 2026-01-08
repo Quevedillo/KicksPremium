@@ -1,20 +1,36 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { addToCart, openCart } from '@stores/cart';
+import { authStore, getCurrentUser } from '@stores/auth';
 import type { Product } from '@lib/supabase';
 
 interface AddToCartButtonProps {
   product: Product;
-  client:boolean;
 }
 
-export default function AddToCartButton({ product, client = true }: AddToCartButtonProps) {
+export default function AddToCartButton({ product }: AddToCartButtonProps) {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [feedback, setFeedback] = useState<string>('');
+  const [user, setUser] = useState(getCurrentUser());
 
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
+  useEffect(() => {
+    const unsubscribe = authStore.subscribe((state) => {
+      setUser(state.user);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const handleAddToCart = () => {
+    // Check authentication first
+    if (!user) {
+      setFeedback('');
+      window.location.href = '/auth/login?redirect=/productos/' + product.slug;
+      return;
+    }
+
     if (!selectedSize) {
       setFeedback('Por favor, selecciona una talla');
       return;
@@ -36,6 +52,13 @@ export default function AddToCartButton({ product, client = true }: AddToCartBut
 
   return (
     <div className="space-y-4">
+      {/* Authentication Warning */}
+      {!user && (
+        <div className="p-3 bg-blue-100 border border-blue-400 text-blue-700 text-sm rounded">
+          ℹ️ Necesitas iniciar sesión para agregar al carrito. <a href="/auth/login" className="font-semibold underline">Hacerlo ahora</a>
+        </div>
+      )}
+
       {/* Size Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
@@ -51,7 +74,7 @@ export default function AddToCartButton({ product, client = true }: AddToCartBut
                   ? 'border-brand-navy bg-brand-navy text-white'
                   : 'border-neutral-300 bg-white text-gray-900 hover:border-brand-navy'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={product.stock <= 0}
+              disabled={product.stock <= 0 || !user}
             >
               {size}
             </button>
@@ -68,6 +91,7 @@ export default function AddToCartButton({ product, client = true }: AddToCartBut
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
             className="px-3 py-2 border border-neutral-300 text-gray-900 hover:bg-neutral-50"
+            disabled={!user}
           >
             −
           </button>
@@ -80,10 +104,12 @@ export default function AddToCartButton({ product, client = true }: AddToCartBut
               setQuantity(Math.max(1, Math.min(product.stock, parseInt(e.target.value) || 1)))
             }
             className="w-16 text-center border border-neutral-300 py-2"
+            disabled={!user}
           />
           <button
             onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
             className="px-3 py-2 border border-neutral-300 text-gray-900 hover:bg-neutral-50"
+            disabled={!user}
           >
             +
           </button>

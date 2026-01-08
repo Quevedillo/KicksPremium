@@ -1,53 +1,11 @@
 ---
-import AdminLayout from '@layouts/AdminLayout.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import AdminAuthForm from '@components/islands/AdminAuthForm';
 ---
 
-<AdminLayout title="Login Admin - FashionMarket">
-  <div class="min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-md">
-      <div class="bg-white border border-neutral-200 rounded-lg p-8 space-y-6">
-        {/* Header */}
-        <div class="text-center">
-          <h1 class="text-3xl font-display font-bold text-brand-navy mb-2">
-            FashionMarket
-          </h1>
-          <p class="text-neutral-600">Panel de Administración</p>
-        </div>
-
-        {/* Form */}
-        <form class="space-y-4">
-          <div>
-            <label for="email" class="block text-sm font-semibold text-neutral-900 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              required
-              class="w-full px-4 py-2 border border-neutral-300 rounded focus:outline-none focus:border-brand-navy"
-              placeholder="admin@fashionmarket.com"
-            />
-          </div>
-
-          <div>
-            <label for="password" class="block text-sm font-semibold text-neutral-900 mb-2">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              required
-              class="w-full px-4 py-2 border border-neutral-300 rounded focus:outline-none focus:border-brand-navy"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            class="w-full btn-primary"
-          >
+<BaseLayout title="Login Admin - FashionMarket">
+  <AdminAuthForm client:load />
+</BaseLayout>
             Iniciar Sesión
           </button>
         </form>

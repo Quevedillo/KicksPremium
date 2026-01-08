@@ -1,0 +1,10 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import AuthForm from '@components/islands/AuthForm';
+---
+
+<BaseLayout>
+  <div class="min-h-screen">
+    <AuthForm client:load />
+  </div>
+</BaseLayout>
