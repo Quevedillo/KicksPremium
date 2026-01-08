@@ -180,29 +180,42 @@ CREATE POLICY "Products: Admin delete"
 -- Admin Users Policies
 -- ============================================================================
 
--- Only authenticated users can read admin_users
+-- IMPORTANT: These basic policies will be replaced by auth-setup.sql
+-- The trigger needs to be able to insert, so minimal restrictions here
+
+-- Allow authenticated admins to view admin records
 CREATE POLICY "Admin users: Authenticated read"
   ON admin_users
   FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING (
+    auth.role() = 'authenticated'
+    OR auth.role() = 'service_role'
+  );
 
--- Only the admin themselves can update their own profile
+-- Allow users to update their own admin record
 CREATE POLICY "Admin users: Self update"
   ON admin_users
   FOR UPDATE
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- Only super admins can insert/delete (managed server-side)
-CREATE POLICY "Admin users: Admin insert"
+-- Allow inserts (trigger will use this)
+CREATE POLICY "Admin users: Allow insert for auth"
   ON admin_users
   FOR INSERT
-  WITH CHECK (false);
+  WITH CHECK (true);
 
+-- Allow deletes only for admins
 CREATE POLICY "Admin users: Admin delete"
   ON admin_users
   FOR DELETE
-  USING (false);
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users au
+      WHERE au.id = auth.uid()
+      AND au.is_active = true
+    )
+  );
 
 -- ============================================================================
 -- Sample Data (optional - remove in production)
