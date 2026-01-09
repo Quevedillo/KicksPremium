@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
+import { supabase } from '@lib/supabase';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -12,6 +13,18 @@ export const POST: APIRoute = async ({ request }) => {
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    // Get current user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return new Response(
+        JSON.stringify({ error: 'Debe estar autenticado para hacer checkout' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = session.user.id;
+    const userEmail = session.user.email || '';
 
     // Transform cart items to Stripe line items
     const lineItems = items.map((item: {
@@ -39,9 +52,10 @@ export const POST: APIRoute = async ({ request }) => {
     // Get the origin from the request
     const origin = request.headers.get('origin') || 'http://localhost:4322';
 
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    // Create Stripe Checkout Session with user metadata
+    const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
+      customer_email: userEmail,
       line_items: lineItems,
       mode: 'payment',
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -53,13 +67,16 @@ export const POST: APIRoute = async ({ request }) => {
       locale: 'es',
       metadata: {
         items_count: items.length.toString(),
+        user_id: userId,
+        user_email: userEmail,
+        cart_items: JSON.stringify(items),
       },
     });
 
     return new Response(
       JSON.stringify({ 
-        sessionId: session.id,
-        url: session.url 
+        sessionId: checkoutSession.id,
+        url: checkoutSession.url 
       }),
       { 
         status: 200, 

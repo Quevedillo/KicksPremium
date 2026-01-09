@@ -1,40 +1,176 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get current user
+const { data: { session } } = await supabase.auth.getSession();
+
+if (!session) {
+  return Astro.redirect('/auth/login?redirect=/pedidos');
+}
+
+const userId = session.user.id;
+
+// Fetch user orders from database
+const { data: orders, error } = await supabase
+  .from('orders')
+  .select('*')
+  .eq('user_id', userId)
+  .order('created_at', { ascending: false });
+
+if (error) {
+  console.error('Error fetching orders:', error);
+}
+
+const userOrders = orders || [];
+
+const formatPrice = (amount: number) => {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('es-MX', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getStatusBadge = (status: string) => {
+  const statusConfig = {
+    completed: { color: 'bg-green-100 text-green-800', label: '✅ Completado' },
+    pending: { color: 'bg-yellow-100 text-yellow-800', label: '⏳ Pendiente' },
+    failed: { color: 'bg-red-100 text-red-800', label: '❌ Fallido' },
+    cancelled: { color: 'bg-gray-100 text-gray-800', label: '🚫 Cancelado' },
+  };
+  
+  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+  return config;
+};
 ---
 
 <PublicLayout title="Mis Pedidos" description="Historial de pedidos">
-  <div class="max-w-4xl mx-auto px-4 py-12">
-    <div class="bg-white rounded-lg shadow p-6">
-      <h1 class="text-3xl font-display font-bold text-brand-navy mb-4">
-        Mis Pedidos
+  <div class="min-h-screen bg-brand-black">
+    <div class="max-w-6xl mx-auto px-4 py-12">
+      <h1 class="text-4xl font-display font-bold text-white uppercase mb-12 tracking-tight">
+        📦 Mis Pedidos
       </h1>
-      
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Sidebar */}
-        <div class="md:col-span-1">
-          <nav class="space-y-2">
-            <a href="/mi-cuenta" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
-              Mi Perfil
-            </a>
-            <a href="/pedidos" class="block px-4 py-2 bg-brand-navy text-white rounded font-semibold">
-              Mis Pedidos
-            </a>
-            <a href="/direcciones" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
-              Direcciones
-            </a>
-            <a href="/metodos-pago" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
-              Métodos de Pago
-            </a>
-          </nav>
-        </div>
 
-        {/* Main Content */}
-        <div class="md:col-span-2">
-          <p class="text-neutral-600 text-center py-12">
-            ℹ️ No tienes pedidos aún
+      {userOrders.length === 0 ? (
+        <div class="bg-brand-dark rounded-lg p-8 text-center">
+          <div class="text-6xl mb-4">📭</div>
+          <p class="text-neutral-400 text-lg mb-6">
+            No tienes pedidos aún
           </p>
+          <a 
+            href="/productos" 
+            class="inline-block bg-brand-red text-white px-8 py-3 font-bold uppercase hover:bg-brand-orange transition-colors"
+          >
+            Explorar Productos
+          </a>
         </div>
-      </div>
+      ) : (
+        <div class="space-y-6">
+          {userOrders.map((order: any) => {
+            const statusConfig = getStatusBadge(order.status);
+            const items = Array.isArray(order.items) ? order.items : [];
+            
+            return (
+              <div key={order.id} class="bg-brand-dark border border-brand-gray rounded-lg overflow-hidden">
+                {/* Order Header */}
+                <div class="bg-brand-gray p-6 flex items-center justify-between">
+                  <div>
+                    <p class="text-neutral-500 text-sm uppercase">Pedido #{order.stripe_session_id?.slice(-8).toUpperCase()}</p>
+                    <p class="text-white text-sm mt-1">
+                      {formatDate(order.created_at)}
+                    </p>
+                  </div>
+                  <div class="text-right">
+                    <p class={`inline-block px-3 py-1 rounded text-sm font-bold ${statusConfig.color}`}>
+                      {statusConfig.label}
+                    </p>
+                    <p class="text-white font-bold text-2xl mt-2">
+                      {formatPrice(order.total_amount)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                <div class="p-6">
+                  <h3 class="text-white font-bold mb-4 text-sm uppercase">Productos</h3>
+                  <div class="space-y-3">
+                    {items.length > 0 ? (
+                      items.map((item: any, idx: number) => (
+                        <div key={idx} class="flex items-center justify-between bg-brand-black p-4">
+                          <div class="flex items-center gap-4 flex-1">
+                            {item.product?.images?.[0] && (
+                              <img 
+                                src={item.product.images[0]} 
+                                alt={item.product.name}
+                                class="w-16 h-16 object-cover rounded"
+                              />
+                            )}
+                            <div>
+                              <p class="text-brand-red font-bold text-sm">
+                                {item.product?.brand || 'Producto'}
+                              </p>
+                              <p class="text-white font-semibold">
+                                {item.product?.name || 'Sin nombre'}
+                              </p>
+                              <p class="text-neutral-500 text-sm">
+                                Talla: {item.size} | Cantidad: {item.quantity}
+                              </p>
+                            </div>
+                          </div>
+                          <p class="text-brand-orange font-bold text-lg">
+                            {formatPrice((item.product?.price || 0) / 100 * item.quantity)}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p class="text-neutral-500 text-sm">No hay detalles de productos</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Order Details */}
+                <div class="border-t border-brand-gray p-6 bg-brand-black">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {order.shipping_name && (
+                      <div>
+                        <p class="text-neutral-500 text-sm uppercase mb-2">Envío a</p>
+                        <p class="text-white font-semibold">{order.shipping_name}</p>
+                        {order.shipping_address && (
+                          <p class="text-neutral-400 text-sm mt-1">
+                            {JSON.stringify(order.shipping_address).replace(/"/g, '')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <p class="text-neutral-500 text-sm uppercase mb-2">Email de contacto</p>
+                      <p class="text-white font-semibold">{order.billing_email}</p>
+                    </div>
+                  </div>
+
+                  {order.stripe_session_id && (
+                    <div class="mt-4 pt-4 border-t border-brand-gray">
+                      <p class="text-neutral-500 text-xs">
+                        ID de sesión: <span class="text-neutral-300 font-mono">{order.stripe_session_id}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   </div>
 </PublicLayout>

@@ -88,8 +88,6 @@ En modo TEST, usa estas tarjetas para probar:
 - CVC: Cualquier 3 dígitos (ej: `123`)
 - ZIP: Cualquier código postal (ej: `12345`)
 
----
-
 ## 🌍 Países Habilitados
 
 Actualmente los envíos están configurados para:
@@ -111,7 +109,182 @@ shipping_address_collection: {
 
 ---
 
-## 🔒 Seguridad
+## 📡 Webhooks - Sincronización de Pedidos
+
+### ¿Qué es un webhook?
+
+Un webhook es una notificación que Stripe envía a tu servidor cuando ocurre un evento (ej: pago completado). Esto permite sincronizar automáticamente los pedidos en tu BD.
+
+### Configurar Webhooks
+
+1. Ve a [Dashboard de Stripe > Developers > Webhooks](https://dashboard.stripe.com/webhooks)
+2. Click en "Agregar endpoint"
+3. Ingresa tu URL (debe ser público):
+   ```
+   https://tudominio.com/api/webhooks/stripe
+   ```
+   
+   Para LOCAL testing usa [ngrok](https://ngrok.com):
+   ```bash
+   ngrok http 4322
+   https://abc123.ngrok.io/api/webhooks/stripe
+   ```
+
+4. Selecciona eventos:
+   - `checkout.session.completed` ✅ (Pago completado)
+   - `payment_intent.payment_failed` ❌ (Pago fallido)
+
+5. Click en "Agregar evento"
+
+6. Obtén el "Signing secret" y agrégalo a `.env`:
+   ```env
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   ```
+
+### Eventos Manejados
+
+#### ✅ checkout.session.completed
+- Se dispara cuando el usuario completa el pago
+- Crea un nuevo registro en la tabla `orders`
+- Sincroniza los productos, direcciones y datos del cliente
+
+#### ❌ payment_intent.payment_failed
+- Se dispara cuando el pago falla
+- Registra la orden fallida para auditoría
+
+---
+
+## 🔄 Sincronización Manual de Pedidos
+
+Si tienes pedidos en Stripe que no se sincronizaron automáticamente:
+
+### Opción 1: Sincronizar vía API
+
+```bash
+curl -X POST http://localhost:4322/api/sync/stripe-orders \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 100}'
+```
+
+**Respuesta exitosa:**
+```json
+{
+  "success": true,
+  "message": "✅ Sincronización completada: 5 pedidos sincronizados, 2 omitidos",
+  "synced": 5,
+  "skipped": 2,
+  "errors": []
+}
+```
+
+### Opción 2: Sincronizar desde la BD
+
+Puedes ejecutar directamente en Supabase:
+
+```sql
+-- Ver sesiones de Stripe completadas
+SELECT id, amount_total, customer_email, metadata 
+FROM stripe_checkout_sessions 
+WHERE payment_status = 'paid'
+ORDER BY created DESC
+LIMIT 20;
+```
+
+---
+
+## 📊 Estructura de la tabla `orders`
+
+```sql
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  stripe_session_id TEXT UNIQUE,
+  stripe_payment_intent_id TEXT,
+  total_amount DECIMAL NOT NULL,
+  status TEXT DEFAULT 'pending',
+  shipping_name TEXT,
+  shipping_address JSONB,
+  shipping_phone TEXT,
+  billing_email TEXT,
+  items JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Campos importantes:
+
+- `user_id`: Relación con el usuario autenticado
+- `stripe_session_id`: ID único de la sesión de Stripe
+- `total_amount`: Monto en dólares (no en cents)
+- `status`: `completed`, `pending`, `failed`, `cancelled`
+- `items`: Array JSON con detalles de productos
+- `shipping_address`: JSONB con datos de envío
+
+---
+
+## 🧪 Testing Local
+
+### Sin webhook secret (DEV)
+
+El endpoint `/api/webhooks/stripe` funciona sin secret en desarrollo:
+
+```bash
+curl -X POST http://localhost:4322/api/webhooks/stripe \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "checkout.session.completed",
+    "data": {
+      "object": {
+        "id": "cs_test_123",
+        "amount_total": 9999,
+        "customer_email": "user@example.com",
+        "shipping_details": {
+          "name": "Juan Pérez",
+          "address": {"line1": "Calle 1", "city": "CDMX"}
+        },
+        "metadata": {
+          "user_id": "user-123",
+          "cart_items": "[{...}]"
+        }
+      }
+    }
+  }'
+```
+
+---
+
+## ❓ Verificar sincronización
+
+1. Completa un pago con tarjeta `4242 4242 4242 4242`
+2. Ve a [Stripe Dashboard > Payments](https://dashboard.stripe.com/payments)
+3. Busca tu sesión y verifica que esté "Paid"
+4. Ve a `/pedidos` en tu app
+5. Deberías ver el pedido listado
+
+---
+
+## 🚀 Producción
+
+Cuando despliegues a producción:
+
+1. Actualiza URLs en `.env`:
+   ```env
+   PUBLIC_STRIPE_PUBLIC_KEY=pk_live_...
+   STRIPE_SECRET_KEY=sk_live_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   ```
+
+2. Configura webhook en Stripe apuntando a:
+   ```
+   https://tudominio.com/api/webhooks/stripe
+   ```
+
+3. Prueba con pagos de prueba reales
+
+4. Activa pagos reales cuando estés seguro
+
+---
 
 - ✅ Nunca expongas `STRIPE_SECRET_KEY` en el frontend
 - ✅ Usa siempre HTTPS en producción
