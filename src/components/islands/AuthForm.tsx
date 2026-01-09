@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { login, register, getCurrentUser } from '@stores/auth';
+import { login, register, getCurrentUser, initializeAuth, authStore } from '@stores/auth';
 
 export default function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,11 +10,33 @@ export default function AuthForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState('/');
 
   useEffect(() => {
-    // Check if user is already logged in
-    const user = getCurrentUser();
-    setIsAuthenticated(!!user);
+    // Inicializar auth
+    initializeAuth().then(() => {
+      const user = getCurrentUser();
+      setIsAuthenticated(!!user);
+      
+      // Si ya está autenticado, redirigir
+      if (user) {
+        window.location.href = '/';
+      }
+    });
+
+    // Obtener URL de redirección de los parámetros
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    if (redirect) {
+      setRedirectUrl(redirect);
+    }
+
+    // Suscribirse a cambios de auth
+    const unsubscribe = authStore.subscribe((state) => {
+      setIsAuthenticated(!!state.user);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -27,14 +49,14 @@ export default function AuthForm() {
     setLoading(false);
 
     if (result.success) {
-      setSuccess('¡Inicio de sesión exitoso!');
+      setSuccess('¡Inicio de sesión exitoso! Redirigiendo...');
       setEmail('');
       setPassword('');
       setIsAuthenticated(true);
-      // Redirect to home page after login
+      // Redirect after login - usando window.location.replace para forzar recarga completa
       setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
+        window.location.replace(redirectUrl);
+      }, 500);
     } else {
       setError(result.error || 'Error al iniciar sesión');
     }
@@ -56,15 +78,15 @@ export default function AuthForm() {
     setLoading(false);
 
     if (result.success) {
-      setSuccess('¡Registro exitoso!');
+      setSuccess('¡Registro exitoso! Redirigiendo...');
       setEmail('');
       setPassword('');
       setFullName('');
       setIsAuthenticated(true);
-      // Redirect to home page after registration
+      // Redirect after registration
       setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
+        window.location.replace(redirectUrl);
+      }, 500);
     } else {
       setError(result.error || 'Error al registrarse');
     }

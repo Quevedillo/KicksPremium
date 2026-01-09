@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { addToCart, openCart } from '@stores/cart';
-import { authStore, getCurrentUser } from '@stores/auth';
+import { authStore, getCurrentUser, initializeAuth } from '@stores/auth';
 import type { Product } from '@lib/supabase';
 
 interface AddToCartButtonProps {
@@ -12,13 +12,21 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
   const [quantity, setQuantity] = useState<number>(1);
   const [feedback, setFeedback] = useState<string>('');
   const [user, setUser] = useState(getCurrentUser());
+  const [isLoading, setIsLoading] = useState(true);
 
   // Tallas numéricas para zapatos (EU)
   const sizes = ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
 
   useEffect(() => {
+    // Inicializar auth al montar el componente
+    initializeAuth().then(() => {
+      setUser(getCurrentUser());
+      setIsLoading(false);
+    });
+
     const unsubscribe = authStore.subscribe((state) => {
       setUser(state.user);
+      setIsLoading(state.isLoading);
     });
 
     return () => unsubscribe();
@@ -53,8 +61,15 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
 
   return (
     <div className="space-y-6">
+      {/* Loading State */}
+      {isLoading && (
+        <div className="p-4 bg-brand-gray text-neutral-400 text-sm text-center">
+          Cargando...
+        </div>
+      )}
+
       {/* Authentication Warning */}
-      {!user && (
+      {!isLoading && !user && (
         <div className="p-4 bg-brand-gray border border-brand-red/30 text-neutral-300 text-sm">
           ⚡ Necesitas iniciar sesión para agregar al carrito. <a href="/auth/login" className="font-bold text-brand-red hover:text-brand-orange underline">Hacerlo ahora</a>
         </div>

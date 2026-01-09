@@ -1,12 +1,13 @@
 ---
 import '@lib/auth-init';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
   description?: string;
 }
 
-const { title = 'FashionMarket', description = 'Premium men\'s fashion' } = Astro.props;
+const { title = 'KicksPremium', description = 'Sneakers auténticos premium' } = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -21,23 +22,24 @@ const { title = 'FashionMarket', description = 'Premium men\'s fashion' } = Astr
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="bg-brand-cream text-neutral-900 font-sans">
+  <body class="bg-brand-black text-white font-sans">
     <slot />
   </body>
 </html>
 
 <style is:global>
   :root {
-    --font-display: 'Playfair Display', ui-serif, Georgia, serif;
+    --font-display: 'Oswald', ui-sans-serif, system-ui, sans-serif;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --color-navy: #001f3f;
-    --color-charcoal: #2c3e50;
-    --color-cream: #f9f8f6;
-    --color-gold: #d4af6c;
+    --color-black: #0A0A0A;
+    --color-dark: #141414;
+    --color-gray: #1E1E1E;
+    --color-red: #FF3131;
+    --color-orange: #FF6B35;
   }
 
   * {
@@ -63,7 +65,7 @@ const { title = 'FashionMarket', description = 'Premium men\'s fashion' } = Astr
   /* Remove focus outline but keep accessibility */
   button:focus-visible,
   a:focus-visible {
-    outline: 2px solid var(--color-gold);
+    outline: 2px solid var(--color-red);
     outline-offset: 2px;
   }
 

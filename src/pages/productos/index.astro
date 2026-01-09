@@ -3,17 +3,74 @@ import PublicLayout from '@layouts/PublicLayout.astro';
 import { supabase } from '@lib/supabase';
 import type { Product } from '@lib/supabase';
 
-// Fetch all products
-const { data: products, error } = await supabase
-  .from('products')
+// Get query params for filtering
+const url = new URL(Astro.request.url);
+const brandFilter = url.searchParams.get('brand');
+const colorFilter = url.searchParams.get('color');
+const categoryFilter = url.searchParams.get('category');
+
+// Fetch brands for filter
+const { data: brands } = await supabase
+  .from('brands')
   .select('*')
+  .order('display_order');
+
+// Fetch colors for filter
+const { data: colors } = await supabase
+  .from('colors')
+  .select('*')
+  .order('display_order');
+
+// Fetch categories for filter
+const { data: categories } = await supabase
+  .from('categories')
+  .select('*')
+  .order('display_order');
+
+// Build products query with filters
+let productsQuery = supabase
+  .from('products')
+  .select('*, categories(name, slug)')
   .order('created_at', { ascending: false });
+
+if (brandFilter) {
+  productsQuery = productsQuery.eq('brand', brandFilter);
+}
+
+if (categoryFilter) {
+  const category = categories?.find(c => c.slug === categoryFilter);
+  if (category) {
+    productsQuery = productsQuery.eq('category_id', category.id);
+  }
+}
+
+const { data: products, error } = await productsQuery;
+
+// If color filter, get product IDs with that color
+let filteredProducts = products || [];
+if (colorFilter && products) {
+  const { data: productColors } = await supabase
+    .from('product_colors')
+    .select('product_id')
+    .eq('color_id', colors?.find(c => c.slug === colorFilter)?.id);
+  
+  const productIdsWithColor = productColors?.map(pc => pc.product_id) || [];
+  filteredProducts = products.filter(p => productIdsWithColor.includes(p.id));
+}
 
 if (error) {
   console.error('Error fetching products:', error);
 }
 
-const productsList: Product[] = products || [];
+const productsList: Product[] = filteredProducts;
+
+// Active filters info
+const activeFilters = {
+  brand: brandFilter,
+  color: colorFilter,
+  category: categoryFilter,
+};
+const hasFilters = brandFilter || colorFilter || categoryFilter;
 ---
 
 <PublicLayout title="Catálogo - KicksPremium" description="Explora nuestra colección completa de sneakers premium">
@@ -34,16 +91,96 @@ const productsList: Product[] = products || [];
     </div>
   </section>
 
-  {/* Filters Bar */}
+  {/* Filters Section */}
   <section class="bg-brand-gray border-b border-brand-black sticky top-16 z-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-      <div class="flex flex-wrap gap-3">
-        <button class="bg-brand-red text-white px-4 py-2 text-sm font-bold uppercase">Todos</button>
-        <a href="/categoria/basketball" class="bg-brand-dark text-white/70 px-4 py-2 text-sm font-bold uppercase hover:bg-brand-red hover:text-white transition-colors">Basketball</a>
-        <a href="/categoria/lifestyle" class="bg-brand-dark text-white/70 px-4 py-2 text-sm font-bold uppercase hover:bg-brand-red hover:text-white transition-colors">Lifestyle</a>
-        <a href="/categoria/running" class="bg-brand-dark text-white/70 px-4 py-2 text-sm font-bold uppercase hover:bg-brand-red hover:text-white transition-colors">Running</a>
-        <a href="/categoria/limited-editions" class="bg-brand-dark text-white/70 px-4 py-2 text-sm font-bold uppercase hover:bg-brand-red hover:text-white transition-colors">🔥 Limited</a>
+      <div class="flex flex-col lg:flex-row gap-4">
+        {/* Category Filter */}
+        <div class="flex flex-wrap gap-2 items-center">
+          <span class="text-neutral-500 text-sm uppercase font-bold">Estilo:</span>
+          <a 
+            href="/productos" 
+            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!categoryFilter ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+          >
+            Todos
+          </a>
+          {categories?.map(cat => (
+            <a 
+              href={`/productos?category=${cat.slug}${brandFilter ? `&brand=${brandFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
+              class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${categoryFilter === cat.slug ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+            >
+              {cat.icon} {cat.name}
+            </a>
+          ))}
+        </div>
+
+        {/* Brand Filter */}
+        <div class="flex flex-wrap gap-2 items-center">
+          <span class="text-neutral-500 text-sm uppercase font-bold">Marca:</span>
+          <a 
+            href={`/productos${categoryFilter ? `?category=${categoryFilter}` : ''}${colorFilter ? `${categoryFilter ? '&' : '?'}color=${colorFilter}` : ''}`}
+            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!brandFilter ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+          >
+            Todas
+          </a>
+          {brands?.filter(b => b.is_featured).map(brand => (
+            <a 
+              href={`/productos?brand=${brand.name}${categoryFilter ? `&category=${categoryFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
+              class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${brandFilter === brand.name ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+            >
+              {brand.name}
+            </a>
+          ))}
+        </div>
+
+        {/* Color Filter */}
+        <div class="flex flex-wrap gap-2 items-center">
+          <span class="text-neutral-500 text-sm uppercase font-bold">Color:</span>
+          <a 
+            href={`/productos${categoryFilter ? `?category=${categoryFilter}` : ''}${brandFilter ? `${categoryFilter ? '&' : '?'}brand=${brandFilter}` : ''}`}
+            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!colorFilter ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+          >
+            Todos
+          </a>
+          {colors?.slice(0, 8).map(color => (
+            <a 
+              href={`/productos?color=${color.slug}${categoryFilter ? `&category=${categoryFilter}` : ''}${brandFilter ? `&brand=${brandFilter}` : ''}`}
+              class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors flex items-center gap-1.5 ${colorFilter === color.slug ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+            >
+              <span 
+                class="w-3 h-3 rounded-full border border-white/30" 
+                style={`background-color: ${color.hex_code}`}
+              ></span>
+              {color.name}
+            </a>
+          ))}
+        </div>
       </div>
+
+      {/* Active Filters Display */}
+      {hasFilters && (
+        <div class="mt-4 flex items-center gap-2">
+          <span class="text-neutral-500 text-sm">Filtros activos:</span>
+          {brandFilter && (
+            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
+              Marca: {brandFilter}
+            </span>
+          )}
+          {colorFilter && (
+            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
+              Color: {colors?.find(c => c.slug === colorFilter)?.name}
+            </span>
+          )}
+          {categoryFilter && (
+            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
+              Categoría: {categories?.find(c => c.slug === categoryFilter)?.name}
+            </span>
+          )}
+          <a href="/productos" class="text-brand-red hover:text-brand-orange text-sm font-bold ml-2">
+            ✕ Limpiar filtros
+          </a>
+        </div>
+      )}
     </div>
   </section>
 
@@ -101,13 +238,13 @@ const productsList: Product[] = products || [];
         <div class="text-center py-20">
           <div class="text-6xl mb-4">👟</div>
           <p class="text-neutral-500 text-lg">
-            No hay sneakers disponibles en este momento.
+            No hay sneakers que coincidan con los filtros seleccionados.
           </p>
           <a
-            href="/"
+            href="/productos"
             class="inline-block mt-6 bg-brand-red text-white px-6 py-3 font-bold uppercase hover:bg-brand-orange transition-colors"
           >
-            Volver al inicio
+            Ver todo el catálogo
           </a>
         </div>
       )}

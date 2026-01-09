@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { authStore, logout, getCurrentUser } from '@stores/auth';
+import { authStore, logout, getCurrentUser, initializeAuth } from '@stores/auth';
 
 export default function UserMenu() {
   const [user, setUser] = useState(getCurrentUser());
   const [showMenu, setShowMenu] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Inicializar auth al montar el componente
+    initializeAuth().then(() => {
+      setUser(getCurrentUser());
+      setIsLoading(false);
+    });
+
     const unsubscribe = authStore.subscribe((state) => {
       setUser(state.user);
+      setIsLoading(state.isLoading && !state.initialized);
     });
 
     return () => unsubscribe();
@@ -18,13 +26,22 @@ export default function UserMenu() {
     window.location.href = '/';
   };
 
+  // Mostrar loading mientras se inicializa
+  if (isLoading) {
+    return (
+      <div className="px-4 py-2 bg-brand-gray text-neutral-500 text-sm">
+        ...
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <a
         href="/auth/login"
-        className="px-4 py-2 bg-brand-navy text-white rounded hover:bg-brand-charcoal transition-colors text-sm font-semibold"
+        className="px-4 py-2 bg-brand-red text-white hover:bg-brand-orange transition-colors text-sm font-bold uppercase"
       >
-        Iniciar Sesión
+        Entrar
       </a>
     );
   }
@@ -35,7 +52,7 @@ export default function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className="px-4 py-2 bg-neutral-200 text-brand-navy rounded hover:bg-neutral-300 transition-colors text-sm font-semibold flex items-center gap-2"
+        className="px-4 py-2 bg-brand-gray text-white hover:bg-brand-red transition-colors text-sm font-bold flex items-center gap-2"
       >
         <svg
           className="w-4 h-4"
@@ -49,26 +66,26 @@ export default function UserMenu() {
 
       {/* Dropdown Menu */}
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded shadow-lg z-50">
-          <div className="p-3 border-b border-neutral-200">
-            <p className="text-xs text-neutral-600">Conectado como:</p>
-            <p className="font-semibold text-sm text-brand-navy truncate">{user.email}</p>
+        <div className="absolute right-0 mt-2 w-56 bg-brand-dark border border-brand-gray shadow-lg z-50">
+          <div className="p-3 border-b border-brand-gray">
+            <p className="text-xs text-neutral-500">Conectado como:</p>
+            <p className="font-bold text-sm text-white truncate">{user.email}</p>
           </div>
 
           <a
             href="/mi-cuenta"
-            className="block px-4 py-2 text-sm text-brand-navy hover:bg-neutral-100 transition-colors"
+            className="block px-4 py-3 text-sm text-white hover:bg-brand-red transition-colors"
             onClick={() => setShowMenu(false)}
           >
-            Mi Cuenta
+            👤 Mi Cuenta
           </a>
 
           <a
             href="/pedidos"
-            className="block px-4 py-2 text-sm text-brand-navy hover:bg-neutral-100 transition-colors"
+            className="block px-4 py-3 text-sm text-white hover:bg-brand-red transition-colors"
             onClick={() => setShowMenu(false)}
           >
-            Mis Pedidos
+            📦 Mis Pedidos
           </a>
 
           <button
@@ -76,7 +93,7 @@ export default function UserMenu() {
               setShowMenu(false);
               handleLogout();
             }}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-neutral-200 font-semibold"
+            className="w-full text-left px-4 py-3 text-sm text-brand-red hover:bg-brand-red hover:text-white transition-colors border-t border-brand-gray font-bold"
           >
             Cerrar Sesión
           </button>
