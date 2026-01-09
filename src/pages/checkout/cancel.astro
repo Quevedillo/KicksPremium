@@ -1,0 +1,46 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+---
+
+<PublicLayout title="Pago Cancelado | KicksMarket">
+  <div class="min-h-screen bg-brand-black flex items-center justify-center px-4">
+    <div class="max-w-lg w-full bg-brand-dark p-8 text-center">
+      <!-- Cancel Icon -->
+      <div class="w-20 h-20 bg-brand-orange rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </div>
+
+      <h1 class="text-3xl font-display font-bold text-white uppercase mb-4">
+        Pago Cancelado
+      </h1>
+      
+      <p class="text-neutral-400 mb-6">
+        Tu pedido no se ha completado. No te preocupes, no se ha realizado ningún cargo a tu tarjeta.
+      </p>
+
+      <div class="bg-brand-gray p-6 mb-6">
+        <p class="text-neutral-500 text-sm">
+          💡 Tus productos siguen en el carrito. Puedes continuar con la compra cuando quieras.
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <a 
+          href="/carrito" 
+          class="block w-full bg-brand-red text-white py-4 font-bold uppercase tracking-wider hover:bg-brand-orange transition-colors"
+        >
+          Volver al Carrito
+        </a>
+        
+        <a 
+          href="/productos" 
+          class="block w-full bg-brand-gray text-white py-4 font-bold uppercase tracking-wider hover:bg-brand-dark transition-colors"
+        >
+          Seguir Comprando
+        </a>
+      </div>
+    </div>
+  </div>
+</PublicLayout>

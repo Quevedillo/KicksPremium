@@ -3,6 +3,8 @@ import { cartStore, removeFromCart, updateCartItemQuantity, closeCart, getCartTo
 
 export default function CartSlideOver() {
   const [cart, setCart] = useState(cartStore.get());
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     // Subscribe to cart changes
@@ -17,6 +19,38 @@ export default function CartSlideOver() {
 
   const formatPrice = (cents: number) => {
     return `$${(cents / 100).toFixed(0)}`;
+  };
+
+  const handleCheckout = async () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: cart.items,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al procesar el pago');
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Error al procesar el pago');
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -158,9 +192,42 @@ export default function CartSlideOver() {
                 <span className="text-neutral-400 uppercase text-sm">Total:</span>
                 <span className="text-2xl font-bold text-white">{formatPrice(total)}</span>
               </div>
-              <button className="w-full bg-brand-red text-white py-4 font-bold uppercase tracking-wider hover:bg-brand-orange transition-all hover:scale-[1.02]">
-                🔒 Proceder al Pago
+
+              {error && (
+                <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 text-sm">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              <button 
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className={`w-full py-4 font-bold uppercase tracking-wider transition-all ${
+                  isProcessing 
+                    ? 'bg-neutral-600 text-neutral-400 cursor-not-allowed' 
+                    : 'bg-brand-red text-white hover:bg-brand-orange hover:scale-[1.02]'
+                }`}
+              >
+                {isProcessing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Procesando...
+                  </span>
+                ) : (
+                  '🔒 Pagar con Stripe'
+                )}
               </button>
+
+              <div className="flex items-center justify-center gap-2 text-neutral-500 text-xs">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                </svg>
+                <span>Pago seguro con encriptación SSL</span>
+              </div>
+
               <button
                 onClick={() => closeCart()}
                 className="w-full bg-brand-gray text-white py-3 font-bold uppercase tracking-wider hover:bg-brand-dark transition-colors"

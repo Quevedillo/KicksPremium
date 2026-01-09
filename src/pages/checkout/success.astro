@@ -1,0 +1,98 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+import { stripe } from '@lib/stripe';
+
+const sessionId = Astro.url.searchParams.get('session_id');
+
+let session = null;
+let customer = null;
+
+if (sessionId) {
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items', 'customer'],
+    });
+    
+    if (session.customer && typeof session.customer !== 'string') {
+      customer = session.customer;
+    }
+  } catch (error) {
+    console.error('Error retrieving session:', error);
+  }
+}
+
+const amountTotal = session?.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00';
+---
+
+<PublicLayout title="¡Pedido Confirmado! | KicksMarket">
+  <div class="min-h-screen bg-brand-black flex items-center justify-center px-4">
+    <div class="max-w-lg w-full bg-brand-dark p-8 text-center">
+      <!-- Success Icon -->
+      <div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+
+      <h1 class="text-3xl font-display font-bold text-white uppercase mb-4">
+        ¡Pedido Confirmado!
+      </h1>
+      
+      <p class="text-neutral-400 mb-6">
+        Gracias por tu compra. Hemos recibido tu pedido y te enviaremos un correo con los detalles del envío.
+      </p>
+
+      {session && (
+        <div class="bg-brand-gray p-6 mb-6 text-left">
+          <h2 class="text-brand-red font-bold uppercase text-sm mb-4">Detalles del Pedido</h2>
+          
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="text-neutral-500">Número de pedido:</span>
+              <span class="text-white font-mono text-sm">{session.id.slice(-8).toUpperCase()}</span>
+            </div>
+            
+            <div class="flex justify-between">
+              <span class="text-neutral-500">Estado:</span>
+              <span class="text-green-500 font-bold">Pagado</span>
+            </div>
+            
+            <div class="flex justify-between">
+              <span class="text-neutral-500">Total pagado:</span>
+              <span class="text-white font-bold text-lg">${amountTotal} USD</span>
+            </div>
+
+            {session.customer_details?.email && (
+              <div class="flex justify-between">
+                <span class="text-neutral-500">Email:</span>
+                <span class="text-white">{session.customer_details.email}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div class="space-y-3">
+        <a 
+          href="/pedidos" 
+          class="block w-full bg-brand-red text-white py-4 font-bold uppercase tracking-wider hover:bg-brand-orange transition-colors"
+        >
+          Ver Mis Pedidos
+        </a>
+        
+        <a 
+          href="/productos" 
+          class="block w-full bg-brand-gray text-white py-4 font-bold uppercase tracking-wider hover:bg-brand-dark transition-colors"
+        >
+          Seguir Comprando
+        </a>
+      </div>
+
+      <!-- Clear cart on success -->
+      <script>
+        // Clear the cart after successful payment
+        localStorage.removeItem('fashionmarket-cart');
+      </script>
+    </div>
+  </div>
+</PublicLayout>
