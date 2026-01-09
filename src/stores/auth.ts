@@ -42,6 +42,14 @@ export async function initializeAuth() {
         initialized: true,
       });
       localStorage.setItem('auth_user', JSON.stringify(session.user));
+      
+      // Save tokens as cookies for SSR
+      if (session.access_token) {
+        document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=3600; SameSite=Lax`;
+      }
+      if (session.refresh_token) {
+        document.cookie = `sb-refresh-token=${session.refresh_token}; path=/; max-age=604800; SameSite=Lax`;
+      }
     } else {
       // Si no hay sesión en Supabase, verificar localStorage como fallback
       const savedUser = localStorage.getItem('auth_user');
@@ -100,8 +108,19 @@ export async function initializeAuth() {
       // Save to localStorage
       if (session?.user) {
         localStorage.setItem('auth_user', JSON.stringify(session.user));
+        
+        // Save tokens as cookies for SSR (accessible by server)
+        if (session.access_token) {
+          document.cookie = `sb-access-token=${session.access_token}; path=/; max-age=3600; SameSite=Lax`;
+        }
+        if (session.refresh_token) {
+          document.cookie = `sb-refresh-token=${session.refresh_token}; path=/; max-age=604800; SameSite=Lax`;
+        }
       } else {
         localStorage.removeItem('auth_user');
+        // Clear cookies
+        document.cookie = 'sb-access-token=; path=/; max-age=0';
+        document.cookie = 'sb-refresh-token=; path=/; max-age=0';
       }
     });
   } catch (error) {

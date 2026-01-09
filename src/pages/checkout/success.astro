@@ -1,27 +1,88 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { stripe } from '@lib/stripe';
+import { supabase } from '@lib/supabase';
+import type Stripe from 'stripe';
 
 const sessionId = Astro.url.searchParams.get('session_id');
 
-let session = null;
+let stripeSession: Stripe.Checkout.Session | null = null;
 let customer = null;
+let orderSaved = false;
+let orderError: string | null = null;
 
 if (sessionId) {
   try {
-    session = await stripe.checkout.sessions.retrieve(sessionId, {
+    // Retrieve the Stripe session with all details
+    stripeSession = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['line_items', 'customer'],
     });
     
-    if (session.customer && typeof session.customer !== 'string') {
-      customer = session.customer;
+    if (stripeSession.customer && typeof stripeSession.customer !== 'string') {
+      customer = stripeSession.customer;
+    }
+
+    // Only save if payment was successful
+    if (stripeSession.payment_status === 'paid' && stripeSession.metadata?.user_id) {
+      const userId = stripeSession.metadata.user_id;
+      
+      // Check if order already exists (avoid duplicates)
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('stripe_session_id', sessionId)
+        .single();
+
+      if (!existingOrder) {
+        // Parse cart items from metadata
+        let cartItems: any[] = [];
+        try {
+          cartItems = JSON.parse(stripeSession.metadata.cart_items || '[]');
+        } catch (e) {
+          console.error('Error parsing cart items:', e);
+        }
+
+        // Get shipping details safely (Stripe types may not include shipping_details)
+        // @ts-ignore - shipping_details exists on the session but TypeScript types are incomplete
+        const shippingDetails = stripeSession['shipping_details'] || null;
+        const customerDetails = stripeSession.customer_details;
+
+        // Save order to database
+        const { error: insertError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: userId,
+            stripe_session_id: sessionId,
+            stripe_payment_intent_id: typeof stripeSession.payment_intent === 'string' 
+              ? stripeSession.payment_intent 
+              : null,
+            total_amount: (stripeSession.amount_total || 0) / 100, // Convert cents to dollars
+            status: 'completed',
+            shipping_name: shippingDetails?.name || customerDetails?.name || null,
+            shipping_address: shippingDetails?.address || null,
+            shipping_phone: customerDetails?.phone || null,
+            billing_email: stripeSession.customer_email || customerDetails?.email || null,
+            items: cartItems,
+          });
+
+        if (insertError) {
+          console.error('Error saving order:', insertError);
+          orderError = insertError.message;
+        } else {
+          orderSaved = true;
+          console.log(`✅ Order saved for user ${userId}`);
+        }
+      } else {
+        // Order already exists
+        orderSaved = true;
+      }
     }
   } catch (error) {
     console.error('Error retrieving session:', error);
   }
 }
 
-const amountTotal = session?.amount_total ? (session.amount_total / 100).toFixed(2) : '0.00';
+const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 100).toFixed(2) : '0.00';
 ---
 
 <PublicLayout title="¡Pedido Confirmado! | KicksMarket">
@@ -42,14 +103,14 @@ const amountTotal = session?.amount_total ? (session.amount_total / 100).toFixed
         Gracias por tu compra. Hemos recibido tu pedido y te enviaremos un correo con los detalles del envío.
       </p>
 
-      {session && (
+      {stripeSession && (
         <div class="bg-brand-gray p-6 mb-6 text-left">
           <h2 class="text-brand-red font-bold uppercase text-sm mb-4">Detalles del Pedido</h2>
           
           <div class="space-y-3">
             <div class="flex justify-between">
               <span class="text-neutral-500">Número de pedido:</span>
-              <span class="text-white font-mono text-sm">{session.id.slice(-8).toUpperCase()}</span>
+              <span class="text-white font-mono text-sm">{stripeSession.id.slice(-8).toUpperCase()}</span>
             </div>
             
             <div class="flex justify-between">
@@ -62,13 +123,31 @@ const amountTotal = session?.amount_total ? (session.amount_total / 100).toFixed
               <span class="text-white font-bold text-lg">${amountTotal} USD</span>
             </div>
 
-            {session.customer_details?.email && (
+            {stripeSession.customer_details?.email && (
               <div class="flex justify-between">
                 <span class="text-neutral-500">Email:</span>
-                <span class="text-white">{session.customer_details.email}</span>
+                <span class="text-white">{stripeSession.customer_details.email}</span>
+              </div>
+            )}
+
+            {orderSaved && (
+              <div class="flex justify-between items-center pt-2 border-t border-brand-black mt-2">
+                <span class="text-neutral-500">Sincronizado:</span>
+                <span class="text-green-400 text-sm">✅ Guardado en tu cuenta</span>
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {orderError && (
+        <div class="bg-red-900/30 border border-red-500 p-4 mb-6 text-left">
+          <p class="text-red-400 text-sm">
+            ⚠️ Hubo un problema guardando el pedido: {orderError}
+          </p>
+          <p class="text-neutral-500 text-xs mt-2">
+            No te preocupes, tu pago fue procesado. Contacta soporte si no ves tu pedido.
+          </p>
         </div>
       )}
 
