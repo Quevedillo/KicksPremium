@@ -19,7 +19,6 @@ const { title, description } = Astro.props;
       <div class="flex items-center justify-between h-16">
         {/* Logo */}
         <a href="/" class="flex items-center gap-2">
-          <span class="text-2xl">👟</span>
           <span class="text-xl font-display font-bold text-white tracking-wider uppercase">
             KICKS<span class="text-brand-red">PREMIUM</span>
           </span>
@@ -40,14 +39,14 @@ const { title, description } = Astro.props;
             Lifestyle
           </a>
           <a href="/categoria/limited-editions" class="text-sm font-bold text-brand-red hover:text-brand-orange transition-colors uppercase tracking-wide">
-            🔥 Drops
+            Drops
           </a>
         </nav>
 
         {/* Right Side - User Menu & Cart */}
         <div class="flex items-center gap-4">
-          <UserMenu client:load />
-          <CartIcon client:load />
+          <UserMenu client:only="react" />
+          <CartIcon client:only="react" />
         </div>
       </div>
     </div>
@@ -71,9 +70,9 @@ const { title, description } = Astro.props;
             Tu destino para sneakers auténticos. Jordan, Nike, Adidas, Yeezy y más.
           </p>
           <div class="flex gap-4 mt-4">
-            <a href="#" class="text-2xl hover:text-brand-red transition-colors">📸</a>
-            <a href="#" class="text-2xl hover:text-brand-red transition-colors">🐦</a>
-            <a href="#" class="text-2xl hover:text-brand-red transition-colors">📱</a>
+            <a href="#" class="text-sm hover:text-brand-red transition-colors">Instagram</a>
+            <a href="#" class="text-sm hover:text-brand-red transition-colors">Twitter</a>
+            <a href="#" class="text-sm hover:text-brand-red transition-colors">TikTok</a>
           </div>
         </div>
 
@@ -85,7 +84,7 @@ const { title, description } = Astro.props;
             <li><a href="/categoria/basketball" class="hover:text-white transition-colors">Basketball</a></li>
             <li><a href="/categoria/lifestyle" class="hover:text-white transition-colors">Lifestyle</a></li>
             <li><a href="/categoria/running" class="hover:text-white transition-colors">Running</a></li>
-            <li><a href="/categoria/limited-editions" class="hover:text-white transition-colors">🔥 Drops Limitados</a></li>
+            <li><a href="/categoria/limited-editions" class="hover:text-white transition-colors">Drops Limitados</a></li>
           </ul>
         </div>
 
@@ -135,5 +134,5 @@ const { title, description } = Astro.props;
   </footer>
 
   {/* Cart Slide Over */}
-  <CartSlideOver client:load />
+  <CartSlideOver client:only="react" />
 </BaseLayout>

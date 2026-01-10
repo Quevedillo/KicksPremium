@@ -56,7 +56,7 @@ if (sessionId) {
             stripe_payment_intent_id: typeof stripeSession.payment_intent === 'string' 
               ? stripeSession.payment_intent 
               : null,
-            total_price: (stripeSession.amount_total || 0) / 100, // Convert cents to dollars
+            total_price: stripeSession.amount_total || 0, // Keep in cents (integer)
             status: 'completed',
             shipping_name: shippingDetails?.name || customerDetails?.name || null,
             shipping_address: shippingDetails?.address || null,
@@ -70,7 +70,7 @@ if (sessionId) {
           orderError = insertError.message;
         } else {
           orderSaved = true;
-          console.log(`✅ Order saved for user ${userId}`);
+          console.log(`Order saved for user ${userId}`);
         }
       } else {
         // Order already exists
@@ -120,7 +120,7 @@ const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 
             
             <div class="flex justify-between">
               <span class="text-neutral-500">Total pagado:</span>
-              <span class="text-white font-bold text-lg">${amountTotal} USD</span>
+              <span class="text-white font-bold text-lg">€{amountTotal}</span>
             </div>
 
             {stripeSession.customer_details?.email && (
@@ -133,7 +133,7 @@ const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 
             {orderSaved && (
               <div class="flex justify-between items-center pt-2 border-t border-brand-black mt-2">
                 <span class="text-neutral-500">Sincronizado:</span>
-                <span class="text-green-400 text-sm">✅ Guardado en tu cuenta</span>
+                <span class="text-green-400 text-sm">Guardado en tu cuenta</span>
               </div>
             )}
           </div>
@@ -143,7 +143,7 @@ const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 
       {orderError && (
         <div class="bg-red-900/30 border border-red-500 p-4 mb-6 text-left">
           <p class="text-red-400 text-sm">
-            ⚠️ Hubo un problema guardando el pedido: {orderError}
+            Hubo un problema guardando el pedido: {orderError}
           </p>
           <p class="text-neutral-500 text-xs mt-2">
             No te preocupes, tu pago fue procesado. Contacta soporte si no ves tu pedido.

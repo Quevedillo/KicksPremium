@@ -37,12 +37,13 @@ const { title, description } = Astro.props;
           Nuevo Producto
         </a>
         <hr class="my-4" />
-        <a
-          href="/api/logout"
-          class="block px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+        <button
+          onclick="document.getElementById('logoutForm').submit()"
+          class="block w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
         >
           Cerrar Sesión
-        </a>
+        </button>
+        <form id="logoutForm" action="/api/logout" method="POST" style="display:none;"></form>
       </nav>
     </aside>
 

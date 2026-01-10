@@ -71,7 +71,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       {/* Authentication Warning */}
       {!isLoading && !user && (
         <div className="p-4 bg-brand-gray border border-brand-red/30 text-neutral-300 text-sm">
-          ⚡ Necesitas iniciar sesión para agregar al carrito. <a href="/auth/login" className="font-bold text-brand-red hover:text-brand-orange underline">Hacerlo ahora</a>
+          Necesitas iniciar sesión para agregar al carrito. <a href="/auth/login" className="font-bold text-brand-red hover:text-brand-orange underline">Hacerlo ahora</a>
         </div>
       )}
 
@@ -142,7 +142,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
             : 'bg-brand-gray text-neutral-500 cursor-not-allowed'
         }`}
       >
-        {product.stock > 0 ? '🛒 Añadir al Carrito' : 'Agotado'}
+        {product.stock > 0 ? 'Añadir al Carrito' : 'Agotado'}
       </button>
 
       {/* Feedback Message */}

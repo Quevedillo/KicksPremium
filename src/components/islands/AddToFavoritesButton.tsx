@@ -76,7 +76,7 @@ export default function AddToFavoritesButton({ product }: AddToFavoritesButtonPr
 
       if (response.ok) {
         setIsFavorite(!isFavorite);
-        setFeedback(isFavorite ? '♡ Removido de favoritos' : '♥ Agregado a favoritos');
+        setFeedback(isFavorite ? 'Removido de favoritos' : 'Agregado a favoritos');
         setTimeout(() => setFeedback(''), 2000);
       } else {
         setFeedback('Error al guardar favorito');
@@ -101,7 +101,7 @@ export default function AddToFavoritesButton({ product }: AddToFavoritesButtonPr
         } disabled:opacity-50 disabled:cursor-not-allowed`}
         title={user ? (isFavorite ? 'Remover de favoritos' : 'Agregar a favoritos') : 'Inicia sesión para agregar a favoritos'}
       >
-        <span className="text-lg">{isFavorite ? '♥' : '♡'}</span>
+        <span className="text-lg">{isFavorite ? 'Favorito' : 'No favorito'}</span>
         <span className="text-sm">{isFavorite ? 'Favorito' : 'Agregar'}</span>
       </button>
 

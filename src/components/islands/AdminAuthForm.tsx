@@ -142,7 +142,7 @@ export default function AdminAuthForm() {
 
         {/* Security Notice */}
         <div className="mt-6 text-center text-white text-xs">
-          <p>🔒 Acceso restringido</p>
+          <p>Acceso restringido</p>
           <p className="mt-1">Solo para administradores autorizados</p>
         </div>
       </div>

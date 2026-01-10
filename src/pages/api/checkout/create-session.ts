@@ -14,13 +14,21 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Get tokens from cookies
-    const accessToken = cookies.get('sb-access-token')?.value;
+    // Get tokens from cookies or Authorization header
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    const bearer = authHeader?.toLowerCase().startsWith('bearer ')
+      ? authHeader.split(' ')[1]
+      : undefined;
+
+    const accessToken = bearer || cookies.get('sb-access-token')?.value;
     const refreshToken = cookies.get('sb-refresh-token')?.value;
 
-    if (!accessToken || !refreshToken) {
+    console.log('Checkout: accessToken exists:', !!accessToken);
+    console.log('Checkout: refreshToken exists:', !!refreshToken);
+
+    if (!accessToken) {
       return new Response(
-        JSON.stringify({ error: 'Debe estar autenticado para hacer checkout' }),
+        JSON.stringify({ error: 'Debe estar autenticado para hacer checkout. Por favor inicie sesión.' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -31,20 +39,56 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       import.meta.env.PUBLIC_SUPABASE_ANON_KEY
     );
 
-    const { data: { session }, error: sessionError } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+    let userId: string;
+    let userEmail: string;
 
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: 'Sesión inválida. Por favor inicie sesión nuevamente.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
+    // Try to get user from access token first
+    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+
+    if (userError || !user) {
+      console.error('Error getting user from token:', userError);
+      
+      // If we have a refresh token, try to refresh the session
+      if (refreshToken) {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+          refresh_token: refreshToken,
+        });
+        
+        if (refreshError || !refreshData.session) {
+          console.error('Error refreshing session:', refreshError);
+          return new Response(
+            JSON.stringify({ error: 'Sesión expirada. Por favor inicie sesión nuevamente.' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Update cookies with new tokens
+        cookies.set('sb-access-token', refreshData.session.access_token, {
+          path: '/',
+          maxAge: 3600,
+          sameSite: 'lax',
+        });
+        cookies.set('sb-refresh-token', refreshData.session.refresh_token, {
+          path: '/',
+          maxAge: 604800,
+          sameSite: 'lax',
+        });
+        
+        // Use the refreshed user
+        userId = refreshData.session.user.id;
+        userEmail = refreshData.session.user.email || '';
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'Sesión inválida. Por favor inicie sesión nuevamente.' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      userId = user.id;
+      userEmail = user.email || '';
     }
 
-    const userId = session.user.id;
-    const userEmail = session.user.email || '';
+    console.log('Checkout: User ID:', userId);
 
     // Transform cart items to Stripe line items
     const lineItems = items.map((item: {
@@ -58,7 +102,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       size: string;
     }) => ({
       price_data: {
-        currency: 'usd',
+        currency: 'eur',
         product_data: {
           name: `${item.product.brand ? item.product.brand + ' - ' : ''}${item.product.name}`,
           description: `Talla: ${item.size}`,

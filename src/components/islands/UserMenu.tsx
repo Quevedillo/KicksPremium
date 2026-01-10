@@ -5,8 +5,12 @@ export default function UserMenu() {
   const [user, setUser] = useState(getCurrentUser());
   const [showMenu, setShowMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // Mark as mounted first
+    setIsMounted(true);
+    
     // Inicializar auth al montar el componente
     initializeAuth().then(() => {
       setUser(getCurrentUser());
@@ -21,8 +25,11 @@ export default function UserMenu() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    // Limpiar todo y recargar - sin async para evitar bloqueos
+    localStorage.clear();
+    document.cookie = 'sb-access-token=; path=/; max-age=0';
+    document.cookie = 'sb-refresh-token=; path=/; max-age=0';
     window.location.href = '/';
   };
 
@@ -64,8 +71,8 @@ export default function UserMenu() {
         <span>{userName.split(' ')[0]}</span>
       </button>
 
-      {/* Dropdown Menu */}
-      {showMenu && (
+      {/* Dropdown Menu - solo renderizar después de hidratación */}
+      {isMounted && showMenu && (
         <div className="absolute right-0 mt-2 w-56 bg-brand-dark border border-brand-gray shadow-lg z-50">
           <div className="p-3 border-b border-brand-gray">
             <p className="text-xs text-neutral-500">Conectado como:</p>
@@ -77,7 +84,7 @@ export default function UserMenu() {
             className="block px-4 py-3 text-sm text-white hover:bg-brand-red transition-colors"
             onClick={() => setShowMenu(false)}
           >
-            👤 Mi Cuenta
+            Mi Cuenta
           </a>
 
           <a
@@ -85,7 +92,7 @@ export default function UserMenu() {
             className="block px-4 py-3 text-sm text-white hover:bg-brand-red transition-colors"
             onClick={() => setShowMenu(false)}
           >
-            📦 Mis Pedidos
+            Mis Pedidos
           </a>
 
           <button

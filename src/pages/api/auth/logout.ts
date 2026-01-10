@@ -1,27 +1,29 @@
 import type { APIRoute } from 'astro';
 import { supabase } from '@lib/supabase';
 
-export const POST: APIRoute = async ({ cookies }) => {
+export const POST: APIRoute = async ({ cookies, redirect }) => {
   try {
-    // Borrar las cookies de sesión
+    // Borrar las cookies de sesión (nuevas)
+    cookies.delete('sb-access-token', { path: '/' });
+    cookies.delete('sb-refresh-token', { path: '/' });
+    
+    // También borrar cookies antiguas por si acaso
     cookies.delete('auth-token', { path: '/' });
     cookies.delete('refresh-token', { path: '/' });
+    cookies.delete('supabase-auth-token', { path: '/' });
 
-    // También cerrar sesión en Supabase
-    await supabase.auth.signOut();
+    // Cerrar sesión en Supabase
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.warn('Warning: Supabase signOut returned error:', error);
+    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Sesión cerrada',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    // Redirigir al inicio
+    return redirect('/');
   } catch (error) {
     console.error('Logout error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Error al cerrar sesión' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    // De todas formas redirigir al inicio incluso si hay error
+    return redirect('/');
   }
 };

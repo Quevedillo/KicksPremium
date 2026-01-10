@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { cartStore, removeFromCart, updateCartItemQuantity, closeCart, getCartTotal } from '@stores/cart';
+import { supabase } from '@lib/supabase';
 
 export default function CartSlideOver() {
   const [cart, setCart] = useState(cartStore.get());
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
+    // Mark component as mounted to prevent hydration mismatch
+    setIsMounted(true);
+    
     // Subscribe to cart changes
     const unsubscribe = cartStore.subscribe((newCart) => {
       setCart(newCart);
@@ -26,18 +31,38 @@ export default function CartSlideOver() {
     setError(null);
 
     try {
+      // Try to get current access token from Supabase
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      console.log('Checkout - Session:', session ? 'exists' : 'null');
+      console.log('Checkout - Session error:', sessionError);
+      
+      if (!session) {
+        setError('Debes iniciar sesión para pagar. Redirigiendo...');
+        setIsProcessing(false);
+        setTimeout(() => {
+          window.location.href = '/auth/login?redirect=/carrito';
+        }, 1500);
+        return;
+      }
+
+      const accessToken = session.access_token;
+      console.log('Checkout - Token exists:', !!accessToken);
+
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
         },
-        credentials: 'include', // Important: include cookies
+        credentials: 'include',
         body: JSON.stringify({
           items: cart.items,
         }),
       });
 
       const data = await response.json();
+      console.log('Checkout - Response:', response.status, data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Error al procesar el pago');
@@ -56,8 +81,8 @@ export default function CartSlideOver() {
 
   return (
     <>
-      {/* Overlay */}
-      {cart.isOpen && (
+      {/* Overlay - solo renderizar después de hidratación */}
+      {isMounted && cart.isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-70 z-40"
           onClick={() => closeCart()}
@@ -67,14 +92,14 @@ export default function CartSlideOver() {
       {/* Slide Over Panel */}
       <div
         className={`fixed right-0 top-0 h-full w-full max-w-md bg-brand-dark shadow-2xl z-50 transform transition-transform duration-300 ${
-          cart.isOpen ? 'translate-x-0' : 'translate-x-full'
+          isMounted && cart.isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-brand-gray bg-brand-black">
             <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight">
-              🛒 Tu Carrito
+              Tu Carrito
             </h2>
             <button
               onClick={() => closeCart()}
@@ -100,7 +125,7 @@ export default function CartSlideOver() {
           {/* Items */}
           {cart.items.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8">
-              <div className="text-6xl mb-4">👟</div>
+              <div className="text-6xl mb-4 text-neutral-500">•</div>
               <p className="text-neutral-500 text-center text-lg">
                 Tu carrito está vacío
               </p>
@@ -196,7 +221,7 @@ export default function CartSlideOver() {
 
               {error && (
                 <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 text-sm">
-                  ⚠️ {error}
+                  {error}
                 </div>
               )}
 
@@ -218,7 +243,7 @@ export default function CartSlideOver() {
                     Procesando...
                   </span>
                 ) : (
-                  '🔒 Pagar con Stripe'
+                  'Pagar con Stripe'
                 )}
               </button>
 

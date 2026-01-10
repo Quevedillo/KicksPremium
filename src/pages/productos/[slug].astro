@@ -19,7 +19,7 @@ if (error || !product) {
 }
 
 const formatPrice = (cents: number) => {
-  return `$${(cents / 100).toFixed(0)}`;
+  return `€${(cents / 100).toFixed(0)}`;
 };
 
 // Fetch related products
@@ -53,7 +53,7 @@ const { data: relatedProducts } = await supabase
         <div class="bg-brand-gray p-4 relative">
           {product.is_limited_edition && (
             <div class="absolute top-6 left-6 bg-brand-red text-white text-sm font-bold px-3 py-1 z-10 uppercase">
-              🔥 Limited Edition
+              Limited Edition
             </div>
           )}
           <ProductGallery
@@ -109,7 +109,7 @@ const { data: relatedProducts } = await supabase
             {product.stock > 10 ? (
               <span class="text-green-500 text-sm font-bold">✓ En stock</span>
             ) : product.stock > 0 ? (
-              <span class="text-brand-orange text-sm font-bold">⚠ Solo {product.stock} disponibles</span>
+              <span class="text-brand-orange text-sm font-bold">Stock limitado: {product.stock} disponibles</span>
             ) : (
               <span class="text-red-500 text-sm font-bold">✗ Agotado</span>
             )}
@@ -124,14 +124,14 @@ const { data: relatedProducts } = await supabase
 
           {/* Add to Cart Component (Island) */}
           <div class="pt-4">
-            <AddToCartButton product={product} client:load />
+            <AddToCartButton product={product} client:only="react" />
           </div>
 
           {/* Additional Info */}
           <div class="border-t border-brand-gray pt-6 space-y-6">
             <div class="grid grid-cols-2 gap-4">
               <div class="bg-brand-gray p-4">
-                <div class="text-brand-red text-xl mb-2">🚚</div>
+                <div class="text-brand-red text-xl mb-2">ENVÍO</div>
                 <h4 class="text-white font-bold text-sm">Envío Express</h4>
                 <p class="text-neutral-500 text-xs mt-1">24-48h en Península</p>
               </div>
@@ -141,12 +141,12 @@ const { data: relatedProducts } = await supabase
                 <p class="text-neutral-500 text-xs mt-1">Garantía de autenticidad</p>
               </div>
               <div class="bg-brand-gray p-4">
-                <div class="text-brand-red text-xl mb-2">↩️</div>
+                <div class="text-brand-red text-xl mb-2">DEVOLUCIÓN</div>
                 <h4 class="text-white font-bold text-sm">Devolución Gratis</h4>
                 <p class="text-neutral-500 text-xs mt-1">30 días sin preguntas</p>
               </div>
               <div class="bg-brand-gray p-4">
-                <div class="text-brand-red text-xl mb-2">🔒</div>
+                <div class="text-brand-red text-xl mb-2">SEGURIDAD</div>
                 <h4 class="text-white font-bold text-sm">Pago Seguro</h4>
                 <p class="text-neutral-500 text-xs mt-1">SSL + 3D Secure</p>
               </div>
@@ -187,7 +187,7 @@ const { data: relatedProducts } = await supabase
                 <h3 class="text-white text-sm font-bold group-hover:text-brand-red transition-colors line-clamp-1">
                   {related.name}
                 </h3>
-                <span class="text-white font-bold">${(related.price / 100).toFixed(0)}</span>
+                <span class="text-white font-bold">€{(related.price / 100).toFixed(0)}</span>
               </div>
             </a>
           ))}

@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request }) => {
     const body = await request.json();
     const { limit = 100 } = body;
 
-    console.log(`🔄 Iniciando sincronización de pedidos de Stripe (límite: ${limit})...`);
+    console.log(`Iniciando sincronización de pedidos de Stripe (límite: ${limit})...`);
 
     // Get completed sessions from Stripe
     const sessions = await stripe.checkout.sessions.list({
@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
             user_id: userId,
             stripe_session_id: session.id,
             stripe_payment_intent_id: session.payment_intent,
-            total_price: (session.amount_total || 0) / 100,
+            total_price: session.amount_total || 0, // Keep in cents (integer)
             status: 'completed',
             shipping_name: (session as any).shipping?.name || null,
             shipping_address: JSON.stringify((session as any).shipping?.address) || null,
@@ -71,19 +71,19 @@ export const POST: APIRoute = async ({ request }) => {
 
         if (orderError) {
           errors.push(`Error saving order ${session.id}: ${orderError.message}`);
-          console.error(`❌ Error guardando pedido ${session.id}:`, orderError);
+          console.error(`Error guardando pedido ${session.id}:`, orderError);
         } else {
           syncedCount++;
-          console.log(`✅ Pedido sincronizado: ${session.id} (usuario: ${userId})`);
+          console.log(`Pedido sincronizado: ${session.id} (usuario: ${userId})`);
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
         errors.push(`Error processing session ${session.id}: ${errorMsg}`);
-        console.error(`❌ Error procesando sesión ${session.id}:`, error);
+        console.error(`Error procesando sesión ${session.id}:`, error);
       }
     }
 
-    const message = `✅ Sincronización completada: ${syncedCount} pedidos sincronizados, ${skippedCount} omitidos`;
+    const message = `Sincronización completada: ${syncedCount} pedidos sincronizados, ${skippedCount} omitidos`;
     console.log(message);
 
     return new Response(
@@ -102,7 +102,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
-    console.error('❌ Error en sincronización:', error);
+    console.error('Error en sincronización:', error);
 
     return new Response(
       JSON.stringify({

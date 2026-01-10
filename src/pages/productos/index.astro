@@ -195,7 +195,7 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
               <div class="aspect-square bg-brand-dark relative overflow-hidden">
                 {product.is_limited_edition && (
                   <div class="absolute top-3 left-3 bg-brand-red text-white text-xs font-bold px-2 py-1 z-10 uppercase">
-                    🔥 Limited
+                    Limited
                   </div>
                 )}
                 {product.stock <= 5 && product.stock > 0 && (
@@ -220,11 +220,11 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
                 <div class="flex items-center justify-between mt-3">
                   <div class="flex items-center gap-2">
                     <span class="text-white font-bold text-lg">
-                      ${(product.price / 100).toFixed(0)}
+                      €{(product.price / 100).toFixed(0)}
                     </span>
                     {product.original_price && product.original_price > product.price && (
                       <span class="text-neutral-500 line-through text-sm">
-                        ${(product.original_price / 100).toFixed(0)}
+                        €{(product.original_price / 100).toFixed(0)}
                       </span>
                     )}
                   </div>
@@ -236,7 +236,7 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
         </div>
       ) : (
         <div class="text-center py-20">
-          <div class="text-6xl mb-4">👟</div>
+          <div class="text-6xl mb-4 text-neutral-500">•</div>
           <p class="text-neutral-500 text-lg">
             No hay sneakers que coincidan con los filtros seleccionados.
           </p>

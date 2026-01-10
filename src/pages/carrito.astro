@@ -7,16 +7,16 @@ import CartSlideOver from '@components/islands/CartSlideOver';
   <section class="py-12 bg-brand-dark min-h-[60vh]">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-display font-bold text-white uppercase tracking-tight mb-8">
-        Tu Carrito 🛒
+        Tu Carrito
       </h1>
 
       <div class="bg-brand-gray p-8 text-center">
-        <div class="text-6xl mb-4">👟</div>
+        <div class="text-6xl mb-4 text-neutral-500">•</div>
         <p class="text-neutral-300 text-lg">
           El carrito se maneja mediante el panel deslizante.
         </p>
         <p class="text-neutral-500 text-sm mt-4">
-          Haz clic en el icono del carrito <span class="text-brand-red">🛒</span> en la esquina superior derecha para abrirlo.
+          Haz clic en el icono del carrito en la esquina superior derecha para abrirlo.
         </p>
         <a 
           href="/productos" 
@@ -28,5 +28,5 @@ import CartSlideOver from '@components/islands/CartSlideOver';
     </div>
   </section>
 
-  <CartSlideOver client:load />
+  <CartSlideOver client:only="react" />
 </PublicLayout>

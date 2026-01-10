@@ -31,9 +31,18 @@ export async function initializeAuth() {
 
     if (sessionError) {
       console.error('Error getting session:', sessionError);
+      // Si hay error, limpiar todo
+      localStorage.removeItem('auth_user');
+      authStore.set({
+        user: null,
+        isLoading: false,
+        error: null,
+        initialized: true,
+      });
+      return;
     }
 
-    // Si hay sesión, usarla
+    // Si hay sesión válida, usarla
     if (session?.user) {
       authStore.set({
         user: session.user,
@@ -51,47 +60,14 @@ export async function initializeAuth() {
         document.cookie = `sb-refresh-token=${session.refresh_token}; path=/; max-age=604800; SameSite=Lax`;
       }
     } else {
-      // Si no hay sesión en Supabase, verificar localStorage como fallback
-      const savedUser = localStorage.getItem('auth_user');
-      if (savedUser) {
-        try {
-          const user = JSON.parse(savedUser);
-          // Verificar si el token aún es válido
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          if (currentUser) {
-            authStore.set({
-              user: currentUser,
-              isLoading: false,
-              error: null,
-              initialized: true,
-            });
-          } else {
-            // Token inválido, limpiar
-            localStorage.removeItem('auth_user');
-            authStore.set({
-              user: null,
-              isLoading: false,
-              error: null,
-              initialized: true,
-            });
-          }
-        } catch {
-          localStorage.removeItem('auth_user');
-          authStore.set({
-            user: null,
-            isLoading: false,
-            error: null,
-            initialized: true,
-          });
-        }
-      } else {
-        authStore.set({
-          user: null,
-          isLoading: false,
-          error: null,
-          initialized: true,
-        });
-      }
+      // No hay sesión válida en Supabase, limpiar localStorage
+      localStorage.removeItem('auth_user');
+      authStore.set({
+        user: null,
+        isLoading: false,
+        error: null,
+        initialized: true,
+      });
     }
 
     // Subscribe to auth changes
@@ -197,28 +173,50 @@ export async function register(email: string, password: string, fullName: string
 }
 
 export async function logout() {
-  const current = authStore.get();
-  authStore.set({ ...current, isLoading: true, error: null });
-
+  console.log('Logout iniciado...');
+  
   try {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) throw error;
-
+    // 1. Limpiar estado local inmediatamente
     authStore.set({
       user: null,
       isLoading: false,
       error: null,
-      initialized: true,
+      initialized: false,
     });
 
+    // 2. Limpiar localStorage
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_session');
+    
+    // Limpiar todo lo relacionado con supabase
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('supabase') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+    console.log('localStorage limpiado');
+
+    // 3. Limpiar cookies del cliente
+    document.cookie = 'sb-access-token=; path=/; max-age=0';
+    document.cookie = 'sb-refresh-token=; path=/; max-age=0';
+    console.log('Cookies del cliente limpiadas');
+
+    // 4. Cerrar sesión en Supabase (no esperar si falla)
+    supabase.auth.signOut().catch(err => {
+      console.warn('Supabase signOut warning:', err);
+    });
+
+    console.log('Redirigiendo a inicio...');
+    
+    // 5. Forzar recarga completa
+    window.location.href = '/';
+    
     return { success: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Error logging out';
-    const current = authStore.get();
-    authStore.set({ ...current, isLoading: false, error: message });
-    return { success: false, error: message };
+    console.error('Error en logout:', error);
+    // Aún así, forzar recarga
+    window.location.href = '/';
+    return { success: false, error: String(error) };
   }
 }
 

@@ -212,8 +212,8 @@ export default function AuthForm() {
                 {loading
                   ? 'Procesando...'
                   : isLogin
-                    ? '🔓 Iniciar Sesión'
-                    : '✨ Crear Cuenta'}
+                    ? 'Iniciar Sesión'
+                    : 'Crear Cuenta'}
               </button>
             </form>
           </div>

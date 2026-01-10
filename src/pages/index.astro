@@ -27,7 +27,7 @@ const { data: categories } = await supabase
       <div class="grid md:grid-cols-2 gap-12 items-center">
         <div>
           <div class="inline-block bg-brand-red text-white text-xs font-bold px-3 py-1 mb-6 uppercase tracking-wider">
-            🔥 New Drops Available
+            New Drops Available
           </div>
           <h1 class="text-5xl md:text-7xl font-display font-bold mb-6 leading-none uppercase tracking-tight">
             SNEAKERS<br/>
@@ -48,13 +48,13 @@ const { data: categories } = await supabase
               href="/categoria/limited-editions"
               class="inline-block border-2 border-white text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-white hover:text-brand-black transition-all"
             >
-              🔥 Drops Limitados
+              Drops Limitados
             </a>
           </div>
         </div>
         <div class="hidden md:block relative">
           <div class="text-[200px] leading-none opacity-10 font-display font-bold absolute -right-20 top-1/2 -translate-y-1/2">
-            👟
+            S
           </div>
         </div>
       </div>
@@ -135,7 +135,7 @@ const { data: categories } = await supabase
             <div class="aspect-square bg-brand-dark relative overflow-hidden">
               {product.is_limited_edition && (
                 <div class="absolute top-4 left-4 bg-brand-red text-white text-xs font-bold px-2 py-1 z-10 uppercase">
-                  🔥 Limited
+                  Limited
                 </div>
               )}
               <img 
@@ -154,11 +154,11 @@ const { data: categories } = await supabase
               </h3>
               <div class="flex items-center gap-2 mt-2">
                 <span class="text-white font-bold text-xl">
-                  ${(product.price / 100).toFixed(0)}
+                  €{(product.price / 100).toFixed(0)}
                 </span>
                 {product.original_price && product.original_price > product.price && (
                   <span class="text-neutral-500 line-through text-sm">
-                    ${(product.original_price / 100).toFixed(0)}
+                    €{(product.original_price / 100).toFixed(0)}
                   </span>
                 )}
               </div>
@@ -179,17 +179,17 @@ const { data: categories } = await supabase
           <p class="text-white/80 text-sm mt-1">Verificado</p>
         </div>
         <div>
-          <div class="text-4xl mb-2">🚀</div>
+          <div class="text-4xl mb-2">FAST</div>
           <h3 class="font-bold uppercase tracking-wide">Envío Express</h3>
           <p class="text-white/80 text-sm mt-1">24-48h</p>
         </div>
         <div>
-          <div class="text-4xl mb-2">🔄</div>
+          <div class="text-4xl mb-2">SYNC</div>
           <h3 class="font-bold uppercase tracking-wide">Devolución Fácil</h3>
           <p class="text-white/80 text-sm mt-1">30 días</p>
         </div>
         <div>
-          <div class="text-4xl mb-2">💳</div>
+          <div class="text-4xl mb-2">PAY</div>
           <h3 class="font-bold uppercase tracking-wide">Pago Seguro</h3>
           <p class="text-white/80 text-sm mt-1">SSL Encriptado</p>
         </div>
