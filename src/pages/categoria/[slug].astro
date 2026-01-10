@@ -12,10 +12,15 @@ const { data: category } = await supabase
   .eq('slug', slug)
   .single();
 
+// If category not found, redirect to products page
+if (!category) {
+  return Astro.redirect('/productos');
+}
+
 const { data: products } = await supabase
   .from('products')
   .select('*')
-  .eq('category_id', category?.id)
+  .eq('category_id', category.id)
   .eq('status', 'active')
   .order('created_at', { ascending: false });
 
