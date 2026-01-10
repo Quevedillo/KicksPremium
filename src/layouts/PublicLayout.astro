@@ -18,10 +18,11 @@ const { title, description } = Astro.props;
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         {/* Logo */}
-        <a href="/" class="flex items-center gap-2">
+        <a href="/" class="flex items-center gap-2 group">
           <span class="text-xl font-display font-bold text-white tracking-wider uppercase">
             KICKS<span class="text-brand-red">PREMIUM</span>
           </span>
+          <span class="text-xs text-brand-red font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">Exclusive</span>
         </a>
 
         {/* Navigation */}

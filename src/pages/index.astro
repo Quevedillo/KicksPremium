@@ -15,7 +15,7 @@ const { data: categories } = await supabase
   .order('display_order');
 ---
 
-<PublicLayout title="KicksPremium - Sneakers Auténticos" description="Tu destino para sneakers premium auténticos">
+<PublicLayout title="KicksPremium - Sneakers Exclusivos y Limitados" description="Sneakers únicos, colaboraciones especiales y ediciones limitadas. Travis Scott, Jordan Special, Adidas Collab y más.">
   {/* Hero Section - Full Impact */}
   <section class="relative bg-brand-black text-white overflow-hidden">
     {/* Background Pattern */}
@@ -27,62 +27,62 @@ const { data: categories } = await supabase
       <div class="grid md:grid-cols-2 gap-12 items-center">
         <div>
           <div class="inline-block bg-brand-red text-white text-xs font-bold px-3 py-1 mb-6 uppercase tracking-wider">
-            New Drops Available
+            Exclusively Limited
           </div>
           <h1 class="text-5xl md:text-7xl font-display font-bold mb-6 leading-none uppercase tracking-tight">
             SNEAKERS<br/>
-            <span class="text-brand-red">PREMIUM</span><br/>
-            AUTÉNTICOS
+            <span class="text-brand-red">EXCLUSIVOS</span><br/>
+            & LIMITADOS
           </h1>
           <p class="text-xl text-neutral-400 mb-8 leading-relaxed">
-            Jordan • Nike • Adidas • Yeezy • New Balance
+            Colaboraciones especiales, ediciones limitadas y piezas únicas. Travis Scott • Jordan Special • Adidas Collab • Nike Rare
           </p>
           <div class="flex flex-wrap gap-4">
             <a
               href="/productos"
               class="inline-block bg-brand-red text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-brand-orange transition-all hover:scale-105"
             >
-              Ver Catálogo
+              Explorar Colección
             </a>
             <a
               href="/categoria/limited-editions"
               class="inline-block border-2 border-white text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-white hover:text-brand-black transition-all"
             >
-              Drops Limitados
+              Ediciones Limitadas
             </a>
           </div>
         </div>
         <div class="hidden md:block relative">
           <div class="text-[200px] leading-none opacity-10 font-display font-bold absolute -right-20 top-1/2 -translate-y-1/2">
-            S
+            X
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  {/* Brands Bar */}
+  {/* Brands Bar - Exclusive Collabs */}
   <section class="bg-brand-gray py-6 border-y border-brand-black">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex justify-center items-center gap-8 md:gap-16 text-neutral-500 font-bold uppercase tracking-widest text-sm">
-        <span class="hover:text-white transition-colors cursor-pointer">Jordan</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Nike</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Adidas</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Yeezy</span>
-        <span class="hover:text-white transition-colors cursor-pointer">New Balance</span>
+        <span class="hover:text-white transition-colors cursor-pointer">Travis Scott</span>
+        <span class="hover:text-white transition-colors cursor-pointer">Jordan Special</span>
+        <span class="hover:text-white transition-colors cursor-pointer">Adidas Collab</span>
+        <span class="hover:text-white transition-colors cursor-pointer">Nike Rare</span>
+        <span class="hover:text-white transition-colors cursor-pointer">Yeezy SZN</span>
       </div>
     </div>
   </section>
 
-  {/* Categories Grid */}
+  {/* Exclusive Collections Grid */}
   <section class="py-16 md:py-24 bg-brand-dark">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-end mb-12">
         <div>
           <h2 class="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight">
-            Categorías
+            Colecciones
           </h2>
-          <p class="text-neutral-500 mt-2">Encuentra tu estilo</p>
+          <p class="text-neutral-500 mt-2">Piezas exclusivas y únicamente disponibles</p>
         </div>
         <a href="/productos" class="text-brand-red font-bold uppercase text-sm hover:text-brand-orange transition-colors">
           Ver todo →

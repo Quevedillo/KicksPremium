@@ -1,5 +1,5 @@
 -- ============================================================================
--- FIX: Crear categorías de sneakers correctas
+-- FIX: Cambiar a colecciones exclusivas - Sneakers Limited Edition
 -- Ejecutar en Supabase SQL Editor
 -- ============================================================================
 
@@ -10,12 +10,12 @@ ADD COLUMN IF NOT EXISTS icon VARCHAR,
 ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;
 
 -- Limpiar categorías viejas
-DELETE FROM categories WHERE slug IN ('camisas', 'pantalones', 'trajes');
+DELETE FROM categories WHERE slug IN ('camisas', 'pantalones', 'trajes', 'basketball', 'lifestyle', 'running');
 
--- Insertar categorías de sneakers
+-- Insertar colecciones EXCLUSIVAS de sneakers
 INSERT INTO categories (name, slug, description, icon, display_order) VALUES
-('Basketball', 'basketball', 'Zapatos de baloncesto: Jordan, Kyrie, LeBron y más', 'B', 1),
-('Lifestyle', 'lifestyle', 'Sneakers casuales para el día a día: Air Force, Stan Smith, etc.', 'L', 2),
-('Running', 'running', 'Zapatillas para correr: Air Max, Ultraboost, Gel-Lyte', 'R', 3),
-('Limited Editions', 'limited-editions', 'Ediciones limitadas y colaboraciones exclusivas', 'LE', 4)
+('Travis Scott', 'travis-scott', 'Colaboraciones especiales de Travis Scott con Jordan y Nike', 'TS', 1),
+('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', 'JS', 2),
+('Adidas Collab', 'adidas-collab', 'Colaboraciones exclusivas de Adidas con artistas reconocidos', 'AC', 3),
+('Exclusive Drops', 'limited-editions', 'Ediciones limitadas, one-of-a-kind y piezas muy raras', 'EX', 4)
 ON CONFLICT (slug) DO NOTHING;
