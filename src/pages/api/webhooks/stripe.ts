@@ -53,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
             user_id: userId,
             stripe_session_id: session.id,
             stripe_payment_intent_id: session.payment_intent,
-            total_price: total, // Keep in cents (integer)
+            total_amount: total, // Keep in cents (integer)
             status: 'completed',
             shipping_name: (session as any).shipping?.name || null,
             shipping_address: JSON.stringify((session as any).shipping?.address) || null,

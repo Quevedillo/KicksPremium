@@ -408,20 +408,20 @@ const { data: categories } = await supabase
       
       // Build product data
       const productData = {
-        name: formData.get('name'),
-        slug: formData.get('slug'),
-        description: formData.get('description'),
-        category_id: formData.get('category_id'),
-        price: parseFloat(formData.get('price')),
-        compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')) : null,
-        stock: parseInt(formData.get('stock')),
-        images: JSON.parse(formData.get('images') || '[]'),
-        sku: formData.get('sku') || null,
-        material: formData.get('material') || null,
-        brand: formData.get('brand') || null,
-        color: formData.get('color') || null,
-        is_featured: formData.get('is_featured') === 'on',
-        is_active: formData.get('is_active') === 'on',
+        name: formData.get('name')?.toString().trim() || '',
+        slug: formData.get('slug')?.toString().trim() || '',
+        description: formData.get('description')?.toString().trim() || '',
+        category_id: formData.get('category_id')?.toString().trim() || '',
+        price: parseFloat(formData.get('price')?.toString() || '0'),
+        compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')?.toString() || '0') : null,
+        stock: parseInt(formData.get('stock')?.toString() || '0'),
+        images: JSON.parse(formData.get('images')?.toString() || '[]'),
+        sku: formData.get('sku')?.toString().trim() || null,
+        material: formData.get('material')?.toString().trim() || null,
+        brand: formData.get('brand')?.toString().trim() || null,
+        color: formData.get('color')?.toString().trim() || null,
+        is_featured: formData.has('is_featured'),
+        is_active: formData.has('is_active'),
       };
       
       const response = await fetch(`/api/admin/products/${productId}`, {

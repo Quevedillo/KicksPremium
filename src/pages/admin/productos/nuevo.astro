@@ -328,11 +328,19 @@ const { data: categories } = await supabase
       const formData = new FormData(form);
       
       // Build product data
+      const name = formData.get('name')?.toString().trim() || '';
+      const slug = formData.get('slug')?.toString().trim() || 
+        name.toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      
       const productData = {
-        name: formData.get('name')?.toString().trim(),
-        slug: (formData.get('slug')?.toString().trim() || formData.get('name')?.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-'))?.replace(/^-+|-+$/g, ''),
-        description: formData.get('description')?.toString().trim(),
-        category_id: formData.get('category_id')?.toString().trim(),
+        name: name,
+        slug: slug,
+        description: formData.get('description')?.toString().trim() || '',
+        category_id: formData.get('category_id')?.toString().trim() || '',
         price: parseFloat(formData.get('price')?.toString() || '0'),
         compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')?.toString() || '0') : null,
         stock: parseInt(formData.get('stock')?.toString() || '0'),
