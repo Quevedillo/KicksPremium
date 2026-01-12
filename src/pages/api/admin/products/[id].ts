@@ -124,15 +124,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         price,
         stock: stock || 0,
         category_id,
-        is_featured: is_featured || false,
-        is_active: is_active !== false,
         images: images || [],
-        ...(compare_price !== undefined && compare_price !== null && { compare_price }),
-        ...(cost_price !== undefined && cost_price !== null && { cost_price }),
-        ...(brand && { brand }),
-        ...(sku && { sku }),
-        ...(material && { material }),
-        ...(color && { color }),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

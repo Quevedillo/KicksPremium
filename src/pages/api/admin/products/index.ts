@@ -164,42 +164,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       finalSlug = `${slug}-${Date.now()}`;
     }
 
-    // Crear producto - solo campos que existen en la tabla
-    const productData: any = {
-      name,
-      slug: finalSlug,
-      description,
-      category_id: categoryId,
-      price,
-      stock,
-      images: body.images || [],
-      is_featured: body.is_featured || false,
-      is_active: body.is_active !== false,
-    };
-
-    // Agregar campos opcionales solo si vienen en el body
-    if (body.compare_price !== undefined && body.compare_price !== null) {
-      productData.compare_price = parseFloat(body.compare_price);
-    }
-    if (body.cost_price !== undefined && body.cost_price !== null) {
-      productData.cost_price = parseFloat(body.cost_price);
-    }
-    if (body.sku) {
-      productData.sku = body.sku?.toString().trim();
-    }
-    if (body.brand) {
-      productData.brand = body.brand?.toString().trim();
-    }
-    if (body.material) {
-      productData.material = body.material?.toString().trim();
-    }
-    if (body.color) {
-      productData.color = body.color?.toString().trim();
-    }
-
+    // Crear producto - SOLO campos básicos para evitar schema cache
     const { data: product, error } = await supabase
       .from('products')
-      .insert(productData)
+      .insert({
+        name,
+        slug: finalSlug,
+        description,
+        category_id: categoryId,
+        price,
+        stock,
+        images: body.images || [],
+      })
       .select()
       .single();
 
