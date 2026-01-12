@@ -3,124 +3,371 @@ import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 import type { Product } from '@lib/supabase';
 
-// Fetch all products for admin
-const { data: products, error } = await supabase
+// Filtros
+const url = Astro.url;
+const searchQuery = url.searchParams.get('search') || '';
+const categoryFilter = url.searchParams.get('category') || 'all';
+const stockFilter = url.searchParams.get('stock') || 'all';
+
+// Obtener categorías
+const { data: categories } = await supabase
+  .from('categories')
+  .select('id, name, slug')
+  .order('display_order');
+
+// Query de productos
+let query = supabase
   .from('products')
-  .select('*, categories(name)')
+  .select('*, categories(id, name, slug)')
   .order('created_at', { ascending: false });
 
-const productsList: Product[] = products || [];
+if (categoryFilter !== 'all') {
+  query = query.eq('category_id', categoryFilter);
+}
+
+if (stockFilter === 'low') {
+  query = query.gt('stock', 0).lte('stock', 3);
+} else if (stockFilter === 'out') {
+  query = query.eq('stock', 0);
+} else if (stockFilter === 'in') {
+  query = query.gt('stock', 0);
+}
+
+const { data: products, error } = await query;
+
+// Filtrar por búsqueda
+let productsList = products || [];
+if (searchQuery) {
+  const search = searchQuery.toLowerCase();
+  productsList = productsList.filter(p => 
+    p.name.toLowerCase().includes(search) ||
+    p.sku?.toLowerCase().includes(search) ||
+    p.brand?.toLowerCase().includes(search)
+  );
+}
+
+// Stats
+const totalProducts = productsList.length;
+const inStock = productsList.filter(p => p.stock > 0).length;
+const lowStock = productsList.filter(p => p.stock > 0 && p.stock <= 3).length;
+const outOfStock = productsList.filter(p => p.stock === 0).length;
+
+// Formatear moneda
+const formatCurrency = (cents: number) => {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(cents / 100);
+};
 ---
 
-<AdminLayout title="Gestión de Productos - FashionMarket">
-  <div class="space-y-8">
-    {/* Header */}
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-display font-bold text-brand-navy">
-          Gestión de Inventario
-        </h1>
-        <p class="text-neutral-600 mt-2">
-          Total de productos: <span class="font-bold text-brand-navy">{productsList.length}</span>
-        </p>
-      </div>
+<AdminLayout title="Gestión de Productos" currentPage="productos">
+  <div class="space-y-6">
+    {/* Stats */}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <a
-        href="/admin/productos/nuevo"
-        class="btn-primary"
+        href="/admin/productos?stock=all"
+        class={`p-4 rounded-xl border-2 transition-all ${stockFilter === 'all' && categoryFilter === 'all' ? 'border-brand-red bg-brand-red/5' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}
       >
-        + Crear Producto
+        <p class="text-2xl font-bold text-brand-black">{totalProducts}</p>
+        <p class="text-xs text-neutral-500">Total productos</p>
       </a>
+      <a
+        href="/admin/productos?stock=in"
+        class={`p-4 rounded-xl border-2 transition-all ${stockFilter === 'in' ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-white hover:border-green-200'}`}
+      >
+        <p class="text-2xl font-bold text-green-600">{inStock}</p>
+        <p class="text-xs text-neutral-500">En stock</p>
+      </a>
+      <a
+        href="/admin/productos?stock=low"
+        class={`p-4 rounded-xl border-2 transition-all ${stockFilter === 'low' ? 'border-yellow-500 bg-yellow-50' : 'border-neutral-200 bg-white hover:border-yellow-200'}`}
+      >
+        <p class="text-2xl font-bold text-yellow-600">{lowStock}</p>
+        <p class="text-xs text-neutral-500">Stock bajo</p>
+      </a>
+      <a
+        href="/admin/productos?stock=out"
+        class={`p-4 rounded-xl border-2 transition-all ${stockFilter === 'out' ? 'border-red-500 bg-red-50' : 'border-neutral-200 bg-white hover:border-red-200'}`}
+      >
+        <p class="text-2xl font-bold text-red-600">{outOfStock}</p>
+        <p class="text-xs text-neutral-500">Sin stock</p>
+      </a>
+    </div>
+
+    {/* Filters */}
+    <div class="bg-white rounded-xl border border-neutral-200 p-4">
+      <form method="GET" class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <input
+            type="text"
+            name="search"
+            value={searchQuery}
+            placeholder="Buscar por nombre, SKU o marca..."
+            class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+          />
+        </div>
+        <select
+          name="category"
+          class="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+        >
+          <option value="all">Todas las categorías</option>
+          {categories?.map((cat) => (
+            <option value={cat.id} selected={categoryFilter === cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+        <select
+          name="stock"
+          class="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+        >
+          <option value="all" selected={stockFilter === 'all'}>Todo el stock</option>
+          <option value="in" selected={stockFilter === 'in'}>En stock</option>
+          <option value="low" selected={stockFilter === 'low'}>Stock bajo</option>
+          <option value="out" selected={stockFilter === 'out'}>Sin stock</option>
+        </select>
+        <button
+          type="submit"
+          class="px-6 py-2 bg-brand-black text-white font-medium rounded-lg hover:bg-brand-red transition-colors"
+        >
+          Filtrar
+        </button>
+      </form>
     </div>
 
     {/* Products Table */}
     {productsList.length > 0 ? (
-      <div class="bg-white rounded-lg border border-neutral-200 overflow-hidden">
-        <table class="w-full">
-          <thead class="bg-neutral-50 border-b border-neutral-200">
-            <tr>
-              <th class="px-6 py-3 text-left text-sm font-semibold text-neutral-900">
-                Producto
-              </th>
-              <th class="px-6 py-3 text-left text-sm font-semibold text-neutral-900">
-                Categoría
-              </th>
-              <th class="px-6 py-3 text-left text-sm font-semibold text-neutral-900">
-                Precio
-              </th>
-              <th class="px-6 py-3 text-left text-sm font-semibold text-neutral-900">
-                Stock
-              </th>
-              <th class="px-6 py-3 text-left text-sm font-semibold text-neutral-900">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-neutral-200">
-            {productsList.map((product) => (
-              <tr class="hover:bg-neutral-50 transition-colors">
-                <td class="px-6 py-4">
-                  <div class="flex items-center gap-4">
-                    {product.images && product.images.length > 0 && (
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        class="w-12 h-12 object-cover rounded"
-                      />
-                    )}
-                    <div>
-                      <p class="font-semibold text-neutral-900">{product.name}</p>
-                      <p class="text-xs text-neutral-500">{product.slug}</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-6 py-4 text-sm text-neutral-600">
-                  {/* Add category relationship */}
+      <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-neutral-50 border-b border-neutral-200">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Producto
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
                   Categoría
-                </td>
-                <td class="px-6 py-4 font-semibold text-neutral-900">
-                  €{(product.price / 100).toFixed(2)}
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                    product.stock > 0
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {product.stock}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm">
-                  <div class="flex items-center gap-2">
-                    <a
-                      href={`/admin/productos/${product.id}`}
-                      class="text-brand-navy hover:text-brand-charcoal font-medium"
-                    >
-                      Editar
-                    </a>
-                    <button
-                      class="text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </td>
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  SKU
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Precio
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Stock
+                </th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody class="divide-y divide-neutral-100">
+              {productsList.map((product) => (
+                <tr class="hover:bg-neutral-50 transition-colors">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-4">
+                      {product.images && product.images.length > 0 ? (
+                        <img
+                          src={product.images[0]}
+                          alt={product.name}
+                          class="w-14 h-14 object-cover rounded-lg bg-neutral-100"
+                        />
+                      ) : (
+                        <div class="w-14 h-14 bg-neutral-200 rounded-lg flex items-center justify-center">
+                          <svg class="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div>
+                        <p class="font-semibold text-brand-black">{product.name}</p>
+                        <p class="text-xs text-neutral-500">{product.brand}</p>
+                        {product.is_limited_edition && (
+                          <span class="inline-block mt-1 px-2 py-0.5 bg-brand-red/10 text-brand-red text-xs font-medium rounded">
+                            Edición Limitada
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="px-2 py-1 bg-neutral-100 text-neutral-700 text-xs font-medium rounded-full">
+                      {(product.categories as any)?.name || 'Sin categoría'}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="font-mono text-sm text-neutral-600">{product.sku}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="font-bold text-brand-black">{formatCurrency(product.price)}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                      product.stock === 0
+                        ? 'bg-red-100 text-red-800'
+                        : product.stock <= 3
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
+                    }`}>
+                      {product.stock === 0 ? 'Agotado' : `${product.stock} uds`}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <a
+                        href={`/productos/${product.slug}`}
+                        target="_blank"
+                        class="p-2 text-neutral-400 hover:text-brand-black hover:bg-neutral-100 rounded-lg transition-colors"
+                        title="Ver en tienda"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                      <a
+                        href={`/admin/productos/${product.id}/editar`}
+                        class="p-2 text-neutral-400 hover:text-brand-red hover:bg-brand-red/10 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </a>
+                      <button
+                        class="delete-btn p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        data-id={product.id}
+                        data-name={product.name}
+                        title="Eliminar"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     ) : (
-      <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
-        <p class="text-neutral-600 text-lg mb-4">
-          No hay productos en el inventario
+      <div class="bg-white rounded-xl border border-neutral-200 p-12 text-center">
+        <svg class="w-16 h-16 text-neutral-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <h3 class="text-lg font-semibold text-brand-black mb-2">No hay productos</h3>
+        <p class="text-neutral-500 mb-4">
+          {searchQuery || categoryFilter !== 'all' || stockFilter !== 'all'
+            ? 'No se encontraron productos con esos filtros.'
+            : 'Comienza agregando tu primer producto al catálogo.'}
         </p>
-        <a
-          href="/admin/productos/nuevo"
-          class="inline-block btn-primary"
-        >
-          Crear primer producto
-        </a>
+        {searchQuery || categoryFilter !== 'all' || stockFilter !== 'all' ? (
+          <a
+            href="/admin/productos"
+            class="inline-block px-4 py-2 text-sm font-medium text-brand-red hover:text-brand-orange"
+          >
+            Limpiar filtros
+          </a>
+        ) : (
+          <a
+            href="/admin/productos/nuevo"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-brand-red text-white font-semibold rounded-lg hover:bg-brand-orange transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Crear Producto
+          </a>
+        )}
       </div>
     )}
   </div>
+
+  {/* Delete Confirmation Modal */}
+  <div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" id="deleteModalOverlay"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm relative">
+        <div class="p-6 text-center">
+          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold text-brand-black mb-2">¿Eliminar producto?</h3>
+          <p class="text-neutral-500 mb-6">
+            Estás a punto de eliminar <span id="deleteProductName" class="font-semibold text-brand-black"></span>. Esta acción no se puede deshacer.
+          </p>
+          
+          <input type="hidden" id="deleteId" value="" />
+          
+          <div class="flex gap-3">
+            <button
+              type="button"
+              id="closeDeleteModalBtn"
+              class="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="confirmDeleteBtn"
+              class="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </AdminLayout>
+
+<script>
+  const deleteModal = document.getElementById('deleteModal');
+  
+  // Delete buttons
+  const deleteBtns = document.querySelectorAll('.delete-btn');
+  deleteBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const data = (btn as HTMLElement).dataset;
+      (document.getElementById('deleteId') as HTMLInputElement).value = data.id || '';
+      document.getElementById('deleteProductName')!.textContent = data.name || '';
+      deleteModal?.classList.remove('hidden');
+    });
+  });
+  
+  // Close delete modal
+  const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
+  const deleteModalOverlay = document.getElementById('deleteModalOverlay');
+  
+  [closeDeleteModalBtn, deleteModalOverlay].forEach(el => {
+    el?.addEventListener('click', () => {
+      deleteModal?.classList.add('hidden');
+    });
+  });
+  
+  // Confirm delete
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  confirmDeleteBtn?.addEventListener('click', async () => {
+    const id = (document.getElementById('deleteId') as HTMLInputElement).value;
+    
+    try {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert('Error al eliminar el producto');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al eliminar el producto');
+    }
+  });
+</script>

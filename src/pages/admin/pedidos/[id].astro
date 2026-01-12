@@ -1,0 +1,294 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/pedidos');
+}
+
+// Obtener pedido
+const { data: order, error } = await supabase
+  .from('orders')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (error || !order) {
+  return Astro.redirect('/admin/pedidos');
+}
+
+// Parsear items
+const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+
+// Formatear moneda
+const formatCurrency = (cents: number) => {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(cents / 100);
+};
+
+// Formatear fecha
+const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Estado a badge
+const getStatusBadge = (status: string) => {
+  const badges: Record<string, { color: string; label: string; bgColor: string }> = {
+    pending: { color: 'text-yellow-800', bgColor: 'bg-yellow-100', label: 'Pendiente' },
+    paid: { color: 'text-green-800', bgColor: 'bg-green-100', label: 'Pagado' },
+    processing: { color: 'text-blue-800', bgColor: 'bg-blue-100', label: 'Procesando' },
+    shipped: { color: 'text-purple-800', bgColor: 'bg-purple-100', label: 'Enviado' },
+    completed: { color: 'text-green-800', bgColor: 'bg-green-100', label: 'Completado' },
+    cancelled: { color: 'text-red-800', bgColor: 'bg-red-100', label: 'Cancelado' },
+  };
+  return badges[status] || { color: 'text-neutral-800', bgColor: 'bg-neutral-100', label: status };
+};
+
+const badge = getStatusBadge(order.status);
+
+const statusOptions = [
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'paid', label: 'Pagado' },
+  { value: 'processing', label: 'Procesando' },
+  { value: 'shipped', label: 'Enviado' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'cancelled', label: 'Cancelado' },
+];
+---
+
+<AdminLayout title={`Pedido #${order.id.slice(0, 8)}`} currentPage="pedidos">
+  <div class="space-y-6">
+    {/* Back Button */}
+    <a
+      href="/admin/pedidos"
+      class="inline-flex items-center gap-2 text-neutral-600 hover:text-brand-red transition-colors"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Volver a pedidos
+    </a>
+
+    {/* Header */}
+    <div class="bg-white rounded-xl border border-neutral-200 p-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <h1 class="text-2xl font-bold text-brand-black font-mono">
+              #{order.id.slice(0, 8)}
+            </h1>
+            <span class={`px-3 py-1 rounded-full text-sm font-medium ${badge.bgColor} ${badge.color}`}>
+              {badge.label}
+            </span>
+          </div>
+          <p class="text-neutral-500">
+            Creado el {formatDate(order.created_at)}
+          </p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <form id="statusForm" method="POST" action={`/api/admin/orders/${order.id}/status`} class="flex items-center gap-2">
+            <select
+              name="status"
+              id="statusSelect"
+              class="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+            >
+              {statusOptions.map((opt) => (
+                <option value={opt.value} selected={order.status === opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-brand-black text-white font-medium rounded-lg hover:bg-brand-red transition-colors"
+            >
+              Actualizar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Order Items */}
+      <div class="lg:col-span-2 bg-white rounded-xl border border-neutral-200">
+        <div class="p-6 border-b border-neutral-200">
+          <h2 class="text-lg font-bold text-brand-black">Productos del Pedido</h2>
+        </div>
+        
+        <div class="divide-y divide-neutral-100">
+          {items.length > 0 ? items.map((item: any) => (
+            <div class="p-4 flex items-center gap-4">
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  class="w-16 h-16 object-cover rounded-lg bg-neutral-100"
+                />
+              )}
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-brand-black truncate">{item.name}</p>
+                {item.size && (
+                  <p class="text-sm text-neutral-500">Talla: {item.size}</p>
+                )}
+                <p class="text-sm text-neutral-500">
+                  Cantidad: {item.quantity}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-brand-black">
+                  {formatCurrency(item.price * item.quantity)}
+                </p>
+                <p class="text-sm text-neutral-500">
+                  {formatCurrency(item.price)} c/u
+                </p>
+              </div>
+            </div>
+          )) : (
+            <div class="p-8 text-center text-neutral-500">
+              No hay detalles de productos disponibles
+            </div>
+          )}
+        </div>
+
+        {/* Totals */}
+        <div class="p-6 bg-neutral-50 border-t border-neutral-200">
+          <div class="space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-neutral-600">Subtotal</span>
+              <span class="text-brand-black">{formatCurrency(order.total_amount)}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-neutral-600">Envío</span>
+              <span class="text-green-600">Gratis</span>
+            </div>
+            <div class="flex justify-between text-lg font-bold pt-2 border-t border-neutral-200">
+              <span class="text-brand-black">Total</span>
+              <span class="text-brand-red">{formatCurrency(order.total_amount)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer & Shipping Info */}
+      <div class="space-y-6">
+        {/* Customer Info */}
+        <div class="bg-white rounded-xl border border-neutral-200">
+          <div class="p-6 border-b border-neutral-200">
+            <h2 class="text-lg font-bold text-brand-black">👤 Cliente</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <p class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Nombre</p>
+              <p class="font-medium text-brand-black">{order.shipping_name || 'No proporcionado'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Email</p>
+              <p class="font-medium text-brand-black">{order.billing_email || 'No proporcionado'}</p>
+            </div>
+            {order.shipping_phone && (
+              <div>
+                <p class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Teléfono</p>
+                <p class="font-medium text-brand-black">{order.shipping_phone}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Shipping Address */}
+        <div class="bg-white rounded-xl border border-neutral-200">
+          <div class="p-6 border-b border-neutral-200">
+            <h2 class="text-lg font-bold text-brand-black">📦 Dirección de Envío</h2>
+          </div>
+          <div class="p-6">
+            {order.shipping_address ? (
+              <div class="space-y-1 text-brand-black">
+                {typeof order.shipping_address === 'object' ? (
+                  <>
+                    {order.shipping_address.line1 && <p>{order.shipping_address.line1}</p>}
+                    {order.shipping_address.line2 && <p>{order.shipping_address.line2}</p>}
+                    {order.shipping_address.city && order.shipping_address.postal_code && (
+                      <p>{order.shipping_address.postal_code} {order.shipping_address.city}</p>
+                    )}
+                    {order.shipping_address.state && <p>{order.shipping_address.state}</p>}
+                    {order.shipping_address.country && <p class="text-neutral-500">{order.shipping_address.country}</p>}
+                  </>
+                ) : (
+                  <p>{order.shipping_address}</p>
+                )}
+              </div>
+            ) : (
+              <p class="text-neutral-500">No hay dirección de envío</p>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Info */}
+        <div class="bg-white rounded-xl border border-neutral-200">
+          <div class="p-6 border-b border-neutral-200">
+            <h2 class="text-lg font-bold text-brand-black">💳 Información de Pago</h2>
+          </div>
+          <div class="p-6 space-y-4">
+            {order.stripe_session_id && (
+              <div>
+                <p class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Stripe Session</p>
+                <p class="font-mono text-xs text-brand-black break-all">{order.stripe_session_id}</p>
+              </div>
+            )}
+            {order.stripe_payment_intent_id && (
+              <div>
+                <p class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Payment Intent</p>
+                <p class="font-mono text-xs text-brand-black break-all">{order.stripe_payment_intent_id}</p>
+              </div>
+            )}
+            {!order.stripe_session_id && !order.stripe_payment_intent_id && (
+              <p class="text-neutral-500">No hay información de pago disponible</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Handle status update form
+  const form = document.getElementById('statusForm') as HTMLFormElement;
+  
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const status = formData.get('status');
+    
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert('Error al actualizar el estado');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al actualizar el estado');
+    }
+  });
+</script>

@@ -1,0 +1,427 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Obtener categorías con conteo de productos
+const { data: categories, error } = await supabase
+  .from('categories')
+  .select(`
+    *,
+    products:products(count)
+  `)
+  .order('display_order', { ascending: true });
+
+const categoriesList = categories || [];
+---
+
+<AdminLayout title="Gestión de Categorías" currentPage="categorias">
+  <div class="space-y-6">
+    {/* Header */}
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-brand-black">Categorías</h1>
+        <p class="text-neutral-500 mt-1">
+          {categoriesList.length} {categoriesList.length === 1 ? 'categoría' : 'categorías'} en total
+        </p>
+      </div>
+      <button
+        id="openModalBtn"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-brand-red text-white font-semibold rounded-lg hover:bg-brand-orange transition-colors"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Nueva Categoría
+      </button>
+    </div>
+
+    {/* Categories Grid */}
+    {categoriesList.length > 0 ? (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {categoriesList.map((category) => {
+          const productCount = category.products?.[0]?.count || 0;
+          
+          return (
+            <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden hover:shadow-lg transition-shadow group">
+              {/* Category Header */}
+              <div class="p-6 border-b border-neutral-100">
+                <div class="flex items-start justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-brand-red/10 rounded-xl flex items-center justify-center text-brand-red font-bold text-lg">
+                      {category.icon || category.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 class="font-bold text-brand-black text-lg">{category.name}</h3>
+                      <p class="text-sm text-neutral-500">/{category.slug}</p>
+                    </div>
+                  </div>
+                  <span class="px-2 py-1 bg-neutral-100 text-neutral-600 text-xs font-medium rounded-full">
+                    #{category.display_order || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Category Body */}
+              <div class="p-6">
+                {category.description && (
+                  <p class="text-sm text-neutral-600 mb-4 line-clamp-2">
+                    {category.description}
+                  </p>
+                )}
+                
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <span class="text-sm text-neutral-600">
+                      {productCount} {productCount === 1 ? 'producto' : 'productos'}
+                    </span>
+                  </div>
+                  
+                  <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      class="edit-btn p-2 text-neutral-400 hover:text-brand-red hover:bg-brand-red/10 rounded-lg transition-colors"
+                      data-id={category.id}
+                      data-name={category.name}
+                      data-slug={category.slug}
+                      data-description={category.description || ''}
+                      data-icon={category.icon || ''}
+                      data-order={category.display_order || 0}
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      class="delete-btn p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      data-id={category.id}
+                      data-name={category.name}
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Link */}
+              <a
+                href={`/categoria/${category.slug}`}
+                class="block p-4 bg-neutral-50 text-center text-sm font-medium text-brand-black hover:text-brand-red hover:bg-neutral-100 transition-colors"
+              >
+                Ver en tienda →
+              </a>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="bg-white rounded-xl border border-neutral-200 p-12 text-center">
+        <svg class="w-16 h-16 text-neutral-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+        </svg>
+        <h3 class="text-lg font-semibold text-brand-black mb-2">No hay categorías</h3>
+        <p class="text-neutral-500 mb-4">Crea tu primera categoría para organizar los productos</p>
+        <button
+          id="openModalBtnEmpty"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-brand-red text-white font-semibold rounded-lg hover:bg-brand-orange transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Crear Categoría
+        </button>
+      </div>
+    )}
+  </div>
+
+  {/* Modal for Create/Edit */}
+  <div id="categoryModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" id="modalOverlay"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md relative">
+        <div class="p-6 border-b border-neutral-200">
+          <h2 id="modalTitle" class="text-xl font-bold text-brand-black">Nueva Categoría</h2>
+        </div>
+        
+        <form id="categoryForm" class="p-6 space-y-4">
+          <input type="hidden" name="id" id="categoryId" value="" />
+          
+          <div>
+            <label for="name" class="block text-sm font-medium text-neutral-700 mb-1">
+              Nombre *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+              placeholder="Ej: Jordan Special"
+            />
+          </div>
+          
+          <div>
+            <label for="slug" class="block text-sm font-medium text-neutral-700 mb-1">
+              Slug *
+            </label>
+            <input
+              type="text"
+              id="slug"
+              name="slug"
+              required
+              class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+              placeholder="jordan-special"
+            />
+          </div>
+          
+          <div>
+            <label for="description" class="block text-sm font-medium text-neutral-700 mb-1">
+              Descripción
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              rows="3"
+              class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+              placeholder="Descripción de la categoría..."
+            ></textarea>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="icon" class="block text-sm font-medium text-neutral-700 mb-1">
+                Icono
+              </label>
+              <input
+                type="text"
+                id="icon"
+                name="icon"
+                maxlength="4"
+                class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+                placeholder="JS"
+              />
+            </div>
+            
+            <div>
+              <label for="display_order" class="block text-sm font-medium text-neutral-700 mb-1">
+                Orden
+              </label>
+              <input
+                type="number"
+                id="display_order"
+                name="display_order"
+                min="0"
+                class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          
+          <div id="formError" class="hidden p-3 bg-red-50 text-red-600 text-sm rounded-lg"></div>
+          
+          <div class="flex gap-3 pt-4">
+            <button
+              type="button"
+              id="closeModalBtn"
+              class="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="flex-1 px-4 py-2 bg-brand-red text-white font-medium rounded-lg hover:bg-brand-orange transition-colors"
+            >
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {/* Delete Confirmation Modal */}
+  <div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" id="deleteModalOverlay"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm relative">
+        <div class="p-6 text-center">
+          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold text-brand-black mb-2">¿Eliminar categoría?</h3>
+          <p class="text-neutral-500 mb-6">
+            Estás a punto de eliminar <span id="deleteCategoryName" class="font-semibold text-brand-black"></span>. Esta acción no se puede deshacer.
+          </p>
+          
+          <input type="hidden" id="deleteId" value="" />
+          
+          <div class="flex gap-3">
+            <button
+              type="button"
+              id="closeDeleteModalBtn"
+              class="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 font-medium rounded-lg hover:bg-neutral-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="confirmDeleteBtn"
+              class="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Modal management
+  const modal = document.getElementById('categoryModal');
+  const deleteModal = document.getElementById('deleteModal');
+  const form = document.getElementById('categoryForm') as HTMLFormElement;
+  const formError = document.getElementById('formError');
+  
+  // Open modal for new category
+  const openModalBtns = document.querySelectorAll('#openModalBtn, #openModalBtnEmpty');
+  openModalBtns.forEach(btn => {
+    btn?.addEventListener('click', () => {
+      document.getElementById('modalTitle')!.textContent = 'Nueva Categoría';
+      form?.reset();
+      (document.getElementById('categoryId') as HTMLInputElement).value = '';
+      modal?.classList.remove('hidden');
+    });
+  });
+  
+  // Close modal
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const modalOverlay = document.getElementById('modalOverlay');
+  
+  [closeModalBtn, modalOverlay].forEach(el => {
+    el?.addEventListener('click', () => {
+      modal?.classList.add('hidden');
+    });
+  });
+  
+  // Edit category
+  const editBtns = document.querySelectorAll('.edit-btn');
+  editBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const data = (btn as HTMLElement).dataset;
+      document.getElementById('modalTitle')!.textContent = 'Editar Categoría';
+      (document.getElementById('categoryId') as HTMLInputElement).value = data.id || '';
+      (document.getElementById('name') as HTMLInputElement).value = data.name || '';
+      (document.getElementById('slug') as HTMLInputElement).value = data.slug || '';
+      (document.getElementById('description') as HTMLTextAreaElement).value = data.description || '';
+      (document.getElementById('icon') as HTMLInputElement).value = data.icon || '';
+      (document.getElementById('display_order') as HTMLInputElement).value = data.order || '0';
+      modal?.classList.remove('hidden');
+    });
+  });
+  
+  // Delete category
+  const deleteBtns = document.querySelectorAll('.delete-btn');
+  deleteBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const data = (btn as HTMLElement).dataset;
+      (document.getElementById('deleteId') as HTMLInputElement).value = data.id || '';
+      document.getElementById('deleteCategoryName')!.textContent = data.name || '';
+      deleteModal?.classList.remove('hidden');
+    });
+  });
+  
+  // Close delete modal
+  const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
+  const deleteModalOverlay = document.getElementById('deleteModalOverlay');
+  
+  [closeDeleteModalBtn, deleteModalOverlay].forEach(el => {
+    el?.addEventListener('click', () => {
+      deleteModal?.classList.add('hidden');
+    });
+  });
+  
+  // Confirm delete
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  confirmDeleteBtn?.addEventListener('click', async () => {
+    const id = (document.getElementById('deleteId') as HTMLInputElement).value;
+    
+    try {
+      const response = await fetch(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert('Error al eliminar la categoría');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al eliminar la categoría');
+    }
+  });
+  
+  // Auto-generate slug from name
+  const nameInput = document.getElementById('name') as HTMLInputElement;
+  const slugInput = document.getElementById('slug') as HTMLInputElement;
+  
+  nameInput?.addEventListener('input', () => {
+    const categoryId = (document.getElementById('categoryId') as HTMLInputElement).value;
+    // Only auto-generate if creating new category
+    if (!categoryId) {
+      slugInput.value = nameInput.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+  });
+  
+  // Submit form
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const id = formData.get('id');
+    const data = {
+      name: formData.get('name'),
+      slug: formData.get('slug'),
+      description: formData.get('description') || null,
+      icon: formData.get('icon') || null,
+      display_order: parseInt(formData.get('display_order') as string) || 0,
+    };
+    
+    try {
+      const url = id ? `/api/admin/categories/${id}` : '/api/admin/categories';
+      const method = id ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const result = await response.json();
+        formError!.textContent = result.error || 'Error al guardar';
+        formError!.classList.remove('hidden');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      formError!.textContent = 'Error al guardar la categoría';
+      formError!.classList.remove('hidden');
+    }
+  });
+</script>

@@ -1,0 +1,236 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Verificar sesión
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+
+let user = null;
+let userProfile = null;
+
+if (accessToken && refreshToken) {
+  const { data: { user: authUser } } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  
+  if (authUser) {
+    user = authUser;
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+    userProfile = profile;
+  }
+}
+---
+
+<AdminLayout title="Configuración" currentPage="configuracion">
+  <div class="max-w-4xl space-y-8">
+    {/* Header */}
+    <div>
+      <h1 class="text-2xl font-bold text-brand-black">Configuración</h1>
+      <p class="text-neutral-500 mt-1">Administra la configuración de tu tienda</p>
+    </div>
+
+    {/* Admin Profile */}
+    <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+        <h2 class="font-semibold text-brand-black">Perfil de Administrador</h2>
+      </div>
+      <div class="p-6">
+        <div class="flex items-start gap-6">
+          <div class="w-20 h-20 bg-brand-black rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            {(userProfile?.full_name || user?.email || 'A').charAt(0).toUpperCase()}
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-brand-black">
+              {userProfile?.full_name || 'Administrador'}
+            </h3>
+            <p class="text-neutral-500">{user?.email}</p>
+            <div class="mt-3 flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                Administrador
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Store Settings */}
+    <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+        <h2 class="font-semibold text-brand-black">Configuración de la Tienda</h2>
+      </div>
+      <div class="p-6 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-2">
+              Nombre de la Tienda
+            </label>
+            <input
+              type="text"
+              value="Tienda Online"
+              disabled
+              class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-2">
+              Moneda
+            </label>
+            <input
+              type="text"
+              value="EUR (€)"
+              disabled
+              class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-500"
+            />
+          </div>
+        </div>
+        
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h4 class="font-medium text-amber-800">Configuración básica</h4>
+              <p class="text-sm text-amber-700 mt-1">
+                La configuración avanzada de la tienda se gestiona desde las variables de entorno y la base de datos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Integrations */}
+    <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+        <h2 class="font-semibold text-brand-black">Integraciones</h2>
+      </div>
+      <div class="p-6 space-y-4">
+        {/* Stripe */}
+        <div class="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-[#635BFF] rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-semibold text-brand-black">Stripe</h4>
+              <p class="text-sm text-neutral-500">Procesamiento de pagos</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+            Conectado
+          </span>
+        </div>
+
+        {/* Cloudinary */}
+        <div class="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-[#3448C5] rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-semibold text-brand-black">Cloudinary</h4>
+              <p class="text-sm text-neutral-500">Almacenamiento de imágenes</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+            Conectado
+          </span>
+        </div>
+
+        {/* Supabase */}
+        <div class="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-[#3ECF8E] rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-semibold text-brand-black">Supabase</h4>
+              <p class="text-sm text-neutral-500">Base de datos y autenticación</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+            Conectado
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {/* Quick Actions */}
+    <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+        <h2 class="font-semibold text-brand-black">Acciones Rápidas</h2>
+      </div>
+      <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <a
+            href="/api/sync/stripe-orders"
+            class="flex items-center gap-4 p-4 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
+          >
+            <div class="w-10 h-10 bg-brand-black/10 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-brand-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-medium text-brand-black">Sincronizar Pedidos</h4>
+              <p class="text-sm text-neutral-500">Sincronizar pedidos desde Stripe</p>
+            </div>
+          </a>
+
+          <a
+            href="/admin/productos/nuevo"
+            class="flex items-center gap-4 p-4 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
+          >
+            <div class="w-10 h-10 bg-brand-black/10 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-brand-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-medium text-brand-black">Nuevo Producto</h4>
+              <p class="text-sm text-neutral-500">Añadir producto a la tienda</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {/* Info */}
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <div class="flex items-start gap-4">
+        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h4 class="font-semibold text-blue-900 mb-1">Panel de Administración</h4>
+          <p class="text-sm text-blue-700">
+            Este panel te permite gestionar todos los aspectos de tu tienda online: productos, pedidos, categorías y usuarios.
+            Las imágenes se almacenan en Cloudinary para optimizar el ancho de banda.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

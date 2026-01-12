@@ -3,6 +3,7 @@ import { authStore, logout, getCurrentUser, initializeAuth } from '@stores/auth'
 
 export default function UserMenu() {
   const [user, setUser] = useState(getCurrentUser());
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -19,6 +20,7 @@ export default function UserMenu() {
 
     const unsubscribe = authStore.subscribe((state) => {
       setUser(state.user);
+      setIsAdmin(state.isAdmin || false);
       setIsLoading(state.isLoading && !state.initialized);
     });
 
@@ -94,6 +96,17 @@ export default function UserMenu() {
           >
             Mis Pedidos
           </a>
+
+          {/* Admin Panel Link - Solo visible para admins */}
+          {isAdmin && (
+            <a
+              href="/admin"
+              className="block px-4 py-3 text-sm text-brand-orange font-bold hover:bg-brand-orange hover:text-white transition-colors border-t border-brand-gray"
+              onClick={() => setShowMenu(false)}
+            >
+              Panel Admin
+            </a>
+          )}
 
           <button
             onClick={() => {

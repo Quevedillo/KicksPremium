@@ -1,0 +1,282 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Filtros desde query params
+const url = Astro.url;
+const statusFilter = url.searchParams.get('status') || 'all';
+const searchQuery = url.searchParams.get('search') || '';
+
+// Query base
+let query = supabase
+  .from('orders')
+  .select('*')
+  .order('created_at', { ascending: false });
+
+// Aplicar filtro de estado
+if (statusFilter !== 'all') {
+  query = query.eq('status', statusFilter);
+}
+
+const { data: orders, error } = await query;
+
+// Filtrar por búsqueda si existe
+let filteredOrders = orders || [];
+if (searchQuery) {
+  const search = searchQuery.toLowerCase();
+  filteredOrders = filteredOrders.filter(order => 
+    order.id.toLowerCase().includes(search) ||
+    order.billing_email?.toLowerCase().includes(search) ||
+    order.shipping_name?.toLowerCase().includes(search)
+  );
+}
+
+// Estadísticas
+const stats = {
+  total: orders?.length || 0,
+  pending: orders?.filter(o => o.status === 'pending').length || 0,
+  paid: orders?.filter(o => o.status === 'paid').length || 0,
+  shipped: orders?.filter(o => o.status === 'shipped').length || 0,
+  completed: orders?.filter(o => o.status === 'completed').length || 0,
+  cancelled: orders?.filter(o => o.status === 'cancelled').length || 0,
+};
+
+// Formatear moneda
+const formatCurrency = (cents: number) => {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(cents / 100);
+};
+
+// Formatear fecha
+const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Estado a badge
+const getStatusBadge = (status: string) => {
+  const badges: Record<string, { color: string; label: string; icon: string }> = {
+    pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Pendiente', icon: '⏳' },
+    paid: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Pagado', icon: '✓' },
+    processing: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Procesando', icon: '⚙️' },
+    shipped: { color: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Enviado', icon: '📦' },
+    completed: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completado', icon: '✅' },
+    cancelled: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Cancelado', icon: '❌' },
+  };
+  return badges[status] || { color: 'bg-neutral-100 text-neutral-800 border-neutral-200', label: status, icon: '?' };
+};
+
+const statusOptions = [
+  { value: 'all', label: 'Todos' },
+  { value: 'pending', label: 'Pendientes' },
+  { value: 'paid', label: 'Pagados' },
+  { value: 'processing', label: 'Procesando' },
+  { value: 'shipped', label: 'Enviados' },
+  { value: 'completed', label: 'Completados' },
+  { value: 'cancelled', label: 'Cancelados' },
+];
+---
+
+<AdminLayout title="Gestión de Pedidos" currentPage="pedidos">
+  <div class="space-y-6">
+    {/* Stats Cards */}
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <a
+        href="/admin/pedidos"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'all' ? 'border-brand-red bg-brand-red/5' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}
+      >
+        <p class="text-2xl font-bold text-brand-black">{stats.total}</p>
+        <p class="text-xs text-neutral-500">Total</p>
+      </a>
+      <a
+        href="/admin/pedidos?status=pending"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'pending' ? 'border-yellow-500 bg-yellow-50' : 'border-neutral-200 bg-white hover:border-yellow-200'}`}
+      >
+        <p class="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+        <p class="text-xs text-neutral-500">Pendientes</p>
+      </a>
+      <a
+        href="/admin/pedidos?status=paid"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'paid' ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-white hover:border-green-200'}`}
+      >
+        <p class="text-2xl font-bold text-green-600">{stats.paid}</p>
+        <p class="text-xs text-neutral-500">Pagados</p>
+      </a>
+      <a
+        href="/admin/pedidos?status=shipped"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'shipped' ? 'border-purple-500 bg-purple-50' : 'border-neutral-200 bg-white hover:border-purple-200'}`}
+      >
+        <p class="text-2xl font-bold text-purple-600">{stats.shipped}</p>
+        <p class="text-xs text-neutral-500">Enviados</p>
+      </a>
+      <a
+        href="/admin/pedidos?status=completed"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'completed' ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-white hover:border-green-200'}`}
+      >
+        <p class="text-2xl font-bold text-green-600">{stats.completed}</p>
+        <p class="text-xs text-neutral-500">Completados</p>
+      </a>
+      <a
+        href="/admin/pedidos?status=cancelled"
+        class={`p-4 rounded-xl border-2 transition-all ${statusFilter === 'cancelled' ? 'border-red-500 bg-red-50' : 'border-neutral-200 bg-white hover:border-red-200'}`}
+      >
+        <p class="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+        <p class="text-xs text-neutral-500">Cancelados</p>
+      </a>
+    </div>
+
+    {/* Search & Filters */}
+    <div class="bg-white rounded-xl border border-neutral-200 p-4">
+      <form method="GET" class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <input
+            type="text"
+            name="search"
+            value={searchQuery}
+            placeholder="Buscar por ID, email o nombre..."
+            class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+          />
+        </div>
+        <select
+          name="status"
+          class="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:border-brand-red"
+        >
+          {statusOptions.map((opt) => (
+            <option value={opt.value} selected={statusFilter === opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          class="px-6 py-2 bg-brand-black text-white font-medium rounded-lg hover:bg-brand-red transition-colors"
+        >
+          Filtrar
+        </button>
+      </form>
+    </div>
+
+    {/* Orders Table */}
+    {filteredOrders.length > 0 ? (
+      <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-neutral-50 border-b border-neutral-200">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Pedido
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Items
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Total
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-100">
+              {filteredOrders.map((order) => {
+                const badge = getStatusBadge(order.status);
+                const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                const itemCount = Array.isArray(items) ? items.length : 0;
+                
+                return (
+                  <tr class="hover:bg-neutral-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <p class="font-mono text-sm font-semibold text-brand-black">
+                        #{order.id.slice(0, 8)}
+                      </p>
+                      {order.stripe_session_id && (
+                        <p class="text-xs text-neutral-400 truncate max-w-[120px]">
+                          Stripe: {order.stripe_session_id.slice(0, 12)}...
+                        </p>
+                      )}
+                    </td>
+                    <td class="px-6 py-4">
+                      <p class="font-medium text-brand-black">
+                        {order.shipping_name || 'Sin nombre'}
+                      </p>
+                      <p class="text-sm text-neutral-500">
+                        {order.billing_email || 'Sin email'}
+                      </p>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
+                        {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4">
+                      <p class="font-bold text-brand-black">
+                        {formatCurrency(order.total_amount)}
+                      </p>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${badge.color}`}>
+                        <span>{badge.icon}</span>
+                        {badge.label}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4">
+                      <p class="text-sm text-neutral-600">
+                        {formatDate(order.created_at)}
+                      </p>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <a
+                          href={`/admin/pedidos/${order.id}`}
+                          class="px-3 py-1.5 text-xs font-medium text-brand-black hover:text-brand-red transition-colors"
+                        >
+                          Ver detalles
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : (
+      <div class="bg-white rounded-xl border border-neutral-200 p-12 text-center">
+        <svg class="w-16 h-16 text-neutral-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <h3 class="text-lg font-semibold text-brand-black mb-2">No hay pedidos</h3>
+        <p class="text-neutral-500">
+          {searchQuery || statusFilter !== 'all' 
+            ? 'No se encontraron pedidos con esos filtros.' 
+            : 'Aún no se han recibido pedidos en la tienda.'}
+        </p>
+        {(searchQuery || statusFilter !== 'all') && (
+          <a
+            href="/admin/pedidos"
+            class="inline-block mt-4 px-4 py-2 text-sm font-medium text-brand-red hover:text-brand-orange"
+          >
+            Limpiar filtros
+          </a>
+        )}
+      </div>
+    )}
+  </div>
+</AdminLayout>
