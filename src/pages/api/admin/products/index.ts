@@ -126,16 +126,26 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // Parsear body
     const body = await request.json();
     
-    // Validar campos requeridos
-    if (!body.name || !body.description || !body.category_id || body.price === undefined || body.stock === undefined) {
-      return new Response(JSON.stringify({ error: 'Faltan campos requeridos: name, description, category_id, price, stock' }), {
+    // Validar campos requeridos - convertir a valores estrictos
+    const name = body.name?.toString().trim();
+    const description = body.description?.toString().trim();
+    const categoryId = body.category_id?.toString().trim();
+    const price = parseFloat(body.price || 0);
+    const stock = parseInt(body.stock || 0);
+
+    if (!name || !description || !categoryId || price <= 0 || stock < 0) {
+      console.error('Validación fallida:', { name, description, categoryId, price, stock });
+      return new Response(JSON.stringify({ 
+        error: 'Faltan campos requeridos o son inválidos: name, description, category_id, price (>0), stock (>=0)',
+        details: { name: !!name, description: !!description, categoryId: !!categoryId, price, stock }
+      }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     // Generar slug si no se proporciona
-    const slug = body.slug || body.name
+    const slug = body.slug?.toString().trim() || name
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -156,18 +166,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     // Crear producto
     const productData = {
-      name: body.name,
+      name,
       slug: finalSlug,
-      description: body.description,
-      category_id: body.category_id,
-      price: parseFloat(body.price),
+      description,
+      category_id: categoryId,
+      price,
       compare_price: body.compare_price ? parseFloat(body.compare_price) : null,
-      stock: parseInt(body.stock),
+      stock,
       images: body.images || [],
-      sku: body.sku || null,
-      material: body.material || null,
-      brand: body.brand || null,
-      color: body.color || null,
+      sku: body.sku?.toString().trim() || null,
+      material: body.material?.toString().trim() || null,
+      brand: body.brand?.toString().trim() || null,
+      color: body.color?.toString().trim() || null,
       is_featured: body.is_featured || false,
       is_active: body.is_active !== false, // default true
     };

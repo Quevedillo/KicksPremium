@@ -16,6 +16,18 @@ if (productError || !product) {
   return Astro.redirect('/admin/productos?error=not-found');
 }
 
+// Validar y filtrar imágenes - remover URLs inválidas de placeholder
+const validImages = (product.images || []).filter((img: string) => {
+  if (typeof img !== 'string') return false;
+  // Remover URLs que parecen ser placeholders locales
+  if (img.includes('?text=') || img.startsWith('500x500')) return false;
+  // Remover URLs vacías
+  if (!img.trim()) return false;
+  return true;
+});
+
+product.images = validImages;
+
 // Obtener categorías
 const { data: categories } = await supabase
   .from('categories')
