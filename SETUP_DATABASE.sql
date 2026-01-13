@@ -91,6 +91,10 @@ ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
 ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
+-- Eliminar restricción NOT NULL de brand si existe (permitir valores NULL)
+ALTER TABLE products
+ALTER COLUMN brand DROP NOT NULL;
+
 -- Crear indices para busquedas rapidas
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand);

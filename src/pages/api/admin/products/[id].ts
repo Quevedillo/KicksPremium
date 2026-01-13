@@ -95,18 +95,13 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       slug,
       description,
       price,
-      compare_price,
-      cost_price,
       stock,
       category_id,
       brand,
-      sku,
-      material,
       color,
-      is_featured,
-      is_active,
       images,
     } = body;
+    let { sku } = body;
 
     if (!name || !slug || price === undefined || isNaN(price) || price < 0) {
       return new Response(
@@ -115,16 +110,45 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       );
     }
 
+    // Convertir EUR a centimos
+    const priceInCents = Math.round(parseFloat(price) * 100);
+
+    // Generar SKU automático si no se proporciona
+    if (!sku || !sku.trim()) {
+      const brandPrefix = brand ? brand.substring(0, 3).toUpperCase() : 'PRD';
+      const slugPrefix = slug.substring(0, 8).toUpperCase().replace(/-/g, '');
+      const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
+      sku = `${brandPrefix}-${slugPrefix}-${timestamp}`;
+    } else {
+      // Verificar SKU único (excluyendo el producto actual)
+      const { data: existingSkuProduct } = await supabase
+        .from('products')
+        .select('id')
+        .eq('sku', sku)
+        .neq('id', id)
+        .single();
+      
+      if (existingSkuProduct) {
+        return new Response(
+          JSON.stringify({ error: 'El SKU ya existe', details: `Ya existe otro producto con el SKU: ${sku}` }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('products')
       .update({
         name,
         slug,
         description,
-        price,
+        price: priceInCents,
         stock: stock || 0,
         category_id,
-        images: images || [],
+        brand: brand || null,
+        sku: sku || null,
+        color: color || null,
+        images: Array.isArray(images) ? images : [],
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

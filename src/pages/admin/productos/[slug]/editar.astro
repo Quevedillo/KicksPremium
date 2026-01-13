@@ -140,7 +140,7 @@ const { data: categories } = await supabase
           <h2 class="font-semibold text-brand-black">Precio e Inventario</h2>
         </div>
         <div class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Price */}
             <div>
               <label for="price" class="block text-sm font-medium text-neutral-700 mb-2">
@@ -155,30 +155,10 @@ const { data: categories } = await supabase
                   step="0.01"
                   min="0"
                   required
-                  value={product.price}
+                  value={(product.price / 100).toFixed(2)}
                   class="w-full pl-8 pr-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
                 />
               </div>
-            </div>
-
-            {/* Compare Price */}
-            <div>
-              <label for="compare_price" class="block text-sm font-medium text-neutral-700 mb-2">
-                Precio Original
-              </label>
-              <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
-                <input
-                  type="number"
-                  id="compare_price"
-                  name="compare_price"
-                  step="0.01"
-                  min="0"
-                  value={product.compare_price || ''}
-                  class="w-full pl-8 pr-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                />
-              </div>
-              <p class="text-xs text-neutral-500 mt-1">Precio antes del descuento</p>
             </div>
 
             {/* Stock */}
@@ -195,27 +175,6 @@ const { data: categories } = await supabase
                 value={product.stock}
                 class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
               />
-            </div>
-
-            {/* Cost Price */}
-            <div>
-              <label for="cost_price" class="block text-sm font-medium text-neutral-700 mb-2">
-                Precio de Coste (EUR)
-              </label>
-              <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
-                <input
-                  type="number"
-                  id="cost_price"
-                  name="cost_price"
-                  step="0.01"
-                  min="0"
-                  value={product.cost_price || ''}
-                  placeholder="0.00"
-                  class="w-full pl-8 pr-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                />
-              </div>
-              <p class="text-xs text-neutral-500 mt-1">Para calcular márgenes de beneficio</p>
             </div>
           </div>
         </div>
@@ -275,7 +234,7 @@ const { data: categories } = await supabase
           <h2 class="font-semibold text-brand-black">Detalles Adicionales</h2>
         </div>
         <div class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* SKU */}
             <div>
               <label for="sku" class="block text-sm font-medium text-neutral-700 mb-2">
@@ -287,21 +246,9 @@ const { data: categories } = await supabase
                 name="sku"
                 value={product.sku || ''}
                 class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
+                placeholder="Se genera automáticamente"
               />
-            </div>
-
-            {/* Material */}
-            <div>
-              <label for="material" class="block text-sm font-medium text-neutral-700 mb-2">
-                Material
-              </label>
-              <input
-                type="text"
-                id="material"
-                name="material"
-                value={product.material || ''}
-                class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-              />
+              <p class="text-xs text-neutral-500 mt-1">Se genera automáticamente si lo dejas vacío</p>
             </div>
 
             {/* Brand */}
@@ -329,33 +276,9 @@ const { data: categories } = await supabase
                 name="color"
                 value={product.color || ''}
                 class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
+                placeholder="Ej: Negro, Blanco, Azul"
               />
             </div>
-          </div>
-
-          {/* Featured & Active */}
-          <div class="flex flex-wrap gap-6 mt-6 pt-6 border-t border-neutral-200">
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                id="is_featured"
-                name="is_featured"
-                checked={product.is_featured}
-                class="w-5 h-5 rounded border-neutral-300 text-brand-black focus:ring-brand-black"
-              />
-              <span class="text-sm font-medium text-neutral-700">Producto destacado</span>
-            </label>
-
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                id="is_active"
-                name="is_active"
-                checked={product.is_active !== false}
-                class="w-5 h-5 rounded border-neutral-300 text-brand-black focus:ring-brand-black"
-              />
-              <span class="text-sm font-medium text-neutral-700">Producto activo (visible en tienda)</span>
-            </label>
           </div>
         </div>
       </div>
@@ -397,6 +320,7 @@ const { data: categories } = await supabase
 <script define:vars={{ productId: product.id }}>
   // Get current images from hidden input
   let currentImages = JSON.parse(document.getElementById('images')?.value || '[]');
+  const imagesInput = document.getElementById('images');
 
   // Remove image from current images
   const removeImageBtns = document.querySelectorAll('.remove-image-btn');
@@ -404,7 +328,7 @@ const { data: categories } = await supabase
     btn.addEventListener('click', () => {
       const url = btn.dataset.url;
       currentImages = currentImages.filter(img => img !== url);
-      document.getElementById('images').value = JSON.stringify(currentImages);
+      if (imagesInput) imagesInput.value = JSON.stringify(currentImages);
       
       // Remove from DOM
       btn.closest('.aspect-square')?.remove();
@@ -419,9 +343,11 @@ const { data: categories } = await supabase
 
   // Listen for new images from CloudinaryImageUpload
   window.addEventListener('cloudinary-images-updated', (e) => {
+    console.log('Received cloudinary-images-updated:', e.detail.images);
     const newImages = e.detail.images || [];
     currentImages = [...currentImages, ...newImages];
-    document.getElementById('images').value = JSON.stringify(currentImages);
+    if (imagesInput) imagesInput.value = JSON.stringify(currentImages);
+    console.log('Updated currentImages:', currentImages);
   });
 
   // Form submission
@@ -439,6 +365,17 @@ const { data: categories } = await supabase
     try {
       const formData = new FormData(form);
       
+      // Get images from input
+      const imagesValue = formData.get('images')?.toString() || '[]';
+      let images = [];
+      try {
+        images = JSON.parse(imagesValue);
+        if (!Array.isArray(images)) images = [];
+      } catch (e) {
+        console.warn('Could not parse images:', imagesValue);
+        images = [];
+      }
+      
       // Build product data
       const productData = {
         name: formData.get('name')?.toString().trim() || '',
@@ -446,17 +383,14 @@ const { data: categories } = await supabase
         description: formData.get('description')?.toString().trim() || '',
         category_id: formData.get('category_id')?.toString().trim() || '',
         price: parseFloat(formData.get('price')?.toString() || '0'),
-        compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')?.toString() || '0') : null,
-        cost_price: formData.get('cost_price') ? parseFloat(formData.get('cost_price')?.toString() || '0') : null,
         stock: parseInt(formData.get('stock')?.toString() || '0'),
-        images: JSON.parse(formData.get('images')?.toString() || '[]'),
+        images: images,
         sku: formData.get('sku')?.toString().trim() || null,
-        material: formData.get('material')?.toString().trim() || null,
         brand: formData.get('brand')?.toString().trim() || null,
         color: formData.get('color')?.toString().trim() || null,
-        is_featured: formData.has('is_featured'),
-        is_active: formData.has('is_active'),
       };
+      
+      console.log('Enviando actualización:', productData);
       
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: 'PUT',
@@ -467,6 +401,7 @@ const { data: categories } = await supabase
       });
       
       const result = await response.json();
+      console.log('Respuesta:', result);
       
       if (response.ok) {
         window.location.href = '/admin/productos?updated=true';

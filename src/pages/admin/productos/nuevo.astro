@@ -103,7 +103,7 @@ const { data: categories } = await supabase
           <h2 class="font-semibold text-brand-black">Precio e Inventario</h2>
         </div>
         <div class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Price */}
             <div>
               <label for="price" class="block text-sm font-medium text-neutral-700 mb-2">
@@ -122,46 +122,6 @@ const { data: categories } = await supabase
                   placeholder="0.00"
                 />
               </div>
-            </div>
-
-            {/* Compare Price */}
-            <div>
-              <label for="compare_price" class="block text-sm font-medium text-neutral-700 mb-2">
-                Precio Original
-              </label>
-              <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
-                <input
-                  type="number"
-                  id="compare_price"
-                  name="compare_price"
-                  step="0.01"
-                  min="0"
-                  class="w-full pl-8 pr-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                  placeholder="0.00"
-                />
-              </div>
-              <p class="text-xs text-neutral-500 mt-1">Precio antes del descuento</p>
-            </div>
-
-            {/* Cost Price */}
-            <div>
-              <label for="cost_price" class="block text-sm font-medium text-neutral-700 mb-2">
-                Precio de Coste
-              </label>
-              <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
-                <input
-                  type="number"
-                  id="cost_price"
-                  name="cost_price"
-                  step="0.01"
-                  min="0"
-                  class="w-full pl-8 pr-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                  placeholder="0.00"
-                />
-              </div>
-              <p class="text-xs text-neutral-500 mt-1">Lo que te costó el producto</p>
             </div>
 
             {/* Stock */}
@@ -201,7 +161,7 @@ const { data: categories } = await supabase
           <h2 class="font-semibold text-brand-black">Detalles Adicionales</h2>
         </div>
         <div class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* SKU */}
             <div>
               <label for="sku" class="block text-sm font-medium text-neutral-700 mb-2">
@@ -212,22 +172,9 @@ const { data: categories } = await supabase
                 id="sku"
                 name="sku"
                 class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                placeholder="ZAP-OXF-001"
+                placeholder="Se genera automáticamente"
               />
-            </div>
-
-            {/* Material */}
-            <div>
-              <label for="material" class="block text-sm font-medium text-neutral-700 mb-2">
-                Material
-              </label>
-              <input
-                type="text"
-                id="material"
-                name="material"
-                class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                placeholder="Cuero genuino"
-              />
+              <p class="text-xs text-neutral-500 mt-1">Se genera automáticamente si lo dejas vacío</p>
             </div>
 
             {/* Brand */}
@@ -254,33 +201,9 @@ const { data: categories } = await supabase
                 id="color"
                 name="color"
                 class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
-                placeholder="Negro"
+                placeholder="Ej: Negro, Blanco, Rojo"
               />
             </div>
-          </div>
-
-          {/* Featured & Active */}
-          <div class="flex flex-wrap gap-6 mt-6 pt-6 border-t border-neutral-200">
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                id="is_featured"
-                name="is_featured"
-                class="w-5 h-5 rounded border-neutral-300 text-brand-black focus:ring-brand-black"
-              />
-              <span class="text-sm font-medium text-neutral-700">Producto destacado</span>
-            </label>
-
-            <label class="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                id="is_active"
-                name="is_active"
-                checked
-                class="w-5 h-5 rounded border-neutral-300 text-brand-black focus:ring-brand-black"
-              />
-              <span class="text-sm font-medium text-neutral-700">Producto activo (visible en tienda)</span>
-            </label>
           </div>
         </div>
       </div>
@@ -313,6 +236,7 @@ const { data: categories } = await supabase
   // Generate slug from name
   const nameInput = document.getElementById('name') as HTMLInputElement;
   const slugInput = document.getElementById('slug') as HTMLInputElement;
+  const imagesInput = document.getElementById('images') as HTMLInputElement;
   
   nameInput?.addEventListener('input', () => {
     const slug = nameInput.value
@@ -326,9 +250,10 @@ const { data: categories } = await supabase
 
   // Listen for images from CloudinaryImageUpload
   window.addEventListener('cloudinary-images-updated', ((e: CustomEvent) => {
-    const imagesInput = document.getElementById('images') as HTMLInputElement;
+    console.log('Received cloudinary-images-updated:', e.detail.images);
     if (imagesInput) {
-      imagesInput.value = JSON.stringify(e.detail.images);
+      imagesInput.value = JSON.stringify(e.detail.images || []);
+      console.log('Updated images input:', imagesInput.value);
     }
   }) as EventListener);
 
@@ -363,22 +288,27 @@ const { data: categories } = await supabase
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
       
+      const imagesValue = formData.get('images')?.toString() || '[]';
+      let images: string[] = [];
+      try {
+        images = JSON.parse(imagesValue);
+        if (!Array.isArray(images)) images = [];
+      } catch (e) {
+        console.warn('Could not parse images:', imagesValue);
+        images = [];
+      }
+      
       const productData = {
         name: name,
         slug: slug,
         description: formData.get('description')?.toString().trim() || '',
         category_id: categoryId,
         price: parseFloat(formData.get('price')?.toString() || '0'),
-        compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')?.toString() || '0') : null,
-        cost_price: formData.get('cost_price') ? parseFloat(formData.get('cost_price')?.toString() || '0') : null,
         stock: parseInt(formData.get('stock')?.toString() || '0'),
-        images: JSON.parse((formData.get('images')?.toString() || '[]')),
+        images: images,
         sku: formData.get('sku')?.toString().trim() || null,
-        material: formData.get('material')?.toString().trim() || null,
         brand: formData.get('brand')?.toString().trim() || null,
         color: formData.get('color')?.toString().trim() || null,
-        is_featured: formData.has('is_featured'),
-        is_active: formData.has('is_active'),
       };
       
       console.log('Enviando producto:', productData);

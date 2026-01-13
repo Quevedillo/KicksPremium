@@ -26,11 +26,13 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
 
   // Emit custom event when images change
   const emitImagesUpdated = (images: ImageData[]) => {
+    // Emit event with just the URLs since that's what the form needs
     const urls = images.map(img => img.url);
     const event = new CustomEvent('cloudinary-images-updated', {
       detail: { images: urls }
     });
     window.dispatchEvent(event);
+    console.log('Emitted cloudinary-images-updated with URLs:', urls);
   };
 
   // Listen for max files update from parent
@@ -102,7 +104,7 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
       const allImages = [...uploadedImages, ...newImages];
       setUploadedImages(allImages);
       onImagesSelected?.(allImages);
-      emitImagesUpdated(newImages); // Only emit new images
+      emitImagesUpdated(allImages); // Emit all accumulated images
     } catch (err) {
       setError(
         err instanceof Error
