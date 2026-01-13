@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
 import { supabase } from '@lib/supabase';
+import { sendOrderConfirmationEmail } from '@lib/email';
 import Stripe from 'stripe';
 
 // Handle Stripe webhooks
@@ -47,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
         const total = session.amount_total || 0;
 
         // Create order in Supabase
-        const { error: orderError } = await supabase
+        const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
             user_id: userId,
@@ -62,12 +63,51 @@ export const POST: APIRoute = async ({ request }) => {
             items: cartItems,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          });
+          })
+          .select()
+          .single();
 
         if (orderError) {
           console.error('Error saving order to Supabase:', orderError);
         } else {
           console.log(`Order saved for user ${userId}`);
+
+          // Send order confirmation email
+          try {
+            if (order && session.customer_email) {
+              // Get customer details for email
+              const customerName = (session as any).shipping?.name || 'Cliente';
+              
+              // Parse shipping address
+              let shippingAddress = undefined;
+              if ((session as any).shipping?.address) {
+                shippingAddress = (session as any).shipping.address;
+              }
+
+              // Calculate subtotal, tax
+              const subtotal = cartItems.reduce(
+                (sum: number, item: any) => sum + item.price * item.quantity,
+                0
+              );
+              const tax = total - subtotal;
+
+              await sendOrderConfirmationEmail({
+                orderId: order.id,
+                email: session.customer_email,
+                customerName,
+                items: cartItems,
+                subtotal,
+                tax,
+                total,
+                shippingAddress,
+                stripeSessionId: session.id,
+              });
+              console.log(`Order confirmation email sent to ${session.customer_email}`);
+            }
+          } catch (emailError) {
+            console.error('Error sending order confirmation email:', emailError);
+            // Don't fail the webhook if email fails
+          }
         }
       }
     }

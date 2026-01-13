@@ -463,7 +463,23 @@ ON CONFLICT (slug) DO UPDATE SET
   images = EXCLUDED.images;
 
 -- ============================================================================
--- PASO 6: VERIFICACION
+-- PASO 6: CREAR TABLA NEWSLETTER SUBSCRIBERS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR NOT NULL UNIQUE,
+  verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Crear indice para busquedas rapidas
+CREATE INDEX IF NOT EXISTS idx_newsletter_email ON newsletter_subscribers(email);
+CREATE INDEX IF NOT EXISTS idx_newsletter_verified ON newsletter_subscribers(verified);
+
+-- ============================================================================
+-- PASO 7: VERIFICACION
 -- ============================================================================
 
 -- Verificar categorias

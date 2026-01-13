@@ -1,0 +1,114 @@
+---
+// Componente de suscripción al newsletter
+---
+
+<div id="newsletter-section" class="w-full bg-gradient-to-r from-neutral-900 via-brand-black to-neutral-900 py-16 px-6">
+  <div class="max-w-3xl mx-auto text-center">
+    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
+      Suscríbete a Nuestro Newsletter
+    </h2>
+    <p class="text-neutral-300 text-lg mb-8 max-w-2xl mx-auto">
+      Recibe ofertas exclusivas, nuevas colecciones y adelantos especiales. Además, un <strong>10% de descuento</strong> en tu primer pedido.
+    </p>
+
+    <form id="newsletter-form" class="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
+      <input
+        type="email"
+        id="newsletter-email"
+        name="email"
+        placeholder="tu@email.com"
+        required
+        class="flex-1 px-4 py-3 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black"
+      />
+      <button
+        type="submit"
+        id="newsletter-btn"
+        class="px-8 py-3 bg-brand-black text-white font-semibold rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Suscribirse
+      </button>
+    </form>
+
+    <div id="newsletter-message" class="mt-4 text-sm"></div>
+
+    <p class="text-neutral-400 text-xs mt-6">
+      Respetamos tu privacidad. Puedes darte de baja en cualquier momento.
+    </p>
+  </div>
+</div>
+
+<script is:inline>
+  // Handle newsletter subscription
+  const form = document.getElementById('newsletter-form');
+  const emailInput = document.getElementById('newsletter-email');
+  const submitBtn = document.getElementById('newsletter-btn');
+  const messageDiv = document.getElementById('newsletter-message');
+
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = emailInput.value.trim();
+
+      if (!email) {
+        showMessage('Por favor ingresa un email', 'error');
+        return;
+      }
+
+      // Disable form during submission
+      submitBtn.setAttribute('disabled', 'true');
+      submitBtn.textContent = 'Suscribiendo...';
+
+      try {
+        const response = await fetch('/api/newsletter/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showMessage(
+            '✓ ¡Gracias por suscribirte! Revisa tu email para confirmar.',
+            'success'
+          );
+          form.reset();
+          emailInput.focus();
+        } else {
+          showMessage(
+            data.error || 'Error al suscribirse. Intenta más tarde.',
+            'error'
+          );
+        }
+      } catch (error) {
+        console.error('Newsletter subscription error:', error);
+        showMessage('Error de conexión. Intenta más tarde.', 'error');
+      } finally {
+        submitBtn.removeAttribute('disabled');
+        submitBtn.textContent = 'Suscribirse';
+      }
+    });
+  }
+
+  function showMessage(text, type) {
+    if (!messageDiv) return;
+
+    messageDiv.textContent = text;
+    messageDiv.className = `mt-4 text-sm ${
+      type === 'success'
+        ? 'text-green-400'
+        : 'text-red-400'
+    }`;
+
+    if (type === 'success') {
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        messageDiv.textContent = '';
+        messageDiv.className = '';
+      }, 5000);
+    }
+  }
+</script>
