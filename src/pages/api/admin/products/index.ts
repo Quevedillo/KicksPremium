@@ -133,10 +133,28 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const categoryId = body.category_id?.toString().trim();
     const price = Math.round((parseFloat(body.price ?? 0) * 100)); // Convertir EUR a centimos
     const cost_price = Math.round((parseFloat(body.cost_price ?? 0) * 100)); // Convertir EUR a centimos
-    const stock = parseInt(body.stock ?? 0);
+    let stock = parseInt(body.stock ?? 0);
     const images = Array.isArray(body.images) ? body.images : [];
     const brand = body.brand?.toString().trim() || null;
     const color = body.color?.toString().trim() || null;
+    
+    // Procesar sizes_available
+    let sizes_available: Record<string, number> = {};
+    if (body.sizes_available && typeof body.sizes_available === 'object') {
+      // Convertir valores a números y filtrar valores válidos (> 0)
+      Object.entries(body.sizes_available).forEach(([size, qty]: [string, any]) => {
+        const quantity = parseInt(qty) || 0;
+        if (quantity > 0) {
+          sizes_available[size] = quantity;
+        }
+      });
+    }
+    
+    // Si se proporcionó sizes_available, calcular stock desde ahí
+    // Si no, usar el stock proporcionado
+    if (Object.keys(sizes_available).length > 0) {
+      stock = Object.values(sizes_available).reduce((sum: number, qty: number) => sum + qty, 0);
+    }
 
     if (!name || !description || !categoryId || isNaN(price) || price < 0 || isNaN(cost_price) || cost_price < 0 || isNaN(stock) || stock < 0) {
       console.error('Validación fallida:', { name, description, categoryId, price, cost_price, stock });
@@ -206,7 +224,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         category_id: categoryId,
         price,
         cost_price,
-        stock,
+        stock, // Ahora está calculado correctamente
+        sizes_available: Object.keys(sizes_available).length > 0 ? sizes_available : null,
         images: images && images.length > 0 ? images : [],
         brand,
         sku,

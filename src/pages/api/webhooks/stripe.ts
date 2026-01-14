@@ -120,10 +120,7 @@ export const POST: APIRoute = async ({ request }) => {
 
               console.log(`    Current stock: ${product.stock}, sizes_available:`, product.sizes_available);
 
-              // Decrement total stock
-              const newStock = Math.max(0, (product.stock || 0) - quantity);
-
-              // Update sizes_available if it exists
+              // Decrement stock for specific size
               let newSizesAvailable = product.sizes_available || {};
               if (newSizesAvailable && typeof newSizesAvailable === 'object' && size) {
                 if (newSizesAvailable[size]) {
@@ -131,7 +128,11 @@ export const POST: APIRoute = async ({ request }) => {
                 }
               }
 
-              console.log(`    New stock: ${newStock}, new sizes_available:`, newSizesAvailable);
+              // Recalculate total stock from sizes (sum of all sizes)
+              const newStock = Object.values(newSizesAvailable).reduce((sum: number, qty: any) => sum + (parseInt(qty) || 0), 0);
+
+              console.log(`    Size ${size}: Decremented by ${quantity}, new quantity: ${newSizesAvailable[size] || 0}`);
+              console.log(`    New total stock: ${product.stock} -> ${newStock}, new sizes_available:`, newSizesAvailable);
 
               // Update product stock
               const { error: updateError } = await supabase

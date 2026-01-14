@@ -14,10 +14,27 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
   const [user, setUser] = useState(getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
 
-  // Usar tallas del producto si están disponibles, sino usar tallas por defecto
+  // Usar solo tallas del producto con stock disponible (qty > 0)
   const sizes = product.sizes_available && Object.keys(product.sizes_available).length > 0
-    ? Object.keys(product.sizes_available).sort((a, b) => parseFloat(a) - parseFloat(b))
-    : ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
+    ? Object.entries(product.sizes_available)
+        .filter(([_, qty]) => (parseInt(qty) || 0) > 0)
+        .map(([size]) => size)
+        .sort((a, b) => parseFloat(a) - parseFloat(b))
+    : [];
+
+  // Si no hay tallas disponibles
+  const hasAvailableSizes = sizes.length > 0;
+
+  // Obtener stock disponible para la talla seleccionada
+  const getMaxQuantityForSize = (size: string): number => {
+    if (product.sizes_available && product.sizes_available[size]) {
+      return parseInt(product.sizes_available[size]) || 0;
+    }
+    return 0;
+  };
+
+  // Stock máximo para la talla actual
+  const maxQuantityForSelectedSize = selectedSize ? getMaxQuantityForSize(selectedSize) : 0;
 
   useEffect(() => {
     // Inicializar auth al montar el componente
@@ -52,6 +69,13 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       return;
     }
 
+    // Validar que no se intente comprar más de lo disponible en esa talla
+    const maxAvailable = getMaxQuantityForSize(selectedSize);
+    if (quantity > maxAvailable) {
+      setFeedback(`Solo hay ${maxAvailable} pares disponibles en talla ${selectedSize}`);
+      return;
+    }
+
     addToCart(product, quantity, selectedSize);
     openCart();
     setFeedback('✓ Agregado al carrito');
@@ -63,10 +87,21 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
 
   const getSizeAvailability = (size: string): number => {
     if (product.sizes_available && product.sizes_available[size]) {
-      return product.sizes_available[size];
+      return parseInt(product.sizes_available[size]) || 0;
     }
-    return product.stock || 0;
+    return 0;
   };
+
+  // If no sizes available, show out of stock
+  if (!hasAvailableSizes) {
+    return (
+      <div className="space-y-6">
+        <div className="p-4 bg-red-100 border border-red-300 rounded-lg">
+          <p className="text-red-800 font-bold text-center">❌ Producto Agotado</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -87,26 +122,25 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       {/* Size Selection */}
       <div>
         <label className="block text-sm font-bold text-white uppercase tracking-wider mb-3">
-          Selecciona tu talla {product.sizes_available ? '(EU)' : ''}
+          Selecciona tu talla (EU) - {sizes.length} disponible{sizes.length !== 1 ? 's' : ''}
         </label>
         <div className="grid grid-cols-6 gap-2">
           {sizes.map((size) => {
-            const available = getSizeAvailability(size) > 0;
+            const quantity = getSizeAvailability(size);
             return (
               <button
                 key={size}
                 onClick={() => setSelectedSize(size)}
-                disabled={!available || !user}
-                className={`py-3 px-2 text-sm font-bold transition-all ${
+                disabled={!user}
+                className={`py-3 px-2 text-sm font-bold transition-all flex flex-col items-center justify-center ${
                   selectedSize === size
-                    ? 'bg-brand-red text-white'
-                    : available
-                    ? 'bg-brand-gray text-white hover:bg-brand-red/20 hover:text-brand-red cursor-pointer'
-                    : 'bg-neutral-800 text-neutral-500 opacity-50 cursor-not-allowed'
+                    ? 'bg-brand-red text-white ring-2 ring-brand-orange'
+                    : 'bg-brand-gray text-white hover:bg-brand-red/20 hover:text-brand-red cursor-pointer'
                 }`}
-                title={!available ? 'Talla no disponible' : ''}
+                title={`${quantity} par${quantity !== 1 ? 'es' : ''} disponible${quantity !== 1 ? 's' : ''}`}
               >
-                {size}
+                <span>{size}</span>
+                <span className="text-xs opacity-75">({quantity})</span>
               </button>
             );
           })}
@@ -116,7 +150,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       {/* Quantity */}
       <div>
         <label className="block text-sm font-bold text-white uppercase tracking-wider mb-3">
-          Cantidad
+          Cantidad (Máximo: {maxQuantityForSelectedSize} par{maxQuantityForSelectedSize !== 1 ? 'es' : ''})
         </label>
         <div className="flex items-center gap-3">
           <button
@@ -129,18 +163,18 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
           <input
             type="number"
             min="1"
-            max={product.stock}
+            max={maxQuantityForSelectedSize}
             value={quantity}
             onChange={(e) =>
-              setQuantity(Math.max(1, Math.min(product.stock, parseInt(e.target.value) || 1)))
+              setQuantity(Math.max(1, Math.min(maxQuantityForSelectedSize, parseInt(e.target.value) || 1)))
             }
             className="w-20 h-12 text-center bg-brand-gray text-white font-bold border-0 focus:ring-2 focus:ring-brand-red"
-            disabled={!user}
+            disabled={!user || !selectedSize}
           />
           <button
-            onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+            onClick={() => setQuantity(Math.min(maxQuantityForSelectedSize, quantity + 1))}
             className="w-12 h-12 bg-brand-gray text-white font-bold hover:bg-brand-red transition-colors"
-            disabled={!user}
+            disabled={!user || quantity >= maxQuantityForSelectedSize}
           >
             +
           </button>
@@ -150,14 +184,14 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       {/* Add to Cart Button */}
       <button
         onClick={handleAddToCart}
-        disabled={product.stock <= 0}
+        disabled={!hasAvailableSizes || !selectedSize}
         className={`w-full py-4 px-6 font-bold uppercase text-lg tracking-wider transition-all ${
-          product.stock > 0
+          hasAvailableSizes && selectedSize
             ? 'bg-brand-red text-white hover:bg-brand-orange cursor-pointer hover:scale-[1.02]'
             : 'bg-brand-gray text-neutral-500 cursor-not-allowed'
         }`}
       >
-        {product.stock > 0 ? 'Añadir al Carrito' : 'Agotado'}
+        {!hasAvailableSizes ? 'Agotado' : !selectedSize ? 'Selecciona una talla' : 'Añadir al Carrito'}
       </button>
 
       {/* Feedback Message */}

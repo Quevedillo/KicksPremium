@@ -26,7 +26,7 @@ const { data: recentOrders } = await supabase
 const totalProducts = productsCount || 0;
 const totalCategories = categoriesCount || 0;
 const totalOrders = orders?.length || 0;
-const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
 const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0;
 const completedOrders = orders?.filter(o => o.status === 'completed' || o.status === 'paid').length || 0;
 
@@ -169,7 +169,7 @@ const getStatusBadge = (status: string) => {
                     </div>
                     <div class="text-right">
                       <p class="font-bold text-brand-black">
-                        {formatCurrency(order.total_amount)}
+                        {formatCurrency(order.total_price)}
                       </p>
                       <span class={`inline-block px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
                         {badge.label}

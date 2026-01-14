@@ -187,17 +187,29 @@ export default function CartSlideOver() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() =>
-                          updateCartItemQuantity(
-                            item.product_id,
-                            item.size,
-                            item.quantity + 1
-                          )
-                        }
-                        className="w-8 h-8 bg-brand-black text-white text-sm font-bold hover:bg-brand-red transition-colors"
+                        onClick={() => {
+                          // Obtener el stock máximo para esa talla
+                          const maxAvailable = item.product.sizes_available?.[item.size] || 0;
+                          if (item.quantity < maxAvailable) {
+                            updateCartItemQuantity(
+                              item.product_id,
+                              item.size,
+                              item.quantity + 1
+                            );
+                          }
+                        }}
+                        disabled={item.quantity >= (item.product.sizes_available?.[item.size] || 0)}
+                        className={`w-8 h-8 bg-brand-black text-white text-sm font-bold transition-colors ${
+                          item.quantity >= (item.product.sizes_available?.[item.size] || 0)
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-brand-red'
+                        }`}
                       >
                         +
                       </button>
+                      <span className="text-xs text-neutral-500 ml-2">
+                        / {item.product.sizes_available?.[item.size] || 0}
+                      </span>
                       <button
                         onClick={() => removeFromCart(item.product_id, item.size)}
                         className="ml-auto text-xs text-neutral-500 hover:text-brand-red transition-colors"

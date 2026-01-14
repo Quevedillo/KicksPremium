@@ -167,7 +167,7 @@ const statusOptions = [
           <div class="space-y-2">
             <div class="flex justify-between text-sm">
               <span class="text-neutral-600">Subtotal</span>
-              <span class="text-brand-black">{formatCurrency(order.total_amount)}</span>
+              <span class="text-brand-black">{formatCurrency(order.total_price)}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-neutral-600">Envío</span>
@@ -175,7 +175,7 @@ const statusOptions = [
             </div>
             <div class="flex justify-between text-lg font-bold pt-2 border-t border-neutral-200">
               <span class="text-brand-black">Total</span>
-              <span class="text-brand-red">{formatCurrency(order.total_amount)}</span>
+              <span class="text-brand-red">{formatCurrency(order.total_price)}</span>
             </div>
           </div>
         </div>

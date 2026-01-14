@@ -6,6 +6,7 @@ import { supabase } from '@lib/supabase';
 const { data: products } = await supabase
   .from('products')
   .select('*')
+  .gt('stock', 0) // Solo productos con stock disponible
   .order('created_at', { ascending: false })
   .limit(6);
 

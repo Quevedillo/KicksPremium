@@ -24,7 +24,8 @@ if (!category) {
 let productsQuery = supabase
   .from('products')
   .select('*')
-  .eq('category_id', category.id);
+  .eq('category_id', category.id)
+  .gt('stock', 0); // Solo productos con stock disponible
 
 // Apply sort
 if (sortFilter === 'price-asc') {

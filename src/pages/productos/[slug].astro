@@ -107,10 +107,18 @@ const { data: relatedProducts } = await supabase
 
           {/* Stock Status */}
           <div class="flex items-center gap-2">
-            {product.stock > 10 ? (
-              <span class="text-green-500 text-sm font-bold">✓ En stock</span>
-            ) : product.stock > 0 ? (
-              <span class="text-brand-orange text-sm font-bold">Stock limitado: {product.stock} disponibles</span>
+            {product.stock > 0 ? (
+              <>
+                <span class="text-green-500 text-sm font-bold">✓ En stock</span>
+                {product.sizes_available && Object.keys(product.sizes_available).length > 0 ? (
+                  <span class="text-neutral-500 text-sm">
+                    Tallas: {Object.entries(product.sizes_available)
+                      .filter(([_, qty]) => (parseInt(qty) || 0) > 0)
+                      .map(([size]) => size)
+                      .join(', ')}
+                  </span>
+                ) : null}
+              </>
             ) : (
               <span class="text-red-500 text-sm font-bold">✗ Agotado</span>
             )}
@@ -123,17 +131,7 @@ const { data: relatedProducts } = await supabase
             </p>
           </div>
 
-          {/* Size Picker if sizes are available */}
-          {product.sizes_available && Object.keys(product.sizes_available).length > 0 ? (
-            <div class="bg-brand-gray p-4 rounded-lg">
-              <SizePicker
-                sizesAvailable={product.sizes_available}
-                client:only="react"
-              />
-            </div>
-          ) : null}
-
-          {/* Add to Cart Component (Island) */}
+          {/* Add to Cart Component (Island) - Handles size selection */}
           <div class="pt-4">
             <AddToCartButton product={product} client:only="react" />
           </div>

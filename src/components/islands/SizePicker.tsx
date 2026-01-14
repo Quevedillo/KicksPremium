@@ -13,15 +13,28 @@ export const SizePicker: React.FC<SizePickerProps> = ({
 }) => {
   const [selected, setSelected] = useState<string | undefined>(selectedSize);
 
-  const allSizes = Object.keys(sizesAvailable)
+  // Solo mostrar tallas con stock > 0
+  const allSizes = Object.entries(sizesAvailable)
+    .filter(([_, qty]) => (parseInt(qty) || 0) > 0)
+    .map(([size]) => size)
     .sort((a, b) => parseFloat(a) - parseFloat(b));
 
   const handleSelect = (size: string) => {
-    if (sizesAvailable[size] > 0) {
+    const qty = parseInt(sizesAvailable[size]) || 0;
+    if (qty > 0) {
       setSelected(size);
       onSizeSelect?.(size);
     }
   };
+
+  // Si no hay tallas disponibles
+  if (allSizes.length === 0) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded p-4 text-center">
+        <p className="text-sm text-red-900 font-semibold">❌ Producto Agotado</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
