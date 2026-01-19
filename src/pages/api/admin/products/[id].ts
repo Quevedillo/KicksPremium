@@ -13,8 +13,6 @@ export const GET: APIRoute = async ({ params }) => {
       );
     }
 
-    const supabase = getSupabaseServiceClient();
-
     const { data, error } = await supabase
       .from('products')
       .select('*, categories(*)')

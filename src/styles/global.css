@@ -3,8 +3,68 @@
 @tailwind utilities;
 
 @layer base {
+  /* Modo oscuro por defecto (tienda pública) */
   body {
     @apply bg-brand-black text-white;
+  }
+  
+  /* Modo claro para admin */
+  body.light-mode {
+    @apply bg-neutral-100 text-neutral-900;
+  }
+  
+  body.light-mode input,
+  body.light-mode textarea,
+  body.light-mode select {
+    @apply text-neutral-900;
+  }
+  
+  body.light-mode input::placeholder,
+  body.light-mode textarea::placeholder {
+    @apply text-neutral-400;
+  }
+  
+  /* Modo oscuro para admin (cuando se selecciona) */
+  body.dark-mode {
+    @apply bg-brand-dark text-white;
+  }
+  
+  body.dark-mode input,
+  body.dark-mode textarea,
+  body.dark-mode select {
+    @apply text-white bg-neutral-800 border-neutral-700;
+  }
+  
+  body.dark-mode input::placeholder,
+  body.dark-mode textarea::placeholder {
+    @apply text-neutral-500;
+  }
+  
+  /* Ajustes para cards en modo oscuro admin */
+  body.dark-mode .bg-white {
+    @apply bg-neutral-900 border-neutral-700;
+  }
+  
+  body.dark-mode .bg-neutral-50,
+  body.dark-mode .bg-neutral-100 {
+    @apply bg-neutral-800;
+  }
+  
+  body.dark-mode .text-brand-black,
+  body.dark-mode .text-neutral-900,
+  body.dark-mode .text-neutral-800,
+  body.dark-mode .text-neutral-700 {
+    @apply text-neutral-100;
+  }
+  
+  body.dark-mode .text-neutral-600,
+  body.dark-mode .text-neutral-500 {
+    @apply text-neutral-400;
+  }
+  
+  body.dark-mode .border-neutral-200,
+  body.dark-mode .border-neutral-300 {
+    @apply border-neutral-700;
   }
 
   h1,
@@ -18,15 +78,6 @@
 
   a {
     @apply transition-colors;
-  }
-  
-  /* Asegurar que los inputs en fondos claros tengan texto oscuro */
-  input, textarea, select {
-    color: #1a1a1a !important;
-  }
-  
-  input::placeholder, textarea::placeholder {
-    color: #9ca3af !important;
   }
 }
 

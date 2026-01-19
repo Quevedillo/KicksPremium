@@ -175,6 +175,72 @@ if (accessToken && refreshToken) {
       </div>
     </div>
 
+    {/* Apariencia / Tema */}
+    <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+        <h2 class="font-semibold text-brand-black">Apariencia del Panel</h2>
+      </div>
+      <div class="p-6">
+        <div class="space-y-4">
+          <p class="text-sm text-neutral-600">
+            Selecciona el tema visual para el panel de administración.
+          </p>
+          
+          <div class="grid grid-cols-2 gap-4" id="theme-selector">
+            {/* Modo Claro */}
+            <button
+              type="button"
+              id="theme-light"
+              class="relative flex flex-col items-center p-6 border-2 rounded-xl transition-all hover:border-brand-black theme-option"
+              data-theme="light"
+            >
+              <div class="w-full h-24 bg-neutral-100 rounded-lg mb-4 flex items-center justify-center border border-neutral-200">
+                <div class="w-8 h-8 bg-white rounded shadow-sm flex items-center justify-center">
+                  <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              <span class="font-medium text-neutral-900">Modo Claro</span>
+              <span class="text-xs text-neutral-500 mt-1">Fondo blanco, ideal para el día</span>
+              <div class="absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-neutral-300 theme-check hidden">
+                <svg class="w-full h-full text-brand-black" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            </button>
+            
+            {/* Modo Oscuro */}
+            <button
+              type="button"
+              id="theme-dark"
+              class="relative flex flex-col items-center p-6 border-2 rounded-xl transition-all hover:border-brand-black theme-option"
+              data-theme="dark"
+            >
+              <div class="w-full h-24 bg-neutral-800 rounded-lg mb-4 flex items-center justify-center border border-neutral-700">
+                <div class="w-8 h-8 bg-neutral-700 rounded shadow-sm flex items-center justify-center">
+                  <svg class="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                  </svg>
+                </div>
+              </div>
+              <span class="font-medium text-neutral-900">Modo Oscuro</span>
+              <span class="text-xs text-neutral-500 mt-1">Fondo oscuro, reduce fatiga visual</span>
+              <div class="absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-neutral-300 theme-check hidden">
+                <svg class="w-full h-full text-brand-black" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            </button>
+          </div>
+          
+          <p class="text-xs text-neutral-500 mt-2">
+            💡 Este ajuste solo afecta al panel de administración. La tienda pública siempre usa modo oscuro.
+          </p>
+        </div>
+      </div>
+    </div>
+
     {/* Quick Actions */}
     <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
       <div class="p-6 border-b border-neutral-200 bg-neutral-50">
@@ -234,3 +300,67 @@ if (accessToken && refreshToken) {
     </div>
   </div>
 </AdminLayout>
+
+<script>
+  // Theme Management
+  document.addEventListener('DOMContentLoaded', () => {
+    const themeOptions = document.querySelectorAll('.theme-option');
+    const currentTheme = localStorage.getItem('admin-theme') || 'light';
+    
+    // Marcar el tema actual
+    function updateThemeUI(theme: string) {
+      themeOptions.forEach(option => {
+        const optionTheme = option.getAttribute('data-theme');
+        const check = option.querySelector('.theme-check');
+        
+        if (optionTheme === theme) {
+          option.classList.add('border-brand-black', 'bg-neutral-50');
+          option.classList.remove('border-neutral-200');
+          check?.classList.remove('hidden');
+        } else {
+          option.classList.remove('border-brand-black', 'bg-neutral-50');
+          option.classList.add('border-neutral-200');
+          check?.classList.add('hidden');
+        }
+      });
+    }
+    
+    // Aplicar tema
+    function applyTheme(theme: string) {
+      localStorage.setItem('admin-theme', theme);
+      
+      if (theme === 'dark') {
+        document.body.classList.remove('light-mode', 'bg-neutral-100', 'text-neutral-900');
+        document.body.classList.add('dark-mode', 'bg-brand-black', 'text-white');
+        document.documentElement.classList.remove('light-mode');
+        document.documentElement.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode', 'bg-brand-black', 'text-white');
+        document.body.classList.add('light-mode', 'bg-neutral-100', 'text-neutral-900');
+        document.documentElement.classList.remove('dark-mode');
+        document.documentElement.classList.add('light-mode');
+      }
+      
+      updateThemeUI(theme);
+    }
+    
+    // Inicializar UI con tema actual
+    updateThemeUI(currentTheme);
+    
+    // Event listeners
+    themeOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const theme = option.getAttribute('data-theme') || 'light';
+        applyTheme(theme);
+        
+        // Mostrar mensaje de confirmación
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse';
+        toast.textContent = `Tema cambiado a ${theme === 'light' ? 'Modo Claro' : 'Modo Oscuro'}`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.remove(), 2000);
+      });
+    });
+  });
+</script>
