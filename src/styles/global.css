@@ -16,12 +16,12 @@
   body.light-mode input,
   body.light-mode textarea,
   body.light-mode select {
-    @apply text-neutral-900;
+    color: #111827;
   }
   
   body.light-mode input::placeholder,
   body.light-mode textarea::placeholder {
-    @apply text-neutral-400;
+    color: #9ca3af;
   }
   
   /* Modo oscuro para admin (cuando se selecciona) */
@@ -32,39 +32,45 @@
   body.dark-mode input,
   body.dark-mode textarea,
   body.dark-mode select {
-    @apply text-white bg-neutral-800 border-neutral-700;
+    background-color: #1f2937;
+    color: #ffffff;
+    border-color: #374151;
   }
   
   body.dark-mode input::placeholder,
   body.dark-mode textarea::placeholder {
-    @apply text-neutral-500;
+    color: #6b7280;
   }
   
   /* Ajustes para cards en modo oscuro admin */
   body.dark-mode .bg-white {
-    @apply bg-neutral-900 border-neutral-700;
+    background-color: #111827;
+    border-color: #374151;
   }
   
-  body.dark-mode .bg-neutral-50,
+  body.dark-mode .bg-neutral-50 {
+    background-color: #1f2937;
+  }
+  
   body.dark-mode .bg-neutral-100 {
-    @apply bg-neutral-800;
+    background-color: #1f2937;
   }
   
   body.dark-mode .text-brand-black,
   body.dark-mode .text-neutral-900,
   body.dark-mode .text-neutral-800,
   body.dark-mode .text-neutral-700 {
-    @apply text-neutral-100;
+    color: #f3f4f6;
   }
   
   body.dark-mode .text-neutral-600,
   body.dark-mode .text-neutral-500 {
-    @apply text-neutral-400;
+    color: #9ca3af;
   }
   
   body.dark-mode .border-neutral-200,
   body.dark-mode .border-neutral-300 {
-    @apply border-neutral-700;
+    border-color: #374151;
   }
 
   h1,
