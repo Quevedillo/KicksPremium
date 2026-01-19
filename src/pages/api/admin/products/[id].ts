@@ -50,37 +50,30 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       );
     }
 
-    // Verificar autenticación
+    // Verificar autenticación usando el cliente de servicio
+    const serviceClient = getSupabaseServiceClient();
+    
     const accessToken = cookies.get('sb-access-token')?.value;
-    const refreshToken = cookies.get('sb-refresh-token')?.value;
-
-    if (!accessToken || !refreshToken) {
+    if (!accessToken) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+    // Verificar el token y obtener el usuario
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(accessToken);
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Sesión inválida' }), {
+      return new Response(JSON.stringify({ error: 'Token inválido' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Verificar si es admin
-    const { data: adminProfile } = await supabase
-      .from('user_profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single();
-
-    if (!adminProfile?.is_admin) {
+    // Verificar si es admin por email
+    const ADMIN_EMAIL = process.env.PUBLIC_ADMIN_EMAIL || 'joseluisgq17@gmail.com';
+    if (user.email !== ADMIN_EMAIL) {
       return new Response(JSON.stringify({ error: 'No tienes permisos de administrador' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +131,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       sku = `${brandPrefix}-${slugPrefix}-${timestamp}`;
     } else {
       // Verificar SKU único (excluyendo el producto actual) - sin .single() para evitar error
-      const { data: existingSkuProducts } = await supabase
+      const { data: existingSkuProducts } = await serviceClient
         .from('products')
         .select('id')
         .eq('sku', sku)
@@ -175,9 +168,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       .select();
 
     if (error) {
-      console.error('Error updating product:', error);
+      console.error('[API] Error updating product:', error);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: error.message || 'Error al actualizar producto' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -197,8 +190,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('[API] Catch error in PUT:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: (error as any)?.message || 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

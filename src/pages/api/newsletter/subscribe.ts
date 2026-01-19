@@ -87,47 +87,72 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // Crear suscriptor
+    // Crear suscriptor (solo campos que existen en la tabla)
+    console.log(`📧 Intentando suscribir: ${email}`);
     const { data: subscriberData, error } = await supabase
       .from('newsletter_subscribers')
       .insert({
         email,
-        source,
         verified: true,
+        metadata: { source }, // Guardar source en metadata
       })
       .select();
 
     if (error) {
-      console.error('Error creating newsletter subscriber:', error);
-      // Verificar si es error de tabla no existente
-      if (error.message.includes('relation') || error.code === '42P01') {
+      console.error('❌ Error creating newsletter subscriber:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error details:', error.details);
+      
+      // Verificar si es error de duplicado (ya existe)
+      if (error.code === '23505' || error.message?.includes('unique')) {
+        console.log(`⚠️ Email ${email} ya estaba suscrito`);
         return new Response(
-          JSON.stringify({ error: 'Tabla de newsletter no configurada. Ejecuta SETUP_DATABASE.sql' }),
+          JSON.stringify({
+            success: true,
+            message: 'Ya estás suscrito a nuestro newsletter',
+            discountCode: 'WELCOME10',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Verificar si es error de tabla no existente
+      if (error.message?.includes('relation') || error.code === '42P01') {
+        console.error('❌ Tabla newsletter_subscribers no existe');
+        return new Response(
+          JSON.stringify({ error: 'Tabla de newsletter no configurada. Ejecuta el SQL en Supabase.' }),
           { status: 500, headers: { 'Content-Type': 'application/json' } }
         );
       }
+      
+      // Otros errores
+      console.error('❌ Error desconocido:', error);
       return new Response(
-        JSON.stringify({ error: 'Error al suscribirse al newsletter' }),
+        JSON.stringify({ error: `Error al suscribirse: ${error.message}` }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
     
+    console.log(`✅ Suscriptor creado:`, subscriberData);
     const subscriber = subscriberData?.[0] || null;
 
     // Enviar email de bienvenida con código de descuento
+    let emailSent = false;
     try {
       const emailResult = await sendNewsletterWelcomeEmail(email, discountCode);
-      console.log(`✅ Email de bienvenida enviado a ${email}:`, emailResult);
+      console.log(`✅ Email de bienvenida enviado a ${email}`);
+      emailSent = true;
     } catch (emailError) {
-      console.error(`❌ Error enviando email a ${email}:`, emailError);
-      // Log más detallado
+      console.error(`⚠️ Error enviando email a ${email}:`, emailError);
       if (emailError instanceof Error) {
-        console.error('Detalles del error:', {
+        console.error('Detalles del error de email:', {
           message: emailError.message,
           stack: emailError.stack,
         });
       }
-      // No fallar si falla el email, el suscriptor ya está registrado
+      // No fallar si falla el email - el suscriptor ya está registrado
+      // El usuario puede recibir el código más tarde
     }
 
     return new Response(
@@ -140,9 +165,16 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 201, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error en POST /api/newsletter/subscribe:', error);
+    console.error('❌ Error FATAL en POST /api/newsletter/subscribe:', error);
+    if (error instanceof Error) {
+      console.error('Mensaje:', error.message);
+      console.error('Stack:', error.stack);
+    }
     return new Response(
-      JSON.stringify({ error: 'Error interno del servidor' }),
+      JSON.stringify({ 
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : String(error)
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

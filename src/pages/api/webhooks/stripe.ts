@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
 import { supabase } from '@lib/supabase';
-import { sendOrderConfirmationEmail } from '@lib/email';
+import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
 import Stripe from 'stripe';
 
 // Handle Stripe webhooks
@@ -173,7 +173,7 @@ export const POST: APIRoute = async ({ request }) => {
               );
               const tax = total - subtotal;
 
-              await sendOrderConfirmationEmail({
+              const orderDetails = {
                 orderId: order.id,
                 email: session.customer_email,
                 customerName,
@@ -183,8 +183,23 @@ export const POST: APIRoute = async ({ request }) => {
                 total,
                 shippingAddress,
                 stripeSessionId: session.id,
-              });
-              console.log(`Order confirmation email sent to ${session.customer_email}`);
+              };
+
+              // Enviar email de confirmación al cliente
+              try {
+                const confirmResult = await sendOrderConfirmationEmail(orderDetails);
+                console.log(`✅ Order confirmation email sent to ${session.customer_email}`);
+              } catch (confirmError) {
+                console.error(`⚠️ Failed to send confirmation (will not block):`, confirmError);
+              }
+
+              // Enviar notificación al admin
+              try {
+                const adminResult = await sendAdminOrderNotification(orderDetails);
+                console.log(`✅ Admin notification email sent`);
+              } catch (adminEmailError) {
+                console.error('⚠️ Failed to send admin notification (will not block):', adminEmailError);
+              }
             }
           } catch (emailError) {
             console.error('Error sending order confirmation email:', emailError);

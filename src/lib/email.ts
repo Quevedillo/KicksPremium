@@ -1,11 +1,14 @@
 import nodemailer from 'nodemailer';
 
 // Validar que existe la clave API de Brevo
-if (!import.meta.env.BREVO_API_KEY) {
+const BREVO_KEY: string | undefined = import.meta.env.BREVO_SMTP_KEY || import.meta.env.BREVO_API_KEY;
+const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || 'your-email@example.com';
+
+if (!BREVO_KEY) {
   console.warn(
-    '⚠️ ADVERTENCIA: BREVO_API_KEY no está configurada en .env\n' +
+    '⚠️ ADVERTENCIA: BREVO_API_KEY/BREVO_SMTP_KEY no está configurada en .env\n' +
     'Los emails NO serán enviados hasta que configures esta variable.\n' +
-    'Ve a https://www.brevo.com para obtener tu clave API.\n' +
+    'Ve a https://www.brevo.com para obtener tu clave SMTP.\n' +
     'Consulta NEWSLETTER_SETUP.md para más instrucciones.'
   );
 }
@@ -16,16 +19,27 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: import.meta.env.FROM_EMAIL || 'your-email@example.com',
-    pass: import.meta.env.BREVO_API_KEY || 'placeholder',
+    user: FROM_EMAIL_CONFIG,
+    pass: BREVO_KEY || 'placeholder',
   },
 });
+
+// Verificar conexión SMTP al iniciar (solo si está configurado)
+if (BREVO_KEY && FROM_EMAIL_CONFIG !== 'your-email@example.com') {
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ Error verificando conexión SMTP de Brevo:', error.message);
+    } else {
+      console.log('✅ Conexión SMTP de Brevo verificada correctamente');
+    }
+  });
+}
 
 /**
  * Email desde donde se envían los correos
  * IMPORTANTE: Debe ser un email verificado en tu cuenta de Brevo
  */
-const FROM_EMAIL = import.meta.env.FROM_EMAIL || 'your-email@example.com';
+const FROM_EMAIL = FROM_EMAIL_CONFIG;
 const ADMIN_EMAIL = import.meta.env.ADMIN_EMAIL || 'admin@kickspremium.com';
 
 interface OrderItem {
@@ -61,7 +75,7 @@ interface OrderDetails {
 export async function sendOrderConfirmationEmail(order: OrderDetails) {
   try {
     // Validar que está configurado Brevo
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn('⚠️ BREVO_API_KEY no configurada. Email no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
@@ -313,15 +327,17 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 
     // Validar respuesta de Brevo
     if (!result || !result.messageId) {
-      console.error('❌ Error desde Brevo:', result);
-      throw new Error(`Brevo error: ${JSON.stringify(result)}`);
+      console.error('⚠️ Respuesta inválida de Brevo:', result);
+      // No lanzar error, solo loguear
+      return { success: false, error: 'Invalid response from email service', result };
     }
 
     console.log('✅ Confirmation email sent:', result);
-    return result;
+    return { success: true, result };
   } catch (error) {
-    console.error('Error sending order confirmation email:', error);
-    throw error;
+    console.error('⚠️ Error sending order confirmation email (no-fail):', error);
+    // NO lanzar error - el pedido ya fue creado
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -331,7 +347,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 export async function sendNewsletterWelcomeEmail(email: string, discountCode: string = 'WELCOME10') {
   try {
     // Validar que está configurado Brevo
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn('⚠️ BREVO_API_KEY no configurada. Email de newsletter no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
@@ -488,15 +504,18 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
 
     // Validar respuesta de Brevo
     if (!result || !result.messageId) {
-      console.error('❌ Error desde Brevo:', result);
-      throw new Error(`Brevo error: ${JSON.stringify(result)}`);
+      console.error('⚠️ Respuesta inválida de Brevo:', result);
+      // No lanzar error, solo loguear
+      return { success: false, error: 'Invalid response from email service', result };
     }
 
     console.log('✅ Newsletter welcome email sent:', result);
-    return result;
+    return { success: true, result };
   } catch (error) {
-    console.error('Error sending newsletter welcome email:', error);
-    throw error;
+    console.error('⚠️ Error sending newsletter welcome email (no-fail):', error);
+    // NO lanzar error - la suscripción ya fue creada
+    // El usuario puede recibir el código por otro método
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -523,7 +542,7 @@ export async function sendNewProductEmail(
 ) {
   try {
     // Validar que está configurado Brevo
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn(`⚠️ BREVO_API_KEY no configurada. Email a ${subscriberEmail} no será enviado.`);
       throw new Error('Email service not configured');
     }
@@ -779,7 +798,7 @@ export async function sendAdminNotification(
 ) {
   try {
     // Validar que está configurado Brevo
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn('⚠️ BREVO_API_KEY no configurada. Email a admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
@@ -843,7 +862,7 @@ interface OrderCancellationData {
  */
 export async function sendOrderCancellationEmail(data: OrderCancellationData) {
   try {
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn('⚠️ BREVO_API_KEY no configurada. Email de cancelación no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
@@ -929,7 +948,7 @@ interface ReturnRequestData {
  */
 export async function sendReturnRequestEmail(data: ReturnRequestData) {
   try {
-    if (!import.meta.env.BREVO_API_KEY) {
+    if (!BREVO_KEY) {
       console.warn('⚠️ BREVO_API_KEY no configurada. Email de devolución no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
@@ -1002,6 +1021,111 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
     return result;
   } catch (error) {
     console.error('Error sending return email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Enviar notificación de nuevo pedido al administrador
+ */
+export async function sendAdminOrderNotification(order: OrderDetails) {
+  try {
+    if (!BREVO_KEY) {
+      console.warn('⚠️ BREVO_KEY no configurada. Email de notificación admin no será enviado.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const formatPrice = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+
+    const itemsHtml = order.items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.price)}</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    const shippingHtml = order.shippingAddress
+      ? `
+        <p><strong>Dirección de envío:</strong></p>
+        <p style="margin-left: 20px;">
+          ${order.shippingAddress.line1 || ''}<br>
+          ${order.shippingAddress.line2 ? order.shippingAddress.line2 + '<br>' : ''}
+          ${order.shippingAddress.postal_code || ''} ${order.shippingAddress.city || ''}<br>
+          ${order.shippingAddress.state || ''} ${order.shippingAddress.country || ''}
+        </p>
+      `
+      : '';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+    <h1 style="margin: 0; font-size: 24px;">🎉 ¡Nuevo Pedido!</h1>
+  </div>
+  
+  <div style="background: white; padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+    <p><strong>Pedido:</strong> #${order.orderId.substring(0, 8).toUpperCase()}</p>
+    <p><strong>Cliente:</strong> ${order.customerName}</p>
+    <p><strong>Email:</strong> ${order.email}</p>
+    <p><strong>Fecha:</strong> ${new Date().toLocaleString('es-ES')}</p>
+    
+    ${shippingHtml}
+    
+    <h3 style="margin-top: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Productos</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #f3f4f6;">
+          <th style="padding: 8px; text-align: left;">Producto</th>
+          <th style="padding: 8px; text-align: center;">Cant.</th>
+          <th style="padding: 8px; text-align: right;">Precio</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px; text-align: right;">
+      <p style="margin: 4px 0;"><strong>Subtotal:</strong> ${formatPrice(order.subtotal)}</p>
+      <p style="margin: 4px 0;"><strong>IVA:</strong> ${formatPrice(order.tax)}</p>
+      <p style="margin: 4px 0; font-size: 18px; color: #059669;"><strong>TOTAL:</strong> ${formatPrice(order.total)}</p>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center;">
+      <a href="${import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321'}/admin/pedidos/${order.orderId}" 
+         style="display: inline-block; background: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+        Ver Pedido en Admin
+      </a>
+    </div>
+  </div>
+  
+  <div style="background: #f9fafb; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #6b7280;">
+    <p style="margin: 0;">Este email fue enviado automáticamente por Kicks Premium</p>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: ADMIN_EMAIL,
+      subject: `🎉 Nuevo Pedido #${order.orderId.substring(0, 8).toUpperCase()} - ${formatPrice(order.total)}`,
+      html: htmlContent,
+    });
+
+    console.log('✅ Admin notification email sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending admin notification email:', error);
     throw error;
   }
 }
