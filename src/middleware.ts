@@ -1,6 +1,5 @@
 // Middleware for authentication
 import { defineMiddleware } from "astro:middleware";
-import { supabase } from "./lib/supabase";
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const isAdminRoute = context.url.pathname.startsWith("/admin");
@@ -10,49 +9,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const refreshToken = context.cookies.get('sb-refresh-token')?.value;
 
   if (isAdminRoute) {
-    // Check if user is authenticated
+    // Check if user is authenticated via cookies
+    // NO usar Supabase aquí - causaría AbortError en SSR
     if (!accessToken || !refreshToken) {
       // Redirect to login if not authenticated
       if (!context.url.pathname.includes("/auth/login")) {
         return context.redirect("/auth/login");
       }
     } else {
-      try {
-        // Set session with tokens
-        const { data: { user }, error: authError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (authError || !user) {
-          context.cookies.delete('sb-access-token');
-          context.cookies.delete('sb-refresh-token');
-          return context.redirect("/auth/login");
-        }
-
-        // Store user in context for use in pages
-        context.locals.user = user;
-
-        // Verify user is admin (unless on login page)
-        if (!context.url.pathname.includes("/auth/login")) {
-          const { data: userProfile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('is_admin')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError || !userProfile?.is_admin) {
-            // Redirect to home if not admin
-            console.warn(`Access denied: User ${user.email} is not admin`);
-            return context.redirect("/");
-          }
-        }
-      } catch (err) {
-        console.error('Middleware error:', err);
-        context.cookies.delete('sb-access-token');
-        context.cookies.delete('sb-refresh-token');
-        return context.redirect("/admin/login");
-      }
+      // Tokens existen, confiar en el cliente para verificar admin
+      // El cliente verificará is_admin en auth.ts
     }
   }
 

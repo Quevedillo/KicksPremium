@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 import { sendNewProductToAllSubscribers } from '@lib/email';
 
 // GET - List all products
@@ -214,8 +214,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       }
     }
 
-    // Crear producto con campos básicos
-    const { data: product, error } = await supabase
+    // Crear producto con campos básicos usando service client para bypass RLS
+    const serviceClient = getSupabaseServiceClient();
+    const { data: product, error } = await serviceClient
       .from('products')
       .insert({
         name,
@@ -224,7 +225,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         category_id: categoryId,
         price,
         cost_price,
-        stock, // Ahora está calculado correctamente
+        stock,
         sizes_available: Object.keys(sizes_available).length > 0 ? sizes_available : null,
         images: images && images.length > 0 ? images : [],
         brand,

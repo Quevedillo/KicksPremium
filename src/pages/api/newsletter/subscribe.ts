@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
+import { getSupabaseServiceClient } from '@lib/supabase';
 import { sendNewsletterWelcomeEmail } from '@lib/email';
 
 // Generar código único de descuento
@@ -12,6 +12,9 @@ function generateDiscountCode(): string {
 // POST - Subscribe to newsletter
 export const POST: APIRoute = async ({ request }) => {
   try {
+    // Usar service client para bypass RLS
+    const supabase = getSupabaseServiceClient();
+    
     // Parsear body
     const body = await request.json();
     const email = body.email?.toString().trim().toLowerCase();

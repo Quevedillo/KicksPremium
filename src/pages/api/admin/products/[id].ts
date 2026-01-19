@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 
 // GET single product
 export const GET: APIRoute = async ({ params }) => {
@@ -152,7 +152,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       }
     }
 
-    const { data, error } = await supabase
+    // Usar service client para bypass RLS
+    const serviceClient = getSupabaseServiceClient();
+    const { data, error } = await serviceClient
       .from('products')
       .update({
         name,

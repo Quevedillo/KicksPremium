@@ -5,24 +5,34 @@ export default function UserMenu() {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Inicializar auth
-    initializeAuth();
+    setMounted(true);
+    
+    // Inicializar auth con manejo de errores
+    initializeAuth().catch(err => {
+      if (err?.name !== 'AbortError') {
+        console.error('Error initializing auth:', err);
+      }
+    });
 
-    // Obtener estado inicial
-    const state = authStore.get();
-    setUser(state.user);
-    setIsAdmin(state.isAdmin);
-
-    // Escuchar cambios
+    // Escuchar cambios de estado de auth (se ejecuta inmediatamente y después en cambios)
     const unsubscribe = authStore.subscribe((state) => {
+      console.log('[UserMenu] Auth state changed:', { user: state.user?.email, isAdmin: state.isAdmin });
       setUser(state.user);
       setIsAdmin(state.isAdmin);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  // No renderizar hasta que esté montado
+  if (!mounted) {
+    return null;
+  }
 
   // Mostrar menu siempre (no esperamos loading)
   if (!user) {

@@ -23,10 +23,29 @@ export const authStore = atom<AuthStore>({
 let initPromise: Promise<void> | null = null;
 let authSubscription: { unsubscribe: () => void } | null = null;
 
-// Función simple para verificar admin - con retry
-async function checkIsAdmin(userId: string, retries = 3): Promise<boolean> {
-  console.log('[checkIsAdmin] Starting check for user:', userId);
+// Función simple para verificar admin
+async function checkIsAdmin(user: any, retries = 3): Promise<boolean> {
+  console.log('[checkIsAdmin] Starting check:', {
+    userId: user?.id,
+    userEmail: user?.email,
+    ADMIN_EMAIL,
+    emailMatch: user?.email === ADMIN_EMAIL,
+    emailLowerMatch: user?.email?.toLowerCase() === ADMIN_EMAIL?.toLowerCase()
+  });
   
+  // Primero: verificar por email (fallback rápido)
+  if (user?.email === ADMIN_EMAIL) {
+    console.log('[checkIsAdmin] ✅ Admin confirmed by exact email match');
+    return true;
+  }
+  
+  // Case-insensitive check
+  if (user?.email?.toLowerCase() === ADMIN_EMAIL?.toLowerCase()) {
+    console.log('[checkIsAdmin] ✅ Admin confirmed by case-insensitive email match');
+    return true;
+  }
+  
+  // Segundo: verificar en BD (con reintentos)
   for (let i = 0; i < retries; i++) {
     try {
       console.log(`[checkIsAdmin] Attempt ${i + 1}/${retries}`);
@@ -34,19 +53,17 @@ async function checkIsAdmin(userId: string, retries = 3): Promise<boolean> {
       const { data, error, status, statusText } = await supabase
         .from('user_profiles')
         .select('is_admin')
-        .eq('id', userId)
-        .single();
+        .eq('id', user.id)
+        .maybeSingle();
 
       console.log('[checkIsAdmin] Response:', { data, error, status, statusText });
 
       if (error) {
-        // Si es AbortError, reintentar
         if (error.message?.includes('AbortError') || error.code === 'ABORT_ERR') {
           console.log(`[checkIsAdmin] AbortError, retrying...`);
           await new Promise(r => setTimeout(r, 200 * (i + 1)));
           continue;
         }
-        // Si es error de RLS (no rows), el perfil no existe
         if (error.code === 'PGRST116') {
           console.log('[checkIsAdmin] No profile found (PGRST116)');
           return false;
@@ -56,11 +73,10 @@ async function checkIsAdmin(userId: string, retries = 3): Promise<boolean> {
       }
 
       const result = data?.is_admin === true;
-      console.log('[checkIsAdmin] Final result:', result);
+      console.log('[checkIsAdmin] Final result from BD:', result);
       return result;
     } catch (err) {
       console.warn('[checkIsAdmin] Exception on attempt', i + 1, ':', err);
-      // Si es AbortError, reintentar
       if (err instanceof Error && err.name === 'AbortError') {
         await new Promise(r => setTimeout(r, 200 * (i + 1)));
         continue;
@@ -68,7 +84,7 @@ async function checkIsAdmin(userId: string, retries = 3): Promise<boolean> {
       return false;
     }
   }
-  console.log('[checkIsAdmin] All retries exhausted');
+  console.log('[checkIsAdmin] ❌ All retries exhausted, returning false');
   return false;
 }
 
@@ -102,6 +118,22 @@ function loadFromStorage(): { user: User | null; isAdmin: boolean } {
   return { user: null, isAdmin: false };
 }
 
+function clearAllCookies() {
+  if (typeof document === 'undefined') return;
+  
+  document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  
+  // Borrar todas las cookies de Supabase
+  document.cookie.split(';').forEach(c => {
+    const eqPos = c.indexOf('=');
+    const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+    if (name.includes('sb-') || name.includes('supabase')) {
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+    }
+  });
+}
+
 export async function initializeAuth(): Promise<void> {
   const current = authStore.get();
   if (current.initialized) return;
@@ -110,39 +142,54 @@ export async function initializeAuth(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      // 1. Cargar desde localStorage primero (instantáneo)
+      // 1. Cargar desde localStorage primero
       const stored = loadFromStorage();
+      let userToCheck = null;
       
       if (stored.user) {
-        authStore.set({
-          user: stored.user,
-          isAdmin: stored.isAdmin,
-          isLoading: false,
-          error: null,
-          initialized: true,
-        });
+        console.log('[Auth] User from storage:', stored.user.email);
+        userToCheck = stored.user;
       }
 
       // 2. Verificar sesión con Supabase
-      const { data: sessionData } = await supabase.auth.getSession();
+      let sessionUser = null;
       
-      if (sessionData?.session?.user) {
-        const user = sessionData.session.user;
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 3000)
+        );
         
-        // 3. Verificar si es admin
-        const isAdmin = await checkIsAdmin(user.id);
+        const { data: sessionData } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        sessionUser = sessionData?.session?.user || null;
+        console.log('[Auth] Session user:', sessionUser?.email);
+        
+        if (sessionUser) {
+          userToCheck = sessionUser;
+        }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError' && !err?.message?.includes('timeout')) {
+          console.warn('[Auth] Session check error:', err?.message);
+        }
+      }
+
+      // 3. Verificar admin status para el usuario actual
+      if (userToCheck) {
+        console.log('[Auth] Checking admin status for:', userToCheck.email);
+        const isAdmin = await checkIsAdmin(userToCheck);
+        console.log('[Auth] User is admin:', isAdmin);
         
         authStore.set({
-          user,
+          user: userToCheck,
           isAdmin,
           isLoading: false,
           error: null,
           initialized: true,
         });
         
-        saveToStorage(user, isAdmin);
-      } else if (!stored.user) {
-        // No hay sesión ni localStorage
+        saveToStorage(userToCheck, isAdmin);
+      } else {
+        // No hay usuario
         authStore.set({
           user: null,
           isAdmin: false,
@@ -153,36 +200,40 @@ export async function initializeAuth(): Promise<void> {
         saveToStorage(null, false);
       }
 
-      // 4. Escuchar cambios de auth
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('[Auth] State change:', event);
-        
-        if (session?.user) {
-          const isAdmin = await checkIsAdmin(session.user.id);
+      // 4. Escuchar cambios de auth (SOLO para nuevos logins/logouts)
+      try {
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('[Auth] State change:', event);
           
-          authStore.set({
-            user: session.user,
-            isAdmin,
-            isLoading: false,
-            error: null,
-            initialized: true,
-          });
-          
-          saveToStorage(session.user, isAdmin);
-        } else {
-          authStore.set({
-            user: null,
-            isAdmin: false,
-            isLoading: false,
-            error: null,
-            initialized: true,
-          });
-          
-          saveToStorage(null, false);
-        }
-      });
+          if (event === 'SIGNED_IN' && session?.user) {
+            const isAdmin = await checkIsAdmin(session.user);
+            
+            authStore.set({
+              user: session.user,
+              isAdmin,
+              isLoading: false,
+              error: null,
+              initialized: true,
+            });
+            
+            saveToStorage(session.user, isAdmin);
+          } else if (event === 'SIGNED_OUT') {
+            authStore.set({
+              user: null,
+              isAdmin: false,
+              isLoading: false,
+              error: null,
+              initialized: true,
+            });
+            
+            saveToStorage(null, false);
+          }
+        });
 
-      authSubscription = data.subscription;
+        authSubscription = data.subscription;
+      } catch (err) {
+        console.warn('[Auth] Error setting up listener:', err);
+      }
 
     } catch (error) {
       console.error('[Auth] Init error:', error);
@@ -203,6 +254,8 @@ export async function initializeAuth(): Promise<void> {
 }
 
 export async function login(email: string, password: string) {
+  console.log('[Auth] Login attempt for:', email);
+  
   authStore.set({
     ...authStore.get(),
     isLoading: true,
@@ -218,15 +271,14 @@ export async function login(email: string, password: string) {
     if (error) throw error;
     if (!data.user) throw new Error('No user data');
 
-    // Crear perfil SOLO si no existe (no sobreescribir is_admin)
+    // Crear perfil SOLO si no existe
     const { data: existingProfile } = await supabase
       .from('user_profiles')
       .select('id')
       .eq('id', data.user.id)
-      .single();
+      .maybeSingle();
 
     if (!existingProfile) {
-      // Solo insertar si no existe
       await supabase
         .from('user_profiles')
         .insert({
@@ -252,6 +304,7 @@ export async function login(email: string, password: string) {
     return { success: true, user: data.user, isAdmin };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error';
+    console.error('[Auth] Login error:', message);
     authStore.set({
       ...authStore.get(),
       isLoading: false,
@@ -285,7 +338,7 @@ export async function register(email: string, password: string, fullName: string
       .from('user_profiles')
       .select('id')
       .eq('id', data.user.id)
-      .single();
+      .maybeSingle();
 
     if (!existingProfile) {
       await supabase
@@ -323,7 +376,9 @@ export async function register(email: string, password: string, fullName: string
 }
 
 export async function logout() {
-  // Limpiar subscription
+  console.log('[Auth] Starting logout...');
+  
+  // Limpiar subscription inmediatamente
   if (authSubscription) {
     authSubscription.unsubscribe();
     authSubscription = null;
@@ -338,13 +393,29 @@ export async function logout() {
     initialized: false,
   });
 
-  saveToStorage(null, false);
+  // Limpiar storage
+  localStorage.clear();
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.clear();
+  }
+
+  // Limpiar TODAS las cookies
+  clearAllCookies();
+
+  // Reset promise para forzar reinicialización
   initPromise = null;
 
+  // Signout desde Supabase con scope local
   try {
-    await supabase.auth.signOut();
-  } catch {}
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch (err) {
+    console.warn('[Auth] signOut error:', err);
+  }
 
+  // Esperar un poco para asegurar limpieza completa
+  await new Promise(r => setTimeout(r, 500));
+  
+  // Redirigir a home
   if (typeof window !== 'undefined') {
     window.location.href = '/';
   }
@@ -358,7 +429,6 @@ export function isAuthenticated() {
   return !!authStore.get().user;
 }
 
-// Función para refrescar el estado de admin manualmente
 export async function refreshAdminStatus() {
   const state = authStore.get();
   if (!state.user) return;
