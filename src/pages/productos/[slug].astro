@@ -19,6 +19,16 @@ if (error || !product) {
   return Astro.redirect('/productos');
 }
 
+// Verificar que tiene tallas disponibles
+const hasAvailableSizes = product.sizes_available && 
+  Object.keys(product.sizes_available).length > 0 &&
+  Object.values(product.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
+
+// Si no hay tallas disponibles, redirigir (el producto no debería ser accesible)
+if (!hasAvailableSizes) {
+  return Astro.redirect('/productos');
+}
+
 const formatPrice = (cents: number) => {
   return `€${(cents / 100).toFixed(0)}`;
 };

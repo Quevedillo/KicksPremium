@@ -2,13 +2,19 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { supabase } from '@lib/supabase';
 
-// Fetch productos y categorías
-const { data: products } = await supabase
+// Fetch productos y categorías (solo con tallas disponibles)
+const { data: rawProducts } = await supabase
   .from('products')
   .select('*')
   .gt('stock', 0) // Solo productos con stock disponible
   .order('created_at', { ascending: false })
-  .limit(6);
+  .limit(12); // Fetch más para filtrar después
+
+// Filtrar productos que realmente tienen tallas con stock > 0
+const products = (rawProducts || []).filter(p => {
+  if (!p.sizes_available || Object.keys(p.sizes_available).length === 0) return false;
+  return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
+}).slice(0, 6);
 
 const { data: categories } = await supabase
   .from('categories')

@@ -59,12 +59,19 @@ if (categoryFilter) {
   }
 }
 
-// Filtrar solo productos con stock > 0
+// Filtrar solo productos con stock > 0 (que tengan tallas disponibles)
 productsQuery = productsQuery.gt('stock', 0);
 
 const { data: products, error } = await productsQuery;
 
-let filteredProducts = products || [];
+// Filtrar productos que realmente tienen tallas con stock
+let productsWithSizes = (products || []).filter(p => {
+  if (!p.sizes_available || Object.keys(p.sizes_available).length === 0) return false;
+  // Verificar que al menos una talla tenga stock > 0
+  return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
+});
+
+let filteredProducts = productsWithSizes;
 
 if (error) {
   console.error('Error fetching products:', error);

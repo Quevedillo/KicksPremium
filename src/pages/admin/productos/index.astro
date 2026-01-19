@@ -195,6 +195,12 @@ const formatCurrency = (price: number) => {
                             Edición Limitada
                           </span>
                         )}
+                        {/* Advertencia si no está visible en tienda */}
+                        {product.stock === 0 && (
+                          <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded border border-red-300">
+                            ⚠️ NO VISIBLE EN TIENDA
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -210,15 +216,26 @@ const formatCurrency = (price: number) => {
                     <p class="font-bold text-brand-black">{formatCurrency(product.price)}</p>
                   </td>
                   <td class="px-6 py-4">
-                    <span class={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                      product.stock === 0
-                        ? 'bg-red-100 text-red-800'
-                        : product.stock <= 3
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
-                    }`}>
-                      {product.stock === 0 ? 'Agotado' : `${product.stock} uds`}
-                    </span>
+                    <div class="space-y-1">
+                      <span class={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        product.stock === 0
+                          ? 'bg-red-100 text-red-800'
+                          : product.stock <= 3
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-green-100 text-green-800'
+                      }`}>
+                        {product.stock === 0 ? '❌ SIN STOCK' : `${product.stock} uds`}
+                      </span>
+                      {/* Mostrar tallas disponibles */}
+                      {product.sizes_available && Object.keys(product.sizes_available).length > 0 && (
+                        <div class="text-xs text-neutral-500">
+                          Tallas: {Object.entries(product.sizes_available)
+                            .filter(([_, qty]) => (parseInt(String(qty)) || 0) > 0)
+                            .map(([size, qty]) => `${size}(${qty})`)
+                            .join(', ') || 'Ninguna'}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2">

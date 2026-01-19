@@ -95,13 +95,13 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       slug,
       description,
       price,
-      stock,
       category_id,
       brand,
       color,
       images,
+      cost_price,
     } = body;
-    let { sku } = body;
+    let { sku, stock, sizes_available } = body;
 
     if (!name || !slug || price === undefined || isNaN(price) || price < 0) {
       return new Response(
@@ -112,6 +112,25 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
 
     // Convertir EUR a centimos
     const priceInCents = Math.round(parseFloat(price) * 100);
+    const costPriceInCents = cost_price ? Math.round(parseFloat(cost_price) * 100) : null;
+
+    // Procesar sizes_available y calcular stock
+    let processedSizes: Record<string, number> = {};
+    if (sizes_available && typeof sizes_available === 'object') {
+      Object.entries(sizes_available).forEach(([size, qty]: [string, any]) => {
+        const quantity = parseInt(qty) || 0;
+        if (quantity > 0) {
+          processedSizes[size] = quantity;
+        }
+      });
+    }
+    
+    // Calcular stock desde sizes_available
+    if (Object.keys(processedSizes).length > 0) {
+      stock = Object.values(processedSizes).reduce((sum: number, qty: number) => sum + qty, 0);
+    } else {
+      stock = parseInt(stock) || 0;
+    }
 
     // Generar SKU automático si no se proporciona
     if (!sku || !sku.trim()) {
@@ -143,7 +162,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         slug,
         description,
         price: priceInCents,
-        stock: stock || 0,
+        cost_price: costPriceInCents,
+        stock: stock,
+        sizes_available: processedSizes,
         category_id,
         brand: brand || null,
         sku: sku || null,

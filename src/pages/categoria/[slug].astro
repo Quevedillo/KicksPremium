@@ -38,7 +38,11 @@ if (sortFilter === 'price-asc') {
 
 const { data: products } = await productsQuery;
 
-const productsList: Product[] = products || [];
+// Filtrar productos que realmente tienen tallas con stock > 0
+const productsList: Product[] = (products || []).filter(p => {
+  if (!p.sizes_available || Object.keys(p.sizes_available).length === 0) return false;
+  return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
+});
 
 // Category emoji map
 const categoryEmojis: Record<string, string> = {
