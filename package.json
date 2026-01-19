@@ -17,16 +17,17 @@
     "autoprefixer": "^10.4.0",
     "cloudinary": "^2.8.0",
     "nanostores": "^0.10.2",
+    "nodemailer": "^6.10.1",
     "postcss": "^8.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "resend": "^6.7.0",
     "stripe": "^20.1.2",
     "tailwindcss": "^3.3.0"
   },
   "devDependencies": {
     "@astrojs/react": "^3.0.0",
     "@astrojs/tailwind": "^5.0.0",
+    "@types/nodemailer": "^7.0.5",
     "typescript": "^5.3.0"
   }
 }

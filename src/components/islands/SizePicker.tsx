@@ -15,12 +15,13 @@ export const SizePicker: React.FC<SizePickerProps> = ({
 
   // Solo mostrar tallas con stock > 0
   const allSizes = Object.entries(sizesAvailable)
-    .filter(([_, qty]) => (parseInt(qty) || 0) > 0)
+    .filter(([_, qty]) => (typeof qty === 'number' ? qty : parseInt(String(qty)) || 0) > 0)
     .map(([size]) => size)
     .sort((a, b) => parseFloat(a) - parseFloat(b));
 
   const handleSelect = (size: string) => {
-    const qty = parseInt(sizesAvailable[size]) || 0;
+    const qtyValue = sizesAvailable[size];
+    const qty = typeof qtyValue === 'number' ? qtyValue : parseInt(String(qtyValue)) || 0;
     if (qty > 0) {
       setSelected(size);
       onSizeSelect?.(size);

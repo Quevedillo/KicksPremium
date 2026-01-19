@@ -1,57 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { authStore, logout, getCurrentUser, initializeAuth } from '@stores/auth';
+import { authStore, logout, initializeAuth } from '@stores/auth';
 
 export default function UserMenu() {
-  const [user, setUser] = useState(getCurrentUser());
+  const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Mark as mounted first
-    setIsMounted(true);
-    
-    // Inicializar auth al montar el componente
-    initializeAuth().then(() => {
-      setUser(getCurrentUser());
-      setIsLoading(false);
-    });
+    // Inicializar auth
+    initializeAuth();
 
+    // Obtener estado inicial
+    const state = authStore.get();
+    setUser(state.user);
+    setIsAdmin(state.isAdmin);
+
+    // Escuchar cambios
     const unsubscribe = authStore.subscribe((state) => {
       setUser(state.user);
-      setIsAdmin(state.isAdmin || false);
-      setIsLoading(state.isLoading && !state.initialized);
+      setIsAdmin(state.isAdmin);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = () => {
-    // Limpiar todo y recargar - sin async para evitar bloqueos
-    localStorage.clear();
-    document.cookie = 'sb-access-token=; path=/; max-age=0';
-    document.cookie = 'sb-refresh-token=; path=/; max-age=0';
-    window.location.href = '/';
-  };
-
-  // Mostrar loading mientras se inicializa
-  if (isLoading) {
-    return (
-      <div className="px-4 py-2 bg-brand-gray text-neutral-500 text-sm">
-        ...
-      </div>
-    );
-  }
-
+  // Mostrar menu siempre (no esperamos loading)
   if (!user) {
     return (
-      <a
-        href="/auth/login"
-        className="px-4 py-2 bg-brand-red text-white hover:bg-brand-orange transition-colors text-sm font-bold uppercase"
+      <button
+        onClick={() => {
+          window.location.href = '/auth/login';
+        }}
+        className="px-4 py-2 bg-brand-red text-white hover:bg-brand-orange transition-colors text-sm font-bold uppercase cursor-pointer"
       >
         Entrar
-      </a>
+      </button>
     );
   }
 
@@ -73,8 +56,7 @@ export default function UserMenu() {
         <span>{userName.split(' ')[0]}</span>
       </button>
 
-      {/* Dropdown Menu - solo renderizar después de hidratación */}
-      {isMounted && showMenu && (
+      {showMenu && (
         <div className="absolute right-0 mt-2 w-56 bg-brand-dark border border-brand-gray shadow-lg z-50">
           <div className="p-3 border-b border-brand-gray">
             <p className="text-xs text-neutral-500">Conectado como:</p>
@@ -97,7 +79,6 @@ export default function UserMenu() {
             Mis Pedidos
           </a>
 
-          {/* Admin Panel Link - Solo visible para admins */}
           {isAdmin && (
             <a
               href="/admin"
@@ -111,7 +92,7 @@ export default function UserMenu() {
           <button
             onClick={() => {
               setShowMenu(false);
-              handleLogout();
+              logout();
             }}
             className="w-full text-left px-4 py-3 text-sm text-brand-red hover:bg-brand-red hover:text-white transition-colors border-t border-brand-gray font-bold"
           >

@@ -1,23 +1,31 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-// Validar que existe la clave API de Resend
-if (!import.meta.env.RESEND_API_KEY) {
+// Validar que existe la clave API de Brevo
+if (!import.meta.env.BREVO_API_KEY) {
   console.warn(
-    '⚠️ ADVERTENCIA: RESEND_API_KEY no está configurada en .env.local\n' +
+    '⚠️ ADVERTENCIA: BREVO_API_KEY no está configurada en .env\n' +
     'Los emails NO serán enviados hasta que configures esta variable.\n' +
-    'Ve a https://resend.com para obtener tu clave API gratuita.\n' +
+    'Ve a https://www.brevo.com para obtener tu clave API.\n' +
     'Consulta NEWSLETTER_SETUP.md para más instrucciones.'
   );
 }
 
-const resend = new Resend(import.meta.env.RESEND_API_KEY || 'placeholder');
+// Configurar transporte de Brevo con SMTP
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: import.meta.env.FROM_EMAIL || 'your-email@example.com',
+    pass: import.meta.env.BREVO_API_KEY || 'placeholder',
+  },
+});
 
 /**
  * Email desde donde se envían los correos
- * Por defecto: dominio de Resend (onboarding@resend.dev)
- * Si tienes tu propio dominio verificado, cambia a: noreply@tudominio.com
+ * IMPORTANTE: Debe ser un email verificado en tu cuenta de Brevo
  */
-const FROM_EMAIL = import.meta.env.FROM_EMAIL || 'onboarding@resend.dev';
+const FROM_EMAIL = import.meta.env.FROM_EMAIL || 'your-email@example.com';
 const ADMIN_EMAIL = import.meta.env.ADMIN_EMAIL || 'admin@kickspremium.com';
 
 interface OrderItem {
@@ -52,9 +60,9 @@ interface OrderDetails {
  */
 export async function sendOrderConfirmationEmail(order: OrderDetails) {
   try {
-    // Validar que está configurado Resend
-    if (!import.meta.env.RESEND_API_KEY) {
-      console.warn('⚠️ RESEND_API_KEY no configurada. Email no será enviado.');
+    // Validar que está configurado Brevo
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -296,17 +304,17 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 </html>
     `;
 
-    const result = await resend.emails.send({
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: order.email,
       subject: `Pedido Confirmado #${order.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
     });
 
-    // Validar respuesta de Resend
-    if (result.error) {
-      console.error('❌ Error desde Resend:', result.error);
-      throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
+    // Validar respuesta de Brevo
+    if (!result || !result.messageId) {
+      console.error('❌ Error desde Brevo:', result);
+      throw new Error(`Brevo error: ${JSON.stringify(result)}`);
     }
 
     console.log('✅ Confirmation email sent:', result);
@@ -322,9 +330,9 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
  */
 export async function sendNewsletterWelcomeEmail(email: string) {
   try {
-    // Validar que está configurado Resend
-    if (!import.meta.env.RESEND_API_KEY) {
-      console.warn('⚠️ RESEND_API_KEY no configurada. Email de newsletter no será enviado.');
+    // Validar que está configurado Brevo
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email de newsletter no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -440,17 +448,17 @@ export async function sendNewsletterWelcomeEmail(email: string) {
 </html>
     `;
 
-    const result = await resend.emails.send({
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: email,
       subject: '¡Bienvenido a Kicks Premium!',
       html: htmlContent,
     });
 
-    // Validar respuesta de Resend
-    if (result.error) {
-      console.error('❌ Error desde Resend:', result.error);
-      throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
+    // Validar respuesta de Brevo
+    if (!result || !result.messageId) {
+      console.error('❌ Error desde Brevo:', result);
+      throw new Error(`Brevo error: ${JSON.stringify(result)}`);
     }
 
     console.log('✅ Newsletter welcome email sent:', result);
@@ -483,9 +491,9 @@ export async function sendNewProductEmail(
   product: ProductNewsletterData
 ) {
   try {
-    // Validar que está configurado Resend
-    if (!import.meta.env.RESEND_API_KEY) {
-      console.warn(`⚠️ RESEND_API_KEY no configurada. Email a ${subscriberEmail} no será enviado.`);
+    // Validar que está configurado Brevo
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn(`⚠️ BREVO_API_KEY no configurada. Email a ${subscriberEmail} no será enviado.`);
       throw new Error('Email service not configured');
     }
 
@@ -668,7 +676,7 @@ export async function sendNewProductEmail(
 </html>
     `;
 
-    const result = await resend.emails.send({
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: subscriberEmail,
       subject: `🔥 ¡Nuevo Drop! ${product.name}`,
@@ -739,9 +747,9 @@ export async function sendAdminNotification(
   metadata?: Record<string, any>
 ) {
   try {
-    // Validar que está configurado Resend
-    if (!import.meta.env.RESEND_API_KEY) {
-      console.warn('⚠️ RESEND_API_KEY no configurada. Email a admin no será enviado.');
+    // Validar que está configurado Brevo
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email a admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -774,7 +782,7 @@ ${JSON.stringify(metadata, null, 2)}
 </html>
     `;
 
-    const result = await resend.emails.send({
+    const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: ADMIN_EMAIL,
       subject: `[ADMIN] ${subject}`,

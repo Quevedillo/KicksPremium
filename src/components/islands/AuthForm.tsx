@@ -45,20 +45,36 @@ export default function AuthForm() {
     setError('');
     setSuccess('');
 
-    const result = await login(email, password);
-    setLoading(false);
+    try {
+      // Usar el endpoint API para que guarde las cookies
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (result.success) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión');
+      }
+
+      // También actualizar el store del cliente
+      await login(email, password);
+
       setSuccess('¡Inicio de sesión exitoso! Redirigiendo...');
       setEmail('');
       setPassword('');
       setIsAuthenticated(true);
+      
       // Redirect after login - usando window.location.replace para forzar recarga completa
       setTimeout(() => {
         window.location.replace(redirectUrl);
       }, 500);
-    } else {
-      setError(result.error || 'Error al iniciar sesión');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
     }
   };
 

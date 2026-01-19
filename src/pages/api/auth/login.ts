@@ -33,19 +33,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Guardar token en cookie
-    cookies.set('auth-token', data.session.access_token, {
+    // Guardar token en cookie (nombres que espera el middleware)
+    cookies.set('sb-access-token', data.session.access_token, {
       httpOnly: true,
-      secure: true,
+      secure: import.meta.env.PROD,
       sameSite: 'lax',
       maxAge: data.session.expires_in,
       path: '/',
     });
 
     // Guardar refresh token
-    cookies.set('refresh-token', data.session.refresh_token || '', {
+    cookies.set('sb-refresh-token', data.session.refresh_token || '', {
       httpOnly: true,
-      secure: true,
+      secure: import.meta.env.PROD,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/',
