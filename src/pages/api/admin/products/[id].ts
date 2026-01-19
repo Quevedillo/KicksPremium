@@ -139,15 +139,14 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
       sku = `${brandPrefix}-${slugPrefix}-${timestamp}`;
     } else {
-      // Verificar SKU único (excluyendo el producto actual)
-      const { data: existingSkuProduct } = await supabase
+      // Verificar SKU único (excluyendo el producto actual) - sin .single() para evitar error
+      const { data: existingSkuProducts } = await supabase
         .from('products')
         .select('id')
         .eq('sku', sku)
-        .neq('id', id)
-        .single();
+        .neq('id', id);
       
-      if (existingSkuProduct) {
+      if (existingSkuProducts && existingSkuProducts.length > 0) {
         return new Response(
           JSON.stringify({ error: 'El SKU ya existe', details: `Ya existe otro producto con el SKU: ${sku}` }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -164,7 +163,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         price: priceInCents,
         cost_price: costPriceInCents,
         stock: stock,
-        sizes_available: processedSizes,
+        sizes_available: Object.keys(processedSizes).length > 0 ? processedSizes : {},
         category_id,
         brand: brand || null,
         sku: sku || null,
@@ -173,18 +172,28 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) {
+      console.error('Error updating product:', error);
       return new Response(
         JSON.stringify({ error: error.message }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    // data es un array sin .single()
+    const updatedProduct = data && data.length > 0 ? data[0] : null;
+    
+    if (!updatedProduct) {
+      return new Response(
+        JSON.stringify({ error: 'Producto no encontrado' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ success: true, product: data }),
+      JSON.stringify({ success: true, product: updatedProduct }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {

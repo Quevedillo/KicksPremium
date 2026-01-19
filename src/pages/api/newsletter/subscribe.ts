@@ -26,14 +26,13 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Verificar si ya existe
-    const { data: existing } = await supabase
+    // Verificar si ya existe - sin .single() para evitar error cuando no existe
+    const { data: existingList } = await supabase
       .from('newsletter_subscribers')
       .select('id')
-      .eq('email', email)
-      .single();
+      .eq('email', email);
 
-    if (existing) {
+    if (existingList && existingList.length > 0) {
       return new Response(
         JSON.stringify({
           success: true,
@@ -70,24 +69,32 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // Crear suscriptor
-    const { data: subscriber, error } = await supabase
+    // Crear suscriptor - sin .single() para evitar errores
+    const { data: subscriberData, error } = await supabase
       .from('newsletter_subscribers')
       .insert({
         email,
         source,
         verified: true, // Marcar como verificado automáticamente
       })
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error creating newsletter subscriber:', error);
+      // Verificar si es error de tabla no existente
+      if (error.message.includes('relation') || error.code === '42P01') {
+        return new Response(
+          JSON.stringify({ error: 'Tabla de newsletter no configurada. Ejecuta SETUP_DATABASE.sql' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: 'Error al suscribirse al newsletter' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
+    
+    const subscriber = subscriberData?.[0] || null;
 
     // Enviar email de bienvenida con código de descuento
     try {

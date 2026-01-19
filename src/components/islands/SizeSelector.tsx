@@ -119,7 +119,7 @@ export const SizeSelector: React.FC<SizeSelectorProps> = ({ initialSizes, onSize
                   <button
                     type="button"
                     onClick={() => updateSize(size, quantity - 1)}
-                    className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 rounded text-sm"
+                    className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 rounded text-sm text-neutral-900"
                   >
                     −
                   </button>
@@ -128,12 +128,12 @@ export const SizeSelector: React.FC<SizeSelectorProps> = ({ initialSizes, onSize
                     value={quantity}
                     onChange={(e) => updateSize(size, Math.max(0, parseInt(e.target.value) || 0))}
                     min="0"
-                    className="w-16 text-center border border-neutral-300 rounded px-2 py-1"
+                    className="w-16 text-center border border-neutral-300 rounded px-2 py-1 bg-white text-neutral-900"
                   />
                   <button
                     type="button"
                     onClick={() => updateSize(size, quantity + 1)}
-                    className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 rounded text-sm"
+                    className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 rounded text-sm text-neutral-900"
                   >
                     +
                   </button>
