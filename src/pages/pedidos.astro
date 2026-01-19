@@ -58,6 +58,10 @@ const getStatusBadge = (status: string) => {
   const statusConfig: Record<string, { color: string; label: string }> = {
     completed: { color: 'bg-green-500/20 text-green-400 border-green-500', label: 'Completado' },
     pending: { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500', label: 'Pendiente' },
+    paid: { color: 'bg-blue-500/20 text-blue-400 border-blue-500', label: 'Pagado' },
+    processing: { color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500', label: 'Procesando' },
+    shipped: { color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500', label: 'Enviado' },
+    delivered: { color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500', label: 'Entregado' },
     failed: { color: 'bg-red-500/20 text-red-400 border-red-500', label: 'Fallido' },
     cancelled: { color: 'bg-gray-500/20 text-gray-400 border-gray-500', label: 'Cancelado' },
     refunded: { color: 'bg-purple-500/20 text-purple-400 border-purple-500', label: 'Reembolsado' },
@@ -65,6 +69,10 @@ const getStatusBadge = (status: string) => {
   
   return statusConfig[status] || statusConfig.pending;
 };
+
+// Determinar qué acciones están disponibles para cada pedido
+const canCancel = (status: string) => ['pending', 'paid', 'processing'].includes(status);
+const canReturn = (status: string) => status === 'delivered';
 ---
 
 <PublicLayout title="Mis Pedidos" description="Historial de pedidos">
@@ -124,7 +132,7 @@ const getStatusBadge = (status: string) => {
             const items = Array.isArray(order.items) ? order.items : [];
             
             return (
-              <div class="bg-brand-dark border border-brand-gray rounded-lg overflow-hidden">
+              <div class="bg-brand-dark border border-brand-gray rounded-lg overflow-hidden" data-order-id={order.id}>
                 {/* Order Header */}
                 <div class="bg-brand-gray p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
@@ -139,9 +147,19 @@ const getStatusBadge = (status: string) => {
                     <p class={`inline-block px-3 py-1 rounded border text-sm font-bold ${statusConfig.color}`}>
                       {statusConfig.label}
                     </p>
+                    {order.return_status && (
+                      <p class="inline-block ml-2 px-3 py-1 rounded border text-sm font-bold bg-amber-500/20 text-amber-400 border-amber-500">
+                        Devolución: {order.return_status === 'requested' ? 'Solicitada' : order.return_status === 'approved' ? 'Aprobada' : order.return_status === 'received' ? 'Recibida' : 'Reembolsada'}
+                      </p>
+                    )}
                     <p class="text-white font-bold text-2xl mt-2">
                       {formatPrice(order.total_price)}
                     </p>
+                    {order.discount_amount > 0 && (
+                      <p class="text-green-400 text-sm">
+                        Descuento: -{formatPrice(order.discount_amount)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -214,6 +232,30 @@ const getStatusBadge = (status: string) => {
                     </div>
                   </div>
                 )}
+
+                {/* Order Actions */}
+                {(canCancel(order.status) || canReturn(order.status)) && !order.return_status && (
+                  <div class="border-t border-brand-gray p-6 bg-brand-dark flex flex-wrap gap-3">
+                    {canCancel(order.status) && (
+                      <button
+                        type="button"
+                        class="cancel-order-btn px-6 py-2 border-2 border-red-500 text-red-500 font-bold uppercase text-sm hover:bg-red-500 hover:text-white transition-colors rounded"
+                        data-order-id={order.id}
+                      >
+                        Cancelar Pedido
+                      </button>
+                    )}
+                    {canReturn(order.status) && (
+                      <button
+                        type="button"
+                        class="return-order-btn px-6 py-2 border-2 border-amber-500 text-amber-500 font-bold uppercase text-sm hover:bg-amber-500 hover:text-white transition-colors rounded"
+                        data-order-id={order.id}
+                      >
+                        Solicitar Devolución
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -221,4 +263,121 @@ const getStatusBadge = (status: string) => {
       )}
     </div>
   </div>
+
+  {/* Modal de Confirmación */}
+  <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="bg-brand-dark border border-brand-gray rounded-lg max-w-md w-full mx-4 p-6">
+      <h3 id="modal-title" class="text-xl font-bold text-white mb-4"></h3>
+      <p id="modal-message" class="text-neutral-400 mb-6"></p>
+      <div id="modal-extra" class="mb-6"></div>
+      <div class="flex gap-3 justify-end">
+        <button id="modal-cancel" class="px-6 py-2 border border-neutral-500 text-neutral-400 rounded hover:bg-neutral-700 transition-colors">
+          Cancelar
+        </button>
+        <button id="modal-confirm" class="px-6 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700 transition-colors">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
 </PublicLayout>
+
+<script>
+  // Modal handling
+  const modal = document.getElementById('confirm-modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalMessage = document.getElementById('modal-message');
+  const modalExtra = document.getElementById('modal-extra');
+  const modalCancel = document.getElementById('modal-cancel');
+  const modalConfirm = document.getElementById('modal-confirm');
+  
+  let currentAction: (() => Promise<void>) | null = null;
+
+  function showModal(title: string, message: string, extra: string, confirmAction: () => Promise<void>) {
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
+    if (modalExtra) modalExtra.innerHTML = extra;
+    currentAction = confirmAction;
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  }
+
+  function hideModal() {
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+    currentAction = null;
+  }
+
+  modalCancel?.addEventListener('click', hideModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) hideModal();
+  });
+
+  modalConfirm?.addEventListener('click', async () => {
+    if (currentAction) {
+      const btn = modalConfirm as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = 'Procesando...';
+      await currentAction();
+      btn.disabled = false;
+      btn.textContent = 'Confirmar';
+      hideModal();
+      window.location.reload();
+    }
+  });
+
+  // Cancel order
+  document.querySelectorAll('.cancel-order-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const orderId = btn.getAttribute('data-order-id');
+      showModal(
+        '❌ Cancelar Pedido',
+        '¿Estás seguro de que quieres cancelar este pedido? Esta acción no se puede deshacer.',
+        '<div class="bg-brand-black p-4 rounded"><label class="text-sm text-neutral-400 block mb-2">Motivo de la cancelación (opcional)</label><input type="text" id="cancel-reason" class="w-full bg-brand-gray border border-neutral-600 rounded px-3 py-2 text-white" placeholder="Ej: Cambié de opinión"></div>',
+        async () => {
+          const reason = (document.getElementById('cancel-reason') as HTMLInputElement)?.value || '';
+          const response = await fetch('/api/orders/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, reason }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            alert(data.error || 'Error al cancelar el pedido');
+          }
+        }
+      );
+    });
+  });
+
+  // Return order
+  document.querySelectorAll('.return-order-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const orderId = btn.getAttribute('data-order-id');
+      showModal(
+        '📦 Solicitar Devolución',
+        'Recibirás un email con las instrucciones para enviar el producto de vuelta.',
+        `<div class="bg-amber-500/10 border border-amber-500/30 p-4 rounded text-sm text-amber-200">
+          <p class="font-bold mb-2">Política de devoluciones:</p>
+          <ul class="list-disc list-inside space-y-1 text-amber-100/80">
+            <li>Los productos deben estar en su estado original</li>
+            <li>Tienes 30 días desde la entrega para solicitar la devolución</li>
+            <li>Los gastos de envío de la devolución corren por tu cuenta</li>
+            <li>El reembolso se procesará en 5-10 días hábiles</li>
+          </ul>
+        </div>`,
+        async () => {
+          const response = await fetch('/api/orders/return', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            alert(data.error || 'Error al solicitar la devolución');
+          }
+        }
+      );
+    });
+  });
+</script>

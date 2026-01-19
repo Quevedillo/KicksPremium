@@ -326,9 +326,9 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 }
 
 /**
- * Enviar email de bienvenida al newsletter
+ * Enviar email de bienvenida al newsletter con código de descuento
  */
-export async function sendNewsletterWelcomeEmail(email: string) {
+export async function sendNewsletterWelcomeEmail(email: string, discountCode: string = 'WELCOME10') {
   try {
     // Validar que está configurado Brevo
     if (!import.meta.env.BREVO_API_KEY) {
@@ -373,6 +373,25 @@ export async function sendNewsletterWelcomeEmail(email: string) {
     .section {
       margin-bottom: 30px;
     }
+    .discount-box {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      padding: 24px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 24px 0;
+    }
+    .discount-code {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      font-family: monospace;
+      background: rgba(255,255,255,0.2);
+      padding: 12px 24px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 8px;
+    }
     .button {
       display: inline-block;
       background-color: #000;
@@ -412,14 +431,23 @@ export async function sendNewsletterWelcomeEmail(email: string) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>¡Bienvenido al Newsletter!</h1>
+      <h1>🎉 ¡Bienvenido a Kicks Premium!</h1>
     </div>
 
     <div class="content">
       <div class="section">
-        <h2 style="margin-top: 0; color: #1f2937;">Hola,</h2>
-        <p>¡Gracias por suscribirte a nuestro newsletter! Te mantendremos informado sobre:</p>
+        <h2 style="margin-top: 0; color: #1f2937;">¡Gracias por unirte!</h2>
+        <p>Como agradecimiento por suscribirte a nuestra newsletter, aquí tienes tu código de descuento exclusivo:</p>
+        
+        <div class="discount-box">
+          <p style="margin: 0; font-size: 16px;">Tu código de descuento del 10%</p>
+          <div class="discount-code">${discountCode}</div>
+          <p style="margin: 12px 0 0 0; font-size: 13px; opacity: 0.9;">Válido por 30 días en compras superiores a 50€</p>
+        </div>
+      </div>
 
+      <div class="section">
+        <p>Te mantendremos informado sobre:</p>
         <ul class="benefits">
           <li>✨ <strong>Nuevas Colecciones</strong> - Primero en saber sobre nuevos lanzamientos exclusivos</li>
           <li>🎁 <strong>Ofertas Especiales</strong> - Descuentos exclusivos para suscriptores</li>
@@ -428,11 +456,14 @@ export async function sendNewsletterWelcomeEmail(email: string) {
         </ul>
       </div>
 
+      <div class="section" style="text-align: center;">
+        <a href="https://kickspremium.com" class="button">Usar mi código ahora</a>
+      </div>
+
       <div class="section">
         <p style="color: #6b7280; font-size: 14px;">
           Si no deseas recibir estos emails, puedes <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #000; text-decoration: underline;">darte de baja</a> en cualquier momento.
         </p>
-        <a href="https://kickspremium.com" class="button">Visita nuestra Tienda</a>
       </div>
     </div>
 
@@ -451,7 +482,7 @@ export async function sendNewsletterWelcomeEmail(email: string) {
     const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: email,
-      subject: '¡Bienvenido a Kicks Premium!',
+      subject: '🎁 ¡Tu código de descuento del 10% está aquí!',
       html: htmlContent,
     });
 
@@ -793,6 +824,184 @@ ${JSON.stringify(metadata, null, 2)}
     return result;
   } catch (error) {
     console.error('Error sending admin notification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Interface para datos de cancelación
+ */
+interface OrderCancellationData {
+  orderId: string;
+  email: string;
+  customerName: string;
+  reason?: string;
+}
+
+/**
+ * Enviar email de confirmación de cancelación de pedido
+ */
+export async function sendOrderCancellationEmail(data: OrderCancellationData) {
+  try {
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email de cancelación no será enviado.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.6; color: #333; background-color: #f9fafb; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .content { padding: 40px 20px; }
+    .info-box { background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .button { display: inline-block; background-color: #000; color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; margin-top: 20px; }
+    .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Pedido Cancelado</h1>
+    </div>
+    <div class="content">
+      <p>Hola ${data.customerName},</p>
+      <p>Tu pedido ha sido cancelado correctamente.</p>
+      
+      <div class="info-box">
+        <p style="margin: 0;"><strong>Número de pedido:</strong> #${data.orderId.substring(0, 8).toUpperCase()}</p>
+        ${data.reason ? `<p style="margin: 8px 0 0 0;"><strong>Motivo:</strong> ${data.reason}</p>` : ''}
+      </div>
+      
+      <p>Si realizaste el pago con tarjeta, el reembolso se procesará automáticamente en 5-10 días hábiles.</p>
+      
+      <p style="margin-top: 24px;">Si tienes alguna pregunta, no dudes en contactarnos.</p>
+      
+      <a href="https://kickspremium.com/productos" class="button">Seguir comprando</a>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: data.email,
+      subject: `Pedido #${data.orderId.substring(0, 8).toUpperCase()} cancelado`,
+      html: htmlContent,
+    });
+
+    console.log('✅ Cancellation email sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending cancellation email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Interface para datos de devolución
+ */
+interface ReturnRequestData {
+  orderId: string;
+  email: string;
+  customerName: string;
+  items: any[];
+  returnAddress: {
+    name: string;
+    line1: string;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
+}
+
+/**
+ * Enviar email con instrucciones de devolución
+ */
+export async function sendReturnRequestEmail(data: ReturnRequestData) {
+  try {
+    if (!import.meta.env.BREVO_API_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email de devolución no será enviado.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.6; color: #333; background-color: #f9fafb; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .content { padding: 40px 20px; }
+    .address-box { background-color: #fef3c7; border: 2px dashed #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .steps { counter-reset: step; list-style: none; padding: 0; }
+    .steps li { counter-increment: step; padding: 16px 0 16px 50px; position: relative; border-bottom: 1px solid #e5e7eb; }
+    .steps li::before { content: counter(step); position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; background: #000; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📦 Solicitud de Devolución</h1>
+    </div>
+    <div class="content">
+      <p>Hola ${data.customerName},</p>
+      <p>Hemos recibido tu solicitud de devolución para el pedido <strong>#${data.orderId.substring(0, 8).toUpperCase()}</strong>.</p>
+      
+      <h3 style="color: #1f2937; margin-top: 24px;">📋 Pasos para completar la devolución:</h3>
+      
+      <ol class="steps">
+        <li><strong>Empaqueta los productos</strong><br>Asegúrate de que estén en su embalaje original y en perfecto estado.</li>
+        <li><strong>Incluye este número de referencia</strong><br>Escribe <strong>#${data.orderId.substring(0, 8).toUpperCase()}</strong> en el exterior del paquete.</li>
+        <li><strong>Envía a nuestra dirección</strong><br>Consulta la dirección de devolución abajo.</li>
+        <li><strong>Espera confirmación</strong><br>Te notificaremos cuando recibamos el paquete y procesemos el reembolso.</li>
+      </ol>
+      
+      <h3 style="color: #1f2937; margin-top: 24px;">📍 Dirección de devolución:</h3>
+      <div class="address-box">
+        <p style="margin: 0; font-weight: bold;">${data.returnAddress.name}</p>
+        <p style="margin: 4px 0 0 0;">${data.returnAddress.line1}</p>
+        <p style="margin: 4px 0 0 0;">${data.returnAddress.postalCode} ${data.returnAddress.city}</p>
+        <p style="margin: 4px 0 0 0;">${data.returnAddress.country}</p>
+      </div>
+      
+      <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
+        <strong>Nota:</strong> El reembolso se procesará en 5-10 días hábiles después de recibir y verificar los productos.
+        Los gastos de envío de la devolución corren por cuenta del cliente.
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: data.email,
+      subject: `Instrucciones de devolución - Pedido #${data.orderId.substring(0, 8).toUpperCase()}`,
+      html: htmlContent,
+    });
+
+    console.log('✅ Return instructions email sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending return email:', error);
     throw error;
   }
 }

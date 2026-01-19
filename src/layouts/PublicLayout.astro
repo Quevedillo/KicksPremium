@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import CartIcon from '@components/islands/CartIcon';
 import CartSlideOver from '@components/islands/CartSlideOver';
 import UserMenu from '@components/islands/UserMenu';
+import NewsletterPopup from '@components/islands/NewsletterPopup';
 
 interface Props {
   title?: string;
@@ -144,6 +145,9 @@ const { title, description } = Astro.props;
 
   {/* Cart Slide Over */}
   <CartSlideOver client:only="react" />
+
+  {/* Newsletter Popup - Aparece tras 5 segundos para nuevos visitantes */}
+  <NewsletterPopup client:only="react" delayMs={5000} discountPercent={10} />
 
   {/* Newsletter Footer Script */}
   <script is:inline>
