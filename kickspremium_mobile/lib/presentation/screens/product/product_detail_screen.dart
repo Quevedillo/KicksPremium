@@ -2,8 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../data/repositories/product_repository.dart';
-import '../../logic/providers.dart';
+import '../../../data/models/product.dart';
+import '../../../data/repositories/product_repository.dart';
+import '../../../logic/providers.dart';
 
 // Create a provider family for fetching single product by slug
 final productBySlugProvider = FutureProvider.family<Product?, String>((ref, slug) async {

@@ -8,12 +8,23 @@ import 'core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await dotenv.load(fileName: "assets/env");
+  try {
+    await dotenv.load(fileName: "assets/env");
 
-  await Supabase.initialize(
-    url: dotenv.env['PUBLIC_SUPABASE_URL']!,
-    anonKey: dotenv.env['PUBLIC_SUPABASE_ANON_KEY']!,
-  );
+    final supabaseUrl = dotenv.env['PUBLIC_SUPABASE_URL'];
+    final supabaseKey = dotenv.env['PUBLIC_SUPABASE_ANON_KEY'];
+
+    if (supabaseUrl != null && supabaseKey != null && supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseKey,
+      );
+    } else {
+      print('❌ Warning: Supabase credentials not found in assets/env');
+    }
+  } catch (e) {
+    print('❌ Error during initialization: $e');
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
