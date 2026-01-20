@@ -41,10 +41,14 @@ final isLoggedInProvider = Provider<bool>((ref) {
 });
 
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  final user = ref.watch(userProvider);
+  if (user == null) return null;
   return ref.watch(authRepositoryProvider).getUserProfile();
 });
 
 final isAdminProvider = FutureProvider<bool>((ref) async {
+  final user = ref.watch(userProvider);
+  if (user == null) return false;
   return ref.watch(authRepositoryProvider).isAdmin();
 });
 
@@ -68,15 +72,21 @@ final productBySlugProvider = FutureProvider.family<Product?, String>((ref, slug
 
 // ========== Order Providers ==========
 final userOrdersProvider = FutureProvider<List<Order>>((ref) async {
+  final user = ref.watch(userProvider);
+  if (user == null) return [];
   ref.watch(authStateProvider);
   return ref.watch(orderRepositoryProvider).getUserOrders();
 });
 
 // ========== Cart State ==========
-class CartNotifier extends StateNotifier<List<CartItem>> {
-  CartNotifier() : super([]);
+class CartNotifier extends Notifier<List<CartItem>> {
+  @override
+  List<CartItem> build() => [];
 
   void addItem(Product product, String size, int quantity) {
+    if (quantity <= 0) return;
+    if (!product.sizesAvailable.containsKey(size)) return;
+    
     final existingIndex = state.indexWhere(
       (item) => item.productId == product.id && item.size == size,
     );
@@ -93,12 +103,14 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         ...state.sublist(existingIndex + 1),
       ];
     } else {
+      final maxStock = _getStockForSize(product, size);
+      final finalQuantity = quantity > maxStock ? maxStock : quantity;
       state = [
         ...state,
         CartItem(
           productId: product.id,
           product: product,
-          quantity: quantity,
+          quantity: finalQuantity,
           size: size,
         ),
       ];
@@ -139,6 +151,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   }
 
   int _getStockForSize(Product product, String size) {
+    if (!product.sizesAvailable.containsKey(size)) return 0;
     final stock = product.sizesAvailable[size];
     if (stock is int) return stock;
     if (stock is String) return int.tryParse(stock) ?? 0;
@@ -146,24 +159,52 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   }
 }
 
-final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>((ref) {
-  return CartNotifier();
-});
+final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(
+  CartNotifier.new,
+);
 
 final cartTotalProvider = Provider<int>((ref) {
   final cart = ref.watch(cartProvider);
-  return cart.fold(0, (sum, item) => sum + item.totalPrice);
+  int total = 0;
+  for (final item in cart) {
+    total += (item.product.price * item.quantity).toInt();
+  }
+  return total;
 });
 
 final cartItemCountProvider = Provider<int>((ref) {
   final cart = ref.watch(cartProvider);
-  return cart.fold(0, (count, item) => count + item.quantity);
+  int count = 0;
+  for (final item in cart) {
+    count += item.quantity;
+  }
+  return count;
 });
 
-final cartOpenProvider = StateProvider<bool>((ref) => false);
+final cartOpenProvider = NotifierProvider<CartOpenNotifier, bool>(
+  CartOpenNotifier.new,
+);
 
-// ========== Search ==========
-final searchQueryProvider = StateProvider<String>((ref) => '');
+class CartOpenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void setOpen(bool value) => state = value;
+}
+
+// ========== Search State ==========
+class SearchQueryNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void setQuery(String query) => state = query;
+  void clear() => state = '';
+}
+
+final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
+  SearchQueryNotifier.new,
+);
 
 final searchResultsProvider = FutureProvider<List<Product>>((ref) async {
   final query = ref.watch(searchQueryProvider);
