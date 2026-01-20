@@ -146,7 +146,6 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     }
 
     // Usar service client para bypass RLS
-    const serviceClient = getSupabaseServiceClient();
     const { data, error } = await serviceClient
       .from('products')
       .update({
