@@ -18,8 +18,7 @@ class AppTheme {
         primary: red,
         secondary: accent,
         surface: dark,
-        background: black,
-        onBackground: Colors.white,
+        onSurface: Colors.white,
       ),
       textTheme: TextTheme(
         displayLarge: GoogleFonts.bebasNeue(
