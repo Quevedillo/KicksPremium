@@ -213,12 +213,12 @@ const canReturn = (status: string) => status === 'delivered';
                           <p class="text-white font-semibold">{order.shipping_name}</p>
                           {order.shipping_address && (
                             <p class="text-neutral-400 text-sm mt-1">
-                              {order.shipping_address.line1}
-                              {order.shipping_address.line2 && `, ${order.shipping_address.line2}`}
+                              {order.shipping_address?.line1}
+                              {order.shipping_address?.line2 && `, ${order.shipping_address.line2}`}
                               <br />
-                              {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
+                              {order.shipping_address?.city}, {order.shipping_address?.state} {order.shipping_address?.postal_code}
                               <br />
-                              {order.shipping_address.country}
+                              {order.shipping_address?.country}
                             </p>
                           )}
                         </div>
@@ -234,28 +234,40 @@ const canReturn = (status: string) => status === 'delivered';
                 )}
 
                 {/* Order Actions */}
-                {(canCancel(order.status) || canReturn(order.status)) && !order.return_status && (
-                  <div class="border-t border-brand-gray p-6 bg-brand-dark flex flex-wrap gap-3">
-                    {canCancel(order.status) && (
-                      <button
-                        type="button"
-                        class="cancel-order-btn px-6 py-2 border-2 border-red-500 text-red-500 font-bold uppercase text-sm hover:bg-red-500 hover:text-white transition-colors rounded"
-                        data-order-id={order.id}
-                      >
-                        Cancelar Pedido
-                      </button>
-                    )}
-                    {canReturn(order.status) && (
-                      <button
-                        type="button"
-                        class="return-order-btn px-6 py-2 border-2 border-amber-500 text-amber-500 font-bold uppercase text-sm hover:bg-amber-500 hover:text-white transition-colors rounded"
-                        data-order-id={order.id}
-                      >
-                        Solicitar Devolución
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div class="border-t border-brand-gray p-6 bg-brand-dark flex flex-wrap gap-3">
+                  {/* Download Invoice Button - Always available */}
+                  <button
+                    type="button"
+                    class="download-invoice-btn px-6 py-2 border-2 border-brand-orange text-brand-orange font-bold uppercase text-sm hover:bg-brand-orange hover:text-black transition-colors rounded"
+                    data-order-id={order.id}
+                  >
+                    📄 Descargar Factura
+                  </button>
+
+                  {/* Cancel and Return buttons */}
+                  {(canCancel(order.status) || canReturn(order.status)) && !order.return_status && (
+                    <>
+                      {canCancel(order.status) && (
+                        <button
+                          type="button"
+                          class="cancel-order-btn px-6 py-2 border-2 border-red-500 text-red-500 font-bold uppercase text-sm hover:bg-red-500 hover:text-white transition-colors rounded"
+                          data-order-id={order.id}
+                        >
+                          Cancelar Pedido
+                        </button>
+                      )}
+                      {canReturn(order.status) && (
+                        <button
+                          type="button"
+                          class="return-order-btn px-6 py-2 border-2 border-amber-500 text-amber-500 font-bold uppercase text-sm hover:bg-amber-500 hover:text-white transition-colors rounded"
+                          data-order-id={order.id}
+                        >
+                          Solicitar Devolución
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -324,6 +336,32 @@ const canReturn = (status: string) => status === 'delivered';
       hideModal();
       window.location.reload();
     }
+  });
+
+  // Download invoice
+  document.querySelectorAll('.download-invoice-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const orderId = btn.getAttribute('data-order-id');
+      try {
+        const response = await fetch(`/api/orders/download-invoice?id=${orderId}`);
+        if (!response.ok) {
+          throw new Error('Error al descargar la factura');
+        }
+
+        // Crear blob y descargar
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Factura_${orderId.slice(0, 8)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Error al descargar la factura');
+      }
+    });
   });
 
   // Cancel order

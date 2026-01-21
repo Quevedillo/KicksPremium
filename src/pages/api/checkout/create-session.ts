@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const body = await request.json();
-    const { items } = body;
+    const { items, discountCode } = body;
 
     if (!items || items.length === 0) {
       return new Response(
@@ -165,6 +165,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         user_id: userId,
         user_email: userEmail,
         cart_items: JSON.stringify(minimalCartItems),
+        discount_code: discountCode || '',
       },
     });
 

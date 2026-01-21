@@ -1,15 +1,15 @@
 import nodemailer from 'nodemailer';
 
 // Validar que existe la clave API de Brevo
-const BREVO_KEY: string | undefined = import.meta.env.BREVO_SMTP_KEY || import.meta.env.BREVO_API_KEY;
-const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || 'your-email@example.com';
+const BREVO_KEY: string | undefined = import.meta.env.BREVO_API_KEY || import.meta.env.BREVO_SMTP_KEY;
+const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || 'joseluisgq17@gmail.com';
 
 if (!BREVO_KEY) {
-  console.warn(
-    '⚠️ ADVERTENCIA: BREVO_API_KEY/BREVO_SMTP_KEY no está configurada en .env\n' +
+  console.error(
+    '❌ ERROR CRÍTICO: BREVO_API_KEY no está configurada en .env\n' +
     'Los emails NO serán enviados hasta que configures esta variable.\n' +
-    'Ve a https://www.brevo.com para obtener tu clave SMTP.\n' +
-    'Consulta NEWSLETTER_SETUP.md para más instrucciones.'
+    'Ve a https://www.brevo.com para obtener tu clave API.\n' +
+    'La clave API de Brevo se puede usar como contraseña SMTP.'
   );
 }
 
@@ -17,7 +17,7 @@ if (!BREVO_KEY) {
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
   port: 587,
-  secure: false,
+  secure: false, // TLS
   auth: {
     user: FROM_EMAIL_CONFIG,
     pass: BREVO_KEY || 'placeholder',
@@ -26,13 +26,18 @@ const transporter = nodemailer.createTransport({
 
 // Verificar conexión SMTP al iniciar (solo si está configurado)
 if (BREVO_KEY && FROM_EMAIL_CONFIG !== 'your-email@example.com') {
-  transporter.verify((error, success) => {
-    if (error) {
-      console.error('❌ Error verificando conexión SMTP de Brevo:', error.message);
-    } else {
-      console.log('✅ Conexión SMTP de Brevo verificada correctamente');
+  (async () => {
+    try {
+      const verified = await transporter.verify();
+      if (verified) {
+        console.log('✅ Conexión SMTP de Brevo verificada correctamente');
+      } else {
+        console.error('❌ Error verificando conexión SMTP de Brevo: verificación retornó false');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando conexión SMTP de Brevo:', error instanceof Error ? error.message : String(error));
     }
-  });
+  })();
 }
 
 /**
@@ -48,6 +53,7 @@ interface OrderItem {
   price: number;
   quantity: number;
   image?: string;
+  size?: string;
 }
 
 interface OrderDetails {
@@ -67,10 +73,11 @@ interface OrderDetails {
     country?: string;
   };
   stripeSessionId?: string;
+  invoicePDF?: Buffer; // PDF de factura como buffer
 }
 
 /**
- * Enviar email de confirmación de pedido
+ * Enviar email de confirmación de pedido con factura
  */
 export async function sendOrderConfirmationEmail(order: OrderDetails) {
   try {
@@ -318,11 +325,22 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 </html>
     `;
 
+    // Construir attachments
+    const attachments: any[] = [];
+    if (order.invoicePDF) {
+      attachments.push({
+        filename: `Factura_${order.orderId.substring(0, 8).toUpperCase()}.pdf`,
+        content: order.invoicePDF,
+        contentType: 'application/pdf',
+      });
+    }
+
     const result = await transporter.sendMail({
       from: FROM_EMAIL,
       to: order.email,
       subject: `Pedido Confirmado #${order.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
 
     // Validar respuesta de Brevo

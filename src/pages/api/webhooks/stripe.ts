@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
 import { supabase } from '@lib/supabase';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
+import { generateInvoicePDF } from '@lib/invoice';
 import Stripe from 'stripe';
 
 // Handle Stripe webhooks
@@ -173,6 +174,32 @@ export const POST: APIRoute = async ({ request }) => {
               );
               const tax = total - subtotal;
 
+              // Generar PDF de factura
+              let invoicePDF: Buffer | undefined = undefined;
+              try {
+                invoicePDF = await generateInvoicePDF({
+                  invoiceNumber: session.id.slice(-8).toUpperCase(),
+                  date: new Date().toLocaleDateString('es-ES'),
+                  customerName,
+                  customerEmail: session.customer_email,
+                  customerPhone: (session.customer_details as any)?.phone,
+                  shippingAddress,
+                  items: cartItems.map((item: any) => ({
+                    name: item.product?.name || item.name || 'Producto',
+                    quantity: item.quantity || item.qty || 1,
+                    price: item.price || 0,
+                    size: item.size,
+                  })),
+                  subtotal,
+                  tax,
+                  total,
+                  orderStatus: 'Completado',
+                });
+                console.log(`✅ Invoice PDF generated for order ${order.id}`);
+              } catch (pdfError) {
+                console.error(`⚠️ Failed to generate invoice PDF (will not block):`, pdfError);
+              }
+
               const orderDetails = {
                 orderId: order.id,
                 email: session.customer_email,
@@ -183,6 +210,7 @@ export const POST: APIRoute = async ({ request }) => {
                 total,
                 shippingAddress,
                 stripeSessionId: session.id,
+                invoicePDF,
               };
 
               // Enviar email de confirmación al cliente
