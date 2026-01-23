@@ -13,7 +13,7 @@ if (!BREVO_KEY) {
 /**
  * Función para enviar emails usando la API HTTP de Brevo (más confiable que SMTP)
  */
-async function sendEmailWithBrevo(options: {
+export async function sendEmailWithBrevo(options: {
   to: string | string[];
   subject: string;
   html: string;
