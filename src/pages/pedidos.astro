@@ -153,13 +153,8 @@ const canReturn = (status: string) => status === 'delivered';
                       </p>
                     )}
                     <p class="text-white font-bold text-2xl mt-2">
-                      {formatPrice(order.total_price)}
+                      {formatPrice(order.total_amount || 0)}
                     </p>
-                    {order.discount_amount > 0 && (
-                      <p class="text-green-400 text-sm">
-                        Descuento: -{formatPrice(order.discount_amount)}
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -168,33 +163,44 @@ const canReturn = (status: string) => status === 'delivered';
                   <h3 class="text-white font-bold mb-4 text-sm uppercase">Productos ({items.length})</h3>
                   <div class="space-y-3">
                     {items.length > 0 ? (
-                      items.map((item: any, idx: number) => (
-                        <div class="flex items-center justify-between bg-brand-black p-4 rounded">
-                          <div class="flex items-center gap-4 flex-1">
-                            {item.product?.images?.[0] && (
-                              <img 
-                                src={item.product.images[0]} 
-                                alt={item.product.name}
-                                class="w-16 h-16 object-cover rounded"
-                              />
-                            )}
-                            <div>
-                              <p class="text-brand-red font-bold text-sm">
-                                {item.product?.brand || 'Producto'}
-                              </p>
-                              <p class="text-white font-semibold">
-                                {item.product?.name || 'Sin nombre'}
-                              </p>
-                              <p class="text-neutral-500 text-sm">
-                                Talla: {item.size} | Cantidad: {item.quantity}
-                              </p>
+                      items.map((item: any, idx: number) => {
+                        // Los items se guardan como: {id, name, brand, price, qty, size, img}
+                        const itemName = item.name || item.product?.name || 'Producto';
+                        const itemBrand = item.brand || item.product?.brand || '';
+                        const itemImage = item.img || item.product?.images?.[0];
+                        const itemPrice = item.price || item.product?.price || 0;
+                        const itemQty = item.qty || item.quantity || 1;
+                        
+                        return (
+                          <div class="flex items-center justify-between bg-brand-black p-4 rounded">
+                            <div class="flex items-center gap-4 flex-1">
+                              {itemImage && (
+                                <img 
+                                  src={itemImage} 
+                                  alt={itemName}
+                                  class="w-16 h-16 object-cover rounded"
+                                />
+                              )}
+                              <div>
+                                {itemBrand && (
+                                  <p class="text-brand-red font-bold text-sm">
+                                    {itemBrand}
+                                  </p>
+                                )}
+                                <p class="text-white font-semibold">
+                                  {itemName}
+                                </p>
+                                <p class="text-neutral-500 text-sm">
+                                  Talla: {item.size} | Cantidad: {itemQty}
+                                </p>
+                              </div>
                             </div>
+                            <p class="text-brand-orange font-bold text-lg">
+                              {formatPrice(itemPrice * itemQty)}
+                            </p>
                           </div>
-                          <p class="text-brand-orange font-bold text-lg">
-                            {formatPrice((item.price || item.product?.price || 0) * item.qty || item.quantity || 1)}
-                          </p>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <p class="text-neutral-500 text-sm bg-brand-black p-4 rounded">
                         Sin detalles de productos disponibles
@@ -353,7 +359,7 @@ const canReturn = (status: string) => status === 'delivered';
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Factura_${orderId.slice(0, 8)}.pdf`;
+        a.download = `Factura_${orderId?.slice(0, 8) || 'factura'}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

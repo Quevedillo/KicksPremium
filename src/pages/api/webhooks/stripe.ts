@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
-import { supabase } from '@lib/supabase';
+import { getSupabaseServiceClient } from '@lib/supabase';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
 import { generateInvoicePDF } from '@lib/invoice';
 import Stripe from 'stripe';
@@ -40,6 +40,9 @@ export const POST: APIRoute = async ({ request }) => {
     // Handle checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Use service client to bypass RLS for stock updates
+      const supabase = getSupabaseServiceClient();
 
       if (session.metadata?.user_id) {
         const userId = session.metadata.user_id;
@@ -167,9 +170,9 @@ export const POST: APIRoute = async ({ request }) => {
                 shippingAddress = (session as any).shipping.address;
               }
 
-              // Calculate subtotal, tax
+              // Calculate subtotal, tax (items use 'qty' not 'quantity')
               const subtotal = cartItems.reduce(
-                (sum: number, item: any) => sum + item.price * item.quantity,
+                (sum: number, item: any) => sum + (item.price || 0) * (item.qty || item.quantity || 1),
                 0
               );
               const tax = total - subtotal;
@@ -241,6 +244,9 @@ export const POST: APIRoute = async ({ request }) => {
     if (event.type === 'payment_intent.payment_failed') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log('Payment failed:', paymentIntent.id);
+      
+      // Use service client
+      const supabase = getSupabaseServiceClient();
       
       if (paymentIntent.metadata?.user_id) {
         const userId = paymentIntent.metadata.user_id;

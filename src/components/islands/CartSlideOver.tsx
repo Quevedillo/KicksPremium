@@ -140,6 +140,10 @@ export default function CartSlideOver() {
         body: JSON.stringify({
           items: cart.items,
           discountCode: cart.discountCode?.code,
+          discountInfo: cart.discountCode ? {
+            discount_type: cart.discountCode.discount_type,
+            discount_value: cart.discountCode.discount_value,
+          } : null,
         }),
       });
 

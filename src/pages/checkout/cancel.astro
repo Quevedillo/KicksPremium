@@ -1,5 +1,24 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Intentar obtener información del usuario para el email de cancelación
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
+
+let userEmail = null;
+
+if (accessToken && refreshToken) {
+  try {
+    const { data: { session } } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    userEmail = session?.user?.email || null;
+  } catch (e) {
+    // Ignore errors
+  }
+}
 ---
 
 <PublicLayout title="Pago Cancelado | KicksMarket">
@@ -43,4 +62,15 @@ import PublicLayout from '@layouts/PublicLayout.astro';
       </div>
     </div>
   </div>
+
+  {userEmail && (
+    <script define:vars={{ userEmail }}>
+      // Enviar notificación de cancelación
+      fetch('/api/orders/notify-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail })
+      }).catch(console.error);
+    </script>
+  )}
 </PublicLayout>

@@ -35,7 +35,7 @@ class ProductRepository {
   }
 
   List<Product> _filterProductsWithStock(List<dynamic> data) {
-    return (data as List)
+    return (data)
         .map((e) => Product.fromJson(e))
         .where((p) {
           if (p.sizesAvailable.isEmpty) return false;

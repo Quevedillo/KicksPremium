@@ -147,8 +147,43 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       img: item.product.images?.[0] || '',
     }));
 
-    // Create Stripe Checkout Session with user metadata
-    const checkoutSession = await stripe.checkout.sessions.create({
+    // Handle discount code - create a Stripe coupon if discount is provided
+    let stripeCouponId: string | undefined = undefined;
+    const discountInfo = body.discountInfo; // { discount_type, discount_value }
+    
+    if (discountCode && discountInfo) {
+      try {
+        // Calculate discount based on type
+        const subtotal = items.reduce((sum: number, item: any) => 
+          sum + (item.product.price < 100 ? item.product.price * 100 : item.product.price) * item.quantity, 0
+        );
+        
+        let couponParams: any = {
+          duration: 'once',
+          name: `Descuento ${discountCode}`,
+        };
+        
+        if (discountInfo.discount_type === 'percentage') {
+          couponParams.percent_off = discountInfo.discount_value;
+        } else {
+          // Fixed amount in cents
+          couponParams.amount_off = discountInfo.discount_value < 100 
+            ? Math.round(discountInfo.discount_value * 100) 
+            : discountInfo.discount_value;
+          couponParams.currency = 'eur';
+        }
+        
+        const coupon = await stripe.coupons.create(couponParams);
+        stripeCouponId = coupon.id;
+        console.log(`✅ Created Stripe coupon: ${coupon.id} for code ${discountCode}`);
+      } catch (couponError) {
+        console.error('⚠️ Error creating Stripe coupon:', couponError);
+        // Continue without discount if coupon creation fails
+      }
+    }
+
+    // Build checkout session options
+    const sessionOptions: any = {
       payment_method_types: ['card'],
       customer_email: userEmail,
       line_items: lineItems,
@@ -166,8 +201,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         user_email: userEmail,
         cart_items: JSON.stringify(minimalCartItems),
         discount_code: discountCode || '',
+        discount_amount: discountInfo ? String(discountInfo.discount_value) : '0',
       },
-    });
+    };
+
+    // Add discount if coupon was created
+    if (stripeCouponId) {
+      sessionOptions.discounts = [{ coupon: stripeCouponId }];
+    }
+
+    // Create Stripe Checkout Session with user metadata
+    const checkoutSession = await stripe.checkout.sessions.create(sessionOptions);
 
     return new Response(
       JSON.stringify({ 

@@ -1,5 +1,3 @@
-import nodemailer from 'nodemailer';
-
 // Validar que existe la clave API de Brevo
 const BREVO_KEY: string | undefined = import.meta.env.BREVO_API_KEY || import.meta.env.BREVO_SMTP_KEY;
 const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || 'joseluisgq17@gmail.com';
@@ -8,34 +6,102 @@ if (!BREVO_KEY) {
   console.error(
     '❌ ERROR CRÍTICO: BREVO_API_KEY no está configurada en .env\n' +
     'Los emails NO serán enviados hasta que configures esta variable.\n' +
-    'Ve a https://www.brevo.com para obtener tu clave API.\n' +
-    'La clave API de Brevo se puede usar como contraseña SMTP.'
+    'Ve a https://www.brevo.com para obtener tu clave API.'
   );
 }
 
-// Configurar transporte de Brevo con SMTP
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false, // TLS
-  auth: {
-    user: FROM_EMAIL_CONFIG,
-    pass: BREVO_KEY || 'placeholder',
-  },
-});
+/**
+ * Función para enviar emails usando la API HTTP de Brevo (más confiable que SMTP)
+ */
+async function sendEmailWithBrevo(options: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  from?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  }>;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!BREVO_KEY) {
+    console.warn('⚠️ BREVO_API_KEY no configurada. Email no será enviado.');
+    return { success: false, error: 'Email service not configured' };
+  }
 
-// Verificar conexión SMTP al iniciar (solo si está configurado)
-if (BREVO_KEY && FROM_EMAIL_CONFIG !== 'your-email@example.com') {
+  try {
+    const toArray = Array.isArray(options.to) ? options.to : [options.to];
+    
+    const payload: any = {
+      sender: {
+        name: 'Kicks Premium',
+        email: options.from || FROM_EMAIL_CONFIG,
+      },
+      to: toArray.map(email => ({ email })),
+      subject: options.subject,
+      htmlContent: options.html,
+    };
+
+    // Agregar adjuntos si existen
+    if (options.attachments && options.attachments.length > 0) {
+      payload.attachment = options.attachments.map(att => ({
+        name: att.filename,
+        content: att.content.toString('base64'),
+      }));
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': BREVO_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('❌ Error enviando email con Brevo API:', response.status, errorData);
+      return { 
+        success: false, 
+        error: errorData.message || `HTTP ${response.status}` 
+      };
+    }
+
+    const data = await response.json();
+    console.log('✅ Email enviado con Brevo API:', data);
+    return { success: true, messageId: data.messageId };
+  } catch (error) {
+    console.error('❌ Error enviando email con Brevo:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
+}
+
+// Verificar conexión con Brevo al iniciar
+if (BREVO_KEY) {
   (async () => {
     try {
-      const verified = await transporter.verify();
-      if (verified) {
-        console.log('✅ Conexión SMTP de Brevo verificada correctamente');
+      const response = await fetch('https://api.brevo.com/v3/account', {
+        headers: {
+          'accept': 'application/json',
+          'api-key': BREVO_KEY,
+        },
+      });
+      
+      if (response.ok) {
+        const account = await response.json();
+        console.log('✅ Conexión con Brevo API verificada');
+        console.log(`   → Cuenta: ${account.email || 'N/A'}`);
+        console.log(`   → Plan: ${account.plan?.[0]?.type || 'Free'}`);
       } else {
-        console.error('❌ Error verificando conexión SMTP de Brevo: verificación retornó false');
+        console.error('❌ Error verificando cuenta Brevo:', response.status);
       }
     } catch (error) {
-      console.error('❌ Error verificando conexión SMTP de Brevo:', error instanceof Error ? error.message : String(error));
+      console.error('❌ Error conectando con Brevo API:', error);
     }
   })();
 }
@@ -325,7 +391,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 </html>
     `;
 
-    // Construir attachments
+    // Construir attachments para Brevo API
     const attachments: any[] = [];
     if (order.invoicePDF) {
       attachments.push({
@@ -335,23 +401,20 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
       });
     }
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: order.email,
       subject: `Pedido Confirmado #${order.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 
-    // Validar respuesta de Brevo
-    if (!result || !result.messageId) {
-      console.error('⚠️ Respuesta inválida de Brevo:', result);
-      // No lanzar error, solo loguear
-      return { success: false, error: 'Invalid response from email service', result };
+    if (!result.success) {
+      console.error('⚠️ Error enviando email de confirmación:', result.error);
+      return { success: false, error: result.error };
     }
 
-    console.log('✅ Confirmation email sent:', result);
-    return { success: true, result };
+    console.log('✅ Confirmation email sent:', result.messageId);
+    return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error('⚠️ Error sending order confirmation email (no-fail):', error);
     // NO lanzar error - el pedido ya fue creado
@@ -513,22 +576,19 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: email,
       subject: '🎁 ¡Tu código de descuento del 10% está aquí!',
       html: htmlContent,
     });
 
-    // Validar respuesta de Brevo
-    if (!result || !result.messageId) {
-      console.error('⚠️ Respuesta inválida de Brevo:', result);
-      // No lanzar error, solo loguear
-      return { success: false, error: 'Invalid response from email service', result };
+    if (!result.success) {
+      console.error('⚠️ Error enviando email de newsletter:', result.error);
+      return { success: false, error: result.error };
     }
 
-    console.log('✅ Newsletter welcome email sent:', result);
-    return { success: true, result };
+    console.log('✅ Newsletter welcome email sent:', result.messageId);
+    return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error('⚠️ Error sending newsletter welcome email (no-fail):', error);
     // NO lanzar error - la suscripción ya fue creada
@@ -744,13 +804,16 @@ export async function sendNewProductEmail(
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: subscriberEmail,
       subject: `🔥 ¡Nuevo Drop! ${product.name}`,
       html: htmlContent,
     });
 
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send email');
+    }
+    
     return result;
   } catch (error) {
     console.error(`Error sending new product email to ${subscriberEmail}:`, error);
@@ -850,8 +913,7 @@ ${JSON.stringify(metadata, null, 2)}
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: ADMIN_EMAIL,
       subject: `[ADMIN] ${subject}`,
       html: htmlContent,
@@ -929,8 +991,7 @@ export async function sendOrderCancellationEmail(data: OrderCancellationData) {
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: data.email,
       subject: `Pedido #${data.orderId.substring(0, 8).toUpperCase()} cancelado`,
       html: htmlContent,
@@ -1028,8 +1089,7 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: data.email,
       subject: `Instrucciones de devolución - Pedido #${data.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
@@ -1133,8 +1193,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
 </html>
     `;
 
-    const result = await transporter.sendMail({
-      from: FROM_EMAIL,
+    const result = await sendEmailWithBrevo({
       to: ADMIN_EMAIL,
       subject: `🎉 Nuevo Pedido #${order.orderId.substring(0, 8).toUpperCase()} - ${formatPrice(order.total)}`,
       html: htmlContent,
@@ -1145,5 +1204,79 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
   } catch (error) {
     console.error('Error sending admin notification email:', error);
     throw error;
+  }
+}
+
+/**
+ * Enviar email de carrito abandonado / pago cancelado
+ */
+export async function sendAbandonedCartEmail(email: string) {
+  try {
+    if (!BREVO_KEY) {
+      console.warn('⚠️ BREVO_API_KEY no configurada. Email de carrito abandonado no será enviado.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; line-height: 1.6; color: #333; background-color: #f9fafb; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+    .header { background: linear-gradient(135deg, #000000 0%, #1f2937 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .content { padding: 40px 20px; text-align: center; }
+    .button { display: inline-block; background-color: #dc2626; color: white; padding: 16px 40px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 16px; margin-top: 20px; text-transform: uppercase; }
+    .discount-box { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px dashed #f59e0b; border-radius: 12px; padding: 24px; margin: 24px 0; }
+    .discount-code { font-size: 28px; font-weight: 800; color: #d97706; letter-spacing: 2px; }
+    .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛒 ¿Olvidaste algo?</h1>
+    </div>
+    <div class="content">
+      <p style="font-size: 18px;">¡Notamos que no completaste tu compra!</p>
+      <p>Tus productos favoritos siguen esperándote en tu carrito.</p>
+      
+      <div class="discount-box">
+        <p style="margin: 0 0 8px 0; font-weight: 600;">¡Usa este código para obtener un 10% de descuento!</p>
+        <p class="discount-code" style="margin: 0;">VUELVE10</p>
+      </div>
+      
+      <p>No dejes escapar las zapatillas más exclusivas.</p>
+      
+      <a href="https://kickspremium.com/carrito" class="button">Completar mi compra</a>
+      
+      <p style="margin-top: 32px; font-size: 14px; color: #6b7280;">
+        Si tienes alguna pregunta sobre tu pedido, no dudes en contactarnos.
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
+      <p style="margin: 8px 0 0 0;">
+        <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #6b7280;">Darse de baja</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await sendEmailWithBrevo({
+      to: email,
+      subject: '🛒 ¿Olvidaste algo en tu carrito? - 10% de descuento',
+      html: htmlContent,
+    });
+
+    console.log('✅ Abandoned cart email sent:', result);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending abandoned cart email:', error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
