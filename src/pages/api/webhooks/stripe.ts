@@ -59,16 +59,35 @@ export const POST: APIRoute = async ({ request }) => {
         console.log(`Cart Items:`, JSON.stringify(cartItems, null, 2));
         
         // If amount_total is 0 or missing, fetch the full session details with line items
-        if (total === 0 && session.id) {
-          console.log(`Total is 0, fetching full session from Stripe...`);
+        if ((total === 0 || total === null) && session.id) {
+          console.log(`Total is 0 or null, fetching full session from Stripe...`);
           try {
             const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
               expand: ['line_items'],
             });
             total = fullSession.amount_total || 0;
             console.log(`Retrieved full session total: ${total} cents for session ${session.id}`);
+            
+            // If still 0, calculate from cart items metadata
+            if ((total === 0 || total === null) && cartItems.length > 0) {
+              console.log(`Amount total is still 0, calculating from cart items...`);
+              total = cartItems.reduce((sum: number, item: any) => {
+                const itemPrice = item.price < 100 ? item.price * 100 : item.price;
+                return sum + (itemPrice * item.qty);
+              }, 0);
+              console.log(`Calculated total from cart items: ${total} cents (${(total / 100).toFixed(2)}€)`);
+            }
           } catch (err) {
             console.error('Error retrieving full session:', err);
+            // Fall back to calculating from cart items
+            if (cartItems.length > 0) {
+              console.log(`Failed to fetch session, calculating from cart items...`);
+              total = cartItems.reduce((sum: number, item: any) => {
+                const itemPrice = item.price < 100 ? item.price * 100 : item.price;
+                return sum + (itemPrice * item.qty);
+              }, 0);
+              console.log(`Fallback calculated total: ${total} cents (${(total / 100).toFixed(2)}€)`);
+            }
           }
         }
 
