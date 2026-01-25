@@ -1,8 +1,6 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { stripe } from '@lib/stripe';
-import { supabase } from '@lib/supabase';
-import type Stripe from 'stripe';
 
 const sessionId = Astro.url.searchParams.get('session_id');
 
@@ -18,63 +16,35 @@ if (sessionId) {
       expand: ['line_items', 'customer'],
     });
     
-    if (stripeSession.customer && typeof stripeSession.customer !== 'string') {
-      customer = stripeSession.customer;
-    }
-
-    // Only save if payment was successful
+    // Only process if payment was successful and we have user_id
     if (stripeSession.payment_status === 'paid' && stripeSession.metadata?.user_id) {
-      const userId = stripeSession.metadata.user_id;
-      
-      // Check if order already exists (avoid duplicates)
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('stripe_session_id', sessionId)
-        .single();
-
-      if (!existingOrder) {
-        // Parse cart items from metadata
-        let cartItems: any[] = [];
-        try {
-          cartItems = JSON.parse(stripeSession.metadata.cart_items || '[]');
-        } catch (e) {
-          console.error('Error parsing cart items:', e);
-        }
-
-        // Get shipping details safely (Stripe types may not include shipping_details)
-        // @ts-ignore - shipping_details exists on the session but TypeScript types are incomplete
-        const shippingDetails = stripeSession['shipping_details'] || null;
-        const customerDetails = stripeSession.customer_details;
-
-        // Save order to database
-        const { error: insertError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: userId,
-            stripe_session_id: sessionId,
-            stripe_payment_intent_id: typeof stripeSession.payment_intent === 'string' 
-              ? stripeSession.payment_intent 
-              : null,
-            total_price: stripeSession.amount_total || 0, // Keep in cents (integer)
-            status: 'completed',
-            shipping_name: shippingDetails?.name || customerDetails?.name || null,
-            shipping_address: shippingDetails?.address || null,
-            shipping_phone: customerDetails?.phone || null,
-            billing_email: stripeSession.customer_email || customerDetails?.email || null,
-            items: cartItems,
-          });
-
-        if (insertError) {
-          console.error('Error saving order:', insertError);
-          orderError = insertError.message;
-        } else {
+      // Call backend endpoint to handle order creation, stock update, and emails
+      try {
+        const response = await fetch('http://localhost:4321/api/checkout/process-success', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            userId: stripeSession.metadata.user_id,
+            cartItems: JSON.parse(stripeSession.metadata.cart_items || '[]'),
+            shippingAddress: stripeSession.shipping_details?.address || null,
+            shippingName: stripeSession.shipping_details?.name || stripeSession.customer_details?.name || null,
+            shippingPhone: stripeSession.customer_details?.phone || null,
+            billingEmail: stripeSession.customer_email || stripeSession.customer_details?.email || null,
+            totalAmount: stripeSession.amount_total || 0,
+          }),
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
           orderSaved = true;
-          console.log(`Order saved for user ${userId}`);
+        } else {
+          orderError = result.error;
+          console.error('Error processing checkout:', result.error);
         }
-      } else {
-        // Order already exists
-        orderSaved = true;
+      } catch (fetchError) {
+        console.error('Error calling process-success endpoint:', fetchError);
+        orderError = 'Error procesando el pedido';
       }
     }
   } catch (error) {
@@ -83,6 +53,7 @@ if (sessionId) {
 }
 
 const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 100).toFixed(2) : '0.00';
+import type Stripe from 'stripe';
 ---
 
 <PublicLayout title="¡Pedido Confirmado! | KicksMarket">

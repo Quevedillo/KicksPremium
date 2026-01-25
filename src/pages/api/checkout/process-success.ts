@@ -1,0 +1,180 @@
+import type { APIRoute } from 'astro';
+import { getSupabaseServiceClient } from '@lib/supabase';
+import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
+
+export const POST: APIRoute = async ({ request }) => {
+  try {
+    const body = await request.json();
+    const {
+      sessionId,
+      userId,
+      cartItems,
+      totalAmount,
+      shippingAddress,
+      shippingName,
+      shippingPhone,
+      billingEmail,
+    } = body;
+
+    console.log(`\n===== PROCESSING CHECKOUT SUCCESS =====`);
+    console.log(`Session ID: ${sessionId}`);
+    console.log(`User ID: ${userId}`);
+    console.log(`Total Amount: ${totalAmount} cents (€${(totalAmount / 100).toFixed(2)})`);
+    console.log(`Cart Items: ${cartItems.length}`);
+
+    // Use service client to bypass RLS
+    const supabase = getSupabaseServiceClient();
+
+    // Check if order already exists
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('stripe_session_id', sessionId)
+      .single();
+
+    if (existingOrder) {
+      console.log(`Order already exists for session ${sessionId}`);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Order already processed' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create order in Supabase
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: userId,
+        stripe_session_id: sessionId,
+        total_amount: totalAmount, // Use total_amount, not total_price
+        status: 'completed',
+        shipping_name: shippingName,
+        shipping_address: shippingAddress ? JSON.stringify(shippingAddress) : null,
+        shipping_phone: shippingPhone,
+        billing_email: billingEmail,
+        items: cartItems,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (orderError) {
+      console.error(`Error saving order:`, orderError);
+      return new Response(
+        JSON.stringify({ error: 'Error saving order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`✅ Order created: ${order.id}`);
+
+    // Decrement stock for each item
+    console.log(`\n📦 Starting stock decrement for ${cartItems.length} items...`);
+    let stockErrors = [];
+
+    for (const item of cartItems) {
+      try {
+        const productId = item.id;
+        const quantity = item.qty || 1;
+        const size = item.size;
+
+        console.log(`  Processing: ${item.name} (ID: ${productId}, Qty: ${quantity}, Size: ${size})`);
+
+        // Get current product
+        const { data: product, error: fetchError } = await supabase
+          .from('products')
+          .select('stock, sizes_available')
+          .eq('id', productId)
+          .single();
+
+        if (fetchError || !product) {
+          console.error(`    ❌ Could not fetch product ${productId}`);
+          stockErrors.push(`Could not update stock for ${item.name}`);
+          continue;
+        }
+
+        // Decrement stock for specific size
+        let newSizesAvailable = { ...product.sizes_available } || {};
+        let newTotalStock = product.stock || 0;
+
+        if (size && newSizesAvailable[size]) {
+          const oldQty = newSizesAvailable[size];
+          newSizesAvailable[size] = Math.max(0, oldQty - quantity);
+          newTotalStock = Math.max(0, newTotalStock - quantity);
+
+          console.log(`    Size ${size}: ${oldQty} → ${newSizesAvailable[size]}`);
+        }
+
+        // Update product
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({
+            stock: newTotalStock,
+            sizes_available: newSizesAvailable,
+          })
+          .eq('id', productId);
+
+        if (updateError) {
+          console.error(`    ❌ Error updating stock:`, updateError);
+          stockErrors.push(`Could not update stock for ${item.name}`);
+        } else {
+          console.log(`    ✅ Stock updated: ${newTotalStock} total`);
+        }
+      } catch (err) {
+        console.error(`    ❌ Error processing item:`, err);
+        stockErrors.push(`Error processing ${item.name}`);
+      }
+    }
+
+    // Send emails
+    console.log(`\n📧 Sending emails...`);
+    try {
+      // Send order confirmation email
+      await sendOrderConfirmationEmail({
+        orderId: order.id,
+        userEmail: billingEmail,
+        userName: shippingName || 'Customer',
+        items: cartItems,
+        totalAmount: totalAmount,
+        shippingAddress: shippingAddress,
+      });
+      console.log(`✅ Order confirmation email sent to ${billingEmail}`);
+    } catch (emailError) {
+      console.error(`❌ Error sending order confirmation email:`, emailError);
+    }
+
+    try {
+      // Send admin notification
+      await sendAdminOrderNotification({
+        orderId: order.id,
+        userEmail: billingEmail,
+        userName: shippingName || 'Customer',
+        items: cartItems,
+        totalAmount: totalAmount,
+        shippingAddress: shippingAddress,
+        shippingPhone: shippingPhone,
+      });
+      console.log(`✅ Admin notification sent`);
+    } catch (emailError) {
+      console.error(`❌ Error sending admin notification:`, emailError);
+    }
+
+    console.log(`\n===== CHECKOUT PROCESSING COMPLETE =====\n`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        orderId: order.id,
+        stockErrors: stockErrors.length > 0 ? stockErrors : undefined,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error processing checkout success:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+};
