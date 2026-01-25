@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
       .insert({
         user_id: userId,
         stripe_session_id: sessionId,
-        total_amount: totalAmount, // Use total_amount, not total_price
+        total_price: totalAmount, // Use total_price (not total_amount)
         status: 'completed',
         shipping_name: shippingName,
         shipping_address: shippingAddress ? JSON.stringify(shippingAddress) : null,
@@ -61,8 +61,9 @@ export const POST: APIRoute = async ({ request }) => {
 
     if (orderError) {
       console.error(`Error saving order:`, orderError);
+      console.error(`Order error details:`, JSON.stringify(orderError, null, 2));
       return new Response(
-        JSON.stringify({ error: 'Error saving order' }),
+        JSON.stringify({ error: `Error saving order: ${orderError.message}` }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
