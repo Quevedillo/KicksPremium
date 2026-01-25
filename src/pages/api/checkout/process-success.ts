@@ -95,11 +95,11 @@ export const POST: APIRoute = async ({ request }) => {
         }
 
         // Decrement stock for specific size
-        let newSizesAvailable = { ...product.sizes_available } || {};
+        let newSizesAvailable = { ...(product.sizes_available || {}) };
         let newTotalStock = product.stock || 0;
 
         if (size && newSizesAvailable[size]) {
-          const oldQty = newSizesAvailable[size];
+          const oldQty = parseInt(newSizesAvailable[size]) || 0;
           newSizesAvailable[size] = Math.max(0, oldQty - quantity);
           newTotalStock = Math.max(0, newTotalStock - quantity);
 
@@ -130,14 +130,25 @@ export const POST: APIRoute = async ({ request }) => {
     // Send emails
     console.log(`\n📧 Sending emails...`);
     try {
+      // Transform cart items to match OrderItem interface
+      const orderItems = cartItems.map((item: any) => ({
+        name: item.name,
+        quantity: item.qty || 1,
+        image: item.img,
+        size: item.size,
+      }));
+
       // Send order confirmation email
       await sendOrderConfirmationEmail({
         orderId: order.id,
-        userEmail: billingEmail,
-        userName: shippingName || 'Customer',
-        items: cartItems,
-        totalAmount: totalAmount,
+        email: billingEmail,
+        customerName: shippingName || 'Customer',
+        items: orderItems,
+        subtotal: Math.floor(totalAmount * 0.9), // Approximate subtotal
+        tax: Math.floor(totalAmount * 0.1), // Approximate tax
+        total: totalAmount,
         shippingAddress: shippingAddress,
+        stripeSessionId: sessionId,
       });
       console.log(`✅ Order confirmation email sent to ${billingEmail}`);
     } catch (emailError) {
@@ -145,15 +156,25 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     try {
+      // Transform cart items to match OrderItem interface
+      const orderItems = cartItems.map((item: any) => ({
+        name: item.name,
+        quantity: item.qty || 1,
+        image: item.img,
+        size: item.size,
+      }));
+
       // Send admin notification
       await sendAdminOrderNotification({
         orderId: order.id,
-        userEmail: billingEmail,
-        userName: shippingName || 'Customer',
-        items: cartItems,
-        totalAmount: totalAmount,
+        email: billingEmail,
+        customerName: shippingName || 'Customer',
+        items: orderItems,
+        subtotal: Math.floor(totalAmount * 0.9),
+        tax: Math.floor(totalAmount * 0.1),
+        total: totalAmount,
         shippingAddress: shippingAddress,
-        shippingPhone: shippingPhone,
+        stripeSessionId: sessionId,
       });
       console.log(`✅ Admin notification sent`);
     } catch (emailError) {

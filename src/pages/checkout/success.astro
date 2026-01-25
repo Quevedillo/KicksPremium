@@ -1,6 +1,7 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
 import { stripe } from '@lib/stripe';
+import type Stripe from 'stripe';
 
 const sessionId = Astro.url.searchParams.get('session_id');
 
@@ -27,8 +28,8 @@ if (sessionId) {
             sessionId,
             userId: stripeSession.metadata.user_id,
             cartItems: JSON.parse(stripeSession.metadata.cart_items || '[]'),
-            shippingAddress: stripeSession.shipping_details?.address || null,
-            shippingName: stripeSession.shipping_details?.name || stripeSession.customer_details?.name || null,
+            shippingAddress: (stripeSession as any).shipping_details?.address || null,
+            shippingName: (stripeSession as any).shipping_details?.name || stripeSession.customer_details?.name || null,
             shippingPhone: stripeSession.customer_details?.phone || null,
             billingEmail: stripeSession.customer_email || stripeSession.customer_details?.email || null,
             totalAmount: stripeSession.amount_total || 0,
@@ -53,7 +54,6 @@ if (sessionId) {
 }
 
 const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 100).toFixed(2) : '0.00';
-import type Stripe from 'stripe';
 ---
 
 <PublicLayout title="¡Pedido Confirmado! | KicksMarket">
