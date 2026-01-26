@@ -322,46 +322,61 @@ export async function register(email: string, password: string, fullName: string
   });
 
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-      },
+    // Usar endpoint API en lugar de signUp directo para evitar problemas de email
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: fullName,
+      }),
     });
 
-    if (error) throw error;
-    if (!data.user) throw new Error('No user returned');
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Error al registrar');
+    }
+
+    // Después de registrar, hacer login automático
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) throw signInError;
+    if (!signInData.user) throw new Error('No se pudo iniciar sesión');
 
     // Crear perfil SOLO si no existe
     const { data: existingProfile } = await supabase
       .from('user_profiles')
       .select('id')
-      .eq('id', data.user.id)
+      .eq('id', signInData.user.id)
       .maybeSingle();
 
     if (!existingProfile) {
       await supabase
         .from('user_profiles')
         .insert({
-          id: data.user.id,
-          email: data.user.email,
+          id: signInData.user.id,
+          email: signInData.user.email,
           full_name: fullName,
-          is_admin: data.user.email === ADMIN_EMAIL,
+          is_admin: signInData.user.email === ADMIN_EMAIL,
         });
     }
 
-    const isAdmin = await checkIsAdmin(data.user.id);
+    const isAdmin = await checkIsAdmin(signInData.user.id);
 
     authStore.set({
-      user: data.user,
+      user: signInData.user,
       isAdmin,
       isLoading: false,
       error: null,
       initialized: true,
     });
     
-    saveToStorage(data.user, isAdmin);
+    saveToStorage(signInData.user, isAdmin);
 
     return { success: true, user: data.user };
   } catch (error) {
