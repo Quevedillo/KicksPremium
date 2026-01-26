@@ -1,8 +1,8 @@
 # 🚀 KicksPremium - Estado del Proyecto & Roadmap
 
-**Última actualización:** 13 de enero de 2026  
+**Última actualización:** 26 de enero de 2026  
 **Proyecto:** Tienda online de Sneakers Exclusivos  
-**Stack:** Astro 5.0 + React 18 + Supabase + Stripe + Resend
+**Stack:** Astro 5.0 + React 18 + Supabase + Stripe + Resend + Flutter
 
 ---
 
@@ -48,14 +48,18 @@
 - ✅ Historial de compras del usuario
 - ✅ Estado de pedidos
 
-#### 5. **Newsletter & Emails**
-- ✅ Sistema de suscripción a newsletter
-- ✅ Base de datos de suscriptores
-- ✅ Envío de emails de bienvenida
-- ✅ Notificación de nuevos productos
-- ✅ API de Resend configurada
-- ✅ Unsubscribe funcional
-- ⚠️ **EN CONFIGURACIÓN:** Modo Producción de Resend (envío a cualquier email)
+#### 5. **Aplicación Móvil - Flutter**
+- ✅ Estructura base del proyecto
+- ✅ Navegación con GoRouter
+- ✅ Autenticación con Supabase
+- ✅ Catálogo de productos
+- ✅ Carrito de compra
+- ✅ **NUEVO:** Integración completa de Stripe
+  - ✅ Payment Sheet nativo
+  - ✅ Pantalla de checkout
+  - ✅ Procesamiento seguro de pagos
+  - ✅ Manejo de errores
+  - ✅ Sincronización con base de datos
 
 #### 6. **Base de Datos**
 - ✅ Schema PostgreSQL completo

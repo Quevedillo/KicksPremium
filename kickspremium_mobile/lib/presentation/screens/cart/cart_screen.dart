@@ -170,10 +170,10 @@ class CartScreen extends ConsumerWidget {
                       if (!isLoggedIn) {
                         context.push('/login?redirect=/cart');
                       } else {
-                        _showCheckoutMessage(context);
+                        context.push('/checkout');
                       }
                     },
-                    child: Text(isLoggedIn ? 'PAGAR CON STRIPE' : 'INICIAR SESIÓN'),
+                    child: Text(isLoggedIn ? 'PROCEDER AL PAGO' : 'INICIAR SESIÓN'),
                   ),
                 ),
 
@@ -217,13 +217,12 @@ class CartScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFF1C1C1C),
         title: const Text('Checkout'),
         content: const Text(
-          'El pago con Stripe requiere la versión web.\n\n'
-          'En una versión futura, integraremos pagos nativos.',
+          'El pago con Stripe está disponible en el checkout.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('ENTENDIDO'),
+            child: const Text('OK'),
           ),
         ],
       ),

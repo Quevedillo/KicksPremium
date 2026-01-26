@@ -40,6 +40,11 @@ final isLoggedInProvider = Provider<bool>((ref) {
   return ref.watch(userProvider) != null;
 });
 
+final userEmailProvider = Provider<String>((ref) {
+  final user = ref.watch(userProvider);
+  return user?.email ?? '';
+});
+
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final user = ref.watch(userProvider);
   if (user == null) return null;

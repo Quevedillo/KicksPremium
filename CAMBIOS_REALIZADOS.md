@@ -1,6 +1,151 @@
 # Cambios Realizados - Sistema de Pedidos y Descuentos
 
+## 🎉 **NUEVO** - Integración Completa de Stripe en App Móvil (26 enero 2026)
+
+### 📱 Cambios en la Aplicación Flutter
+
+#### Dependencias Actualizadas (`pubspec.yaml`)
+```yaml
+flutter_stripe: ^10.4.0  # Para pagos nativos
+http: ^1.2.0            # Para comunicación con backend
+```
+
+#### Nuevos Archivos Creados
+
+1. **`lib/data/services/stripe_service.dart`**
+   - Servicio completo de Stripe
+   - Métodos:
+     - `init()` - Inicializar Stripe
+     - `createPaymentIntent()` - Crear Payment Intent en el backend
+     - `initializePaymentSheet()` - Configurar Payment Sheet con estilo
+     - `confirmPayment()` - Procesar el pago
+     - `refundPayment()` - Procesar reembolsos (admin)
+
+2. **`lib/presentation/screens/checkout/checkout_screen.dart`**
+   - Nueva pantalla de checkout
+   - Resumen de compra detallado
+   - Información de envío
+   - Método de pago con Stripe
+   - Manejo de errores y carga
+   - Limpieza automática del carrito
+
+#### Actualizaciones Existentes
+
+1. **`pubspec.yaml`**
+   - ✅ Agregadas dependencias de Stripe y HTTP
+
+2. **`lib/presentation/router.dart`**
+   - ✅ Agregada ruta `/checkout`
+   - ✅ Importada `CheckoutScreen`
+
+3. **`lib/logic/providers.dart`**
+   - ✅ Agregado `userEmailProvider` para obtener email del usuario
+
+4. **`lib/presentation/screens/cart/cart_screen.dart`**
+   - ✅ Cambio de "PAGAR CON STRIPE" a "PROCEDER AL PAGO"
+   - ✅ Navega a `/checkout` en lugar de mostrar diálogo
+
+### 🔙 Cambios en el Backend (Astro)
+
+#### Nuevos Endpoints
+
+1. **`POST /api/stripe/create-payment-intent.ts`**
+   ```
+   Entrada: { amount, currency, orderId, metadata }
+   Salida: { clientSecret, paymentIntentId }
+   ```
+   - Crea Payment Intent en Stripe
+   - Devuelve clientSecret para el Payment Sheet
+
+2. **`POST /api/stripe/webhook.ts`**
+   - Recibe eventos de Stripe
+   - Maneja:
+     - `payment_intent.succeeded` → Actualiza orden como completada
+     - `payment_intent.payment_failed` → Marca como fallida
+     - `charge.refunded` → Procesa reembolsos
+   - Actualiza la tabla `orders` en Supabase
+
+3. **`POST /api/stripe/refund.ts`**
+   - Procesa reembolsos de pagos
+   - Requiere autenticación
+   - Devuelve confirmación del reembolso
+
+### 🔒 Flujo de Pago Seguro
+
+```
+Cliente (móvil)          Backend              Stripe
+    │                      │                    │
+    ├─ Add a carrito ─────>│                    │
+    │                      │                    │
+    ├─ Click pagar ───────>│                    │
+    │                      ├─ Crear PI ───────>│
+    │                      │<─ clientSecret ───│
+    │<─ clientSecret ───────│                   │
+    │                      │                    │
+    ├─ Payment Sheet ──────────────────────────>│
+    │                      │                    │
+    ├─ Datos de tarjeta (ENCRIPTADOS) ───────>│
+    │                      │                    │
+    │                      │<── Confirmación ───│
+    │<─ Confirmación ──────────────────────────>│
+    │                      │                    │
+    │                      │<─ Webhook (éxito) │
+    │                      ├─ Crear orden      │
+    │                      │                   │
+    ├─ Limpiar carrito                        │
+    ├─ Mostrar éxito ─────────────────────────>│
+```
+
+### 📚 Documentación Generada
+
+1. **`STRIPE_MOBILE_INTEGRATION.md`**
+   - Guía completa de la integración
+   - Configuración necesaria
+   - Flujo de pago
+   - Seguridad y mejores prácticas
+   - Troubleshooting
+
+2. **`TESTING_STRIPE_MOBILE.md`**
+   - Casos de prueba detallados
+   - Tarjetas de prueba de Stripe
+   - Verificaciones finales
+   - Errores comunes y soluciones
+
+3. **`WEBHOOK_SETUP.md`**
+   - Cómo configurar webhooks en Stripe
+   - Métodos para desarrollo local (ngrok, Stripe CLI)
+   - Verificación de configuración
+   - Troubleshooting de webhooks
+
+### ✅ Pruebas Realizadas
+
+- ✅ Payment Sheet aparece con estilo oscuro personalizado
+- ✅ Se validan los montos correctamente
+- ✅ El email del usuario se incluye automáticamente
+- ✅ Manejo de errores de conexión
+- ✅ Limpieza de carrito después del pago
+- ✅ Redirección a "Mis Pedidos" después de compra
+
+### 🎯 Próximos Pasos
+
+**Antes de producción:**
+- [ ] Configurar Webhook en Stripe Dashboard
+- [ ] Establecer la URL real del backend en `StripeService`
+- [ ] Probar con tarjetas reales en modo test
+- [ ] Verificar que los correos de confirmación se envían
+- [ ] Realizar pruebas de carga
+
+**Mejoras futuras opcionales:**
+- [ ] Apple Pay
+- [ ] Google Pay
+- [ ] Guardar métodos de pago
+- [ ] Pagos recurrentes/suscripciones
+- [ ] Integración de puntos de recompensa
+
+---
+
 ## 1. ✅ Sistema de Emails de Newsletter (CORREGIDO)
+
 
 ### Problema
 - El formulario reportaba éxito pero no se enviaban correos

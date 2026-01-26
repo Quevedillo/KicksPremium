@@ -6,6 +6,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/category/category_screen.dart';
 import 'screens/cart/cart_screen.dart';
+import 'screens/checkout/checkout_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'widgets/main_scaffold.dart';
@@ -55,6 +56,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/cart',
       builder: (context, state) => const CartScreen(),
+    ),
+    GoRoute(
+      path: '/checkout',
+      builder: (context, state) => const CheckoutScreen(),
     ),
     GoRoute(
       path: '/login',
