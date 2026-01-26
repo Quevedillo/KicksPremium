@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Modo oscuro por defecto (tienda pública) */
+  body {
+    @apply bg-brand-black text-white;
+  }
+  
+  /* Modo claro para admin */
+  body.light-mode {
+    @apply bg-neutral-100 text-neutral-900;
+  }
+  
+  body.light-mode input,
+  body.light-mode textarea,
+  body.light-mode select {
+    color: #111827;
+  }
+  
+  body.light-mode input::placeholder,
+  body.light-mode textarea::placeholder {
+    color: #9ca3af;
+  }
+  
+  /* Modo oscuro para admin (cuando se selecciona) */
+  body.dark-mode {
+    @apply bg-brand-dark text-white;
+  }
+  
+  body.dark-mode input,
+  body.dark-mode textarea,
+  body.dark-mode select {
+    background-color: #1f2937;
+    color: #ffffff;
+    border-color: #374151;
+  }
+  
+  body.dark-mode input::placeholder,
+  body.dark-mode textarea::placeholder {
+    color: #6b7280;
+  }
+  
+  /* Ajustes para cards en modo oscuro admin */
+  body.dark-mode .bg-white {
+    background-color: #111827;
+    border-color: #374151;
+  }
+  
+  body.dark-mode .bg-neutral-50 {
+    background-color: #1f2937;
+  }
+  
+  body.dark-mode .bg-neutral-100 {
+    background-color: #1f2937;
+  }
+  
+  body.dark-mode .text-brand-black,
+  body.dark-mode .text-neutral-900,
+  body.dark-mode .text-neutral-800,
+  body.dark-mode .text-neutral-700 {
+    color: #f3f4f6;
+  }
+  
+  body.dark-mode .text-neutral-600,
+  body.dark-mode .text-neutral-500 {
+    color: #9ca3af;
+  }
+  
+  body.dark-mode .border-neutral-200,
+  body.dark-mode .border-neutral-300 {
+    border-color: #374151;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-navy text-white px-6 py-3 font-semibold hover:bg-brand-charcoal transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-neutral-200 text-brand-navy px-6 py-3 font-semibold hover:bg-neutral-300 transition-colors;
+  }
+
+  .container-main {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply bg-white border border-neutral-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow;
+  }
+}
+
+/* ============================================================================
+   CUSTOM ANIMATIONS
+   ============================================================================ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 49, 49, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 49, 49, 0.6);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bounceSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes pulse-custom {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animation-delay-200 {
+  animation-delay: 0.2s;
+}
+
+.animation-delay-400 {
+  animation-delay: 0.4s;
+}
+
+.animation-delay-600 {
+  animation-delay: 0.6s;
+}
+
+/* Smooth page transitions */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    @apply transition-all duration-300;
+  }
+
+  button {
+    @apply transition-all duration-200;
+  }
+
+  a {
+    @apply transition-colors duration-200;
+  }
+}
