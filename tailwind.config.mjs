@@ -59,6 +59,90 @@ export default {
         wider: '0.08em',
         widest: '0.16em',
       },
+      keyframes: {
+        fadeInUp: {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(20px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0)',
+          },
+        },
+        slideInFromLeft: {
+          '0%': {
+            opacity: '0',
+            transform: 'translateX(-30px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateX(0)',
+          },
+        },
+        slideInFromRight: {
+          '0%': {
+            opacity: '0',
+            transform: 'translateX(30px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateX(0)',
+          },
+        },
+        scaleIn: {
+          '0%': {
+            opacity: '0',
+            transform: 'scale(0.95)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'scale(1)',
+          },
+        },
+        glow: {
+          '0%, 100%': {
+            'box-shadow': '0 0 20px rgba(255, 49, 49, 0.3)',
+          },
+          '50%': {
+            'box-shadow': '0 0 40px rgba(255, 49, 49, 0.6)',
+          },
+        },
+        float: {
+          '0%, 100%': {
+            transform: 'translateY(0px)',
+          },
+          '50%': {
+            transform: 'translateY(-10px)',
+          },
+        },
+        bounceSlow: {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+          },
+          '50%': {
+            transform: 'translateY(-15px)',
+          },
+        },
+        shimmer: {
+          '0%': {
+            'background-position': '-1000px 0',
+          },
+          '100%': {
+            'background-position': '1000px 0',
+          },
+        },
+      },
+      animation: {
+        'fade-in-up': 'fadeInUp 0.6s ease-out',
+        'slide-in-left': 'slideInFromLeft 0.6s ease-out',
+        'slide-in-right': 'slideInFromRight 0.6s ease-out',
+        'scale-in': 'scaleIn 0.4s ease-out',
+        'glow': 'glow 2s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
+        'bounce-slow': 'bounceSlow 2.5s ease-in-out infinite',
+        'shimmer': 'shimmer 2s infinite',
+      },
     },
   },
   plugins: [],

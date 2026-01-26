@@ -14,16 +14,32 @@ const { title, description } = Astro.props;
 ---
 
 <BaseLayout title={title} description={description}>
-  {/* Header - Estilo Sneaker Store */}
-  <header class="sticky top-0 z-30 bg-brand-black border-b border-brand-gray">
+  {/* Header - Estilo Sneaker Store con Logo Animado */}
+  <header class="sticky top-0 z-30 bg-brand-black/95 backdrop-blur-sm border-b border-brand-gray animate-fade-in-up">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
-        {/* Logo */}
-        <a href="/" class="flex items-center gap-2 group">
-          <span class="text-xl font-display font-bold text-white tracking-wider uppercase">
-            KICKS<span class="text-brand-red">PREMIUM</span>
+        {/* Logo con animación */}
+        <a href="/" class="flex items-center gap-3 group relative">
+          <div class="w-10 h-7 relative">
+            <svg
+              viewBox="0 0 400 240"
+              className="w-full h-full group-hover:animate-bounce-slow"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Shoe outline - White */}
+              <g stroke="white" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <path d="M 60 140 Q 80 110 120 95 L 260 75 Q 300 85 320 130 L 310 170 Q 280 190 210 195 L 80 200 Q 65 190 60 170 Z" />
+                <path d="M 120 75 Q 100 55 90 35" />
+                <path d="M 135 70 Q 125 45 120 20" />
+              </g>
+              {/* Red accent stripe */}
+              <line x1="80" y1="100" x2="340" y2="65" stroke="#FF3131" strokeWidth="16" strokeLinecap="round" />
+            </svg>
+          </div>
+          <span class="text-lg font-display font-bold text-white tracking-wider uppercase group-hover:text-brand-red transition-colors">
+            KICKS<span class="text-brand-red group-hover:text-white">PREMIUM</span>
           </span>
-          <span class="text-xs text-brand-red font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">Exclusive</span>
         </a>
 
         {/* Navigation */}

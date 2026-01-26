@@ -27,13 +27,13 @@ const { data: categories } = await supabase
   <section class="relative bg-brand-black text-white overflow-hidden">
     {/* Background Pattern */}
     <div class="absolute inset-0 opacity-5">
-      <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px);"></div>
+      <div class="absolute inset-0 animate-shimmer" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px);"></div>
     </div>
     
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
       <div class="grid md:grid-cols-2 gap-12 items-center">
-        <div>
-          <div class="inline-block bg-brand-red text-white text-xs font-bold px-3 py-1 mb-6 uppercase tracking-wider">
+        <div class="animate-slide-in-left">
+          <div class="inline-block bg-brand-red text-white text-xs font-bold px-3 py-1 mb-6 uppercase tracking-wider animate-bounce-slow">
             Exclusively Limited
           </div>
           <h1 class="text-5xl md:text-7xl font-display font-bold mb-6 leading-none uppercase tracking-tight">
@@ -47,19 +47,19 @@ const { data: categories } = await supabase
           <div class="flex flex-wrap gap-4">
             <a
               href="/productos"
-              class="inline-block bg-brand-red text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-brand-orange transition-all hover:scale-105"
+              class="inline-block bg-brand-red text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-brand-orange transition-all hover:scale-110 shadow-lg hover:shadow-brand-red/50"
             >
               Explorar Colección
             </a>
             <a
               href="/categoria/limited-editions"
-              class="inline-block border-2 border-white text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-white hover:text-brand-black transition-all"
+              class="inline-block border-2 border-white text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-white hover:text-brand-black transition-all hover:scale-110"
             >
               Ediciones Limitadas
             </a>
           </div>
         </div>
-        <div class="hidden md:block relative">
+        <div class="hidden md:block relative animate-float">
           <div class="text-[200px] leading-none opacity-10 font-display font-bold absolute -right-20 top-1/2 -translate-y-1/2">
             X
           </div>
@@ -69,14 +69,14 @@ const { data: categories } = await supabase
   </section>
 
   {/* Brands Bar - Exclusive Collabs */}
-  <section class="bg-brand-gray py-6 border-y border-brand-black">
+  <section class="bg-brand-gray py-6 border-y border-brand-black animate-fade-in-up">
     <div class="max-w-7xl mx-auto px-4">
-      <div class="flex justify-center items-center gap-8 md:gap-16 text-neutral-500 font-bold uppercase tracking-widest text-sm">
-        <span class="hover:text-white transition-colors cursor-pointer">Travis Scott</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Jordan Special</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Adidas Collab</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Nike Rare</span>
-        <span class="hover:text-white transition-colors cursor-pointer">Yeezy SZN</span>
+      <div class="flex justify-center items-center gap-8 md:gap-16 text-neutral-500 font-bold uppercase tracking-widest text-sm flex-wrap">
+        <span class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Travis Scott</span>
+        <span class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan Special</span>
+        <span class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Adidas Collab</span>
+        <span class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Nike Rare</span>
+        <span class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Yeezy SZN</span>
       </div>
     </div>
   </section>
@@ -84,23 +84,24 @@ const { data: categories } = await supabase
   {/* Exclusive Collections Grid */}
   <section class="py-16 md:py-24 bg-brand-dark">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-end mb-12">
+      <div class="flex justify-between items-end mb-12 animate-slide-in-left">
         <div>
           <h2 class="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight">
             Colecciones
           </h2>
           <p class="text-neutral-500 mt-2">Piezas exclusivas y únicamente disponibles</p>
         </div>
-        <a href="/productos" class="text-brand-red font-bold uppercase text-sm hover:text-brand-orange transition-colors">
+        <a href="/productos" class="text-brand-red font-bold uppercase text-sm hover:text-brand-orange transition-colors hover:translate-x-1">
           Ver todo →
         </a>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {categories?.map((cat) => (
+        {categories?.map((cat, idx) => (
           <a
             href={`/categoria/${cat.slug}`}
-            class="group relative bg-brand-gray overflow-hidden aspect-square hover:scale-[1.02] transition-all"
+            class={`group relative bg-brand-gray overflow-hidden aspect-square hover:scale-[1.05] transition-all animate-fade-in-up`}
+            style={`animation-delay: ${idx * 100}ms`}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-brand-black/90 via-brand-black/20 to-transparent z-10"></div>
             <div class="absolute inset-0 flex items-center justify-center text-6xl md:text-8xl opacity-30 group-hover:opacity-50 group-hover:scale-110 transition-all">
