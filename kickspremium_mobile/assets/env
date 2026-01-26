@@ -5,6 +5,9 @@ PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 # Admin Auth
 PUBLIC_ADMIN_EMAIL=joseluisgq17@gmail.com
 
+# Backend API
+BACKEND_URL=https://tiendaonline-backend.vercel.app
+
 # Stripe - Pasarela de Pago
 PUBLIC_STRIPE_PUBLIC_KEY=pk_test_51SLLkULJDIZy9upCBjdyv9JVBHGkfPar9msGEWIhYtaqzTStAjGx4yT0BG56tgvMH9vpiV8jNsJc3r2xIGWWd56O00e1C6AyX7
 STRIPE_SECRET_KEY=sk_test_51SLLkULJDIZy9upC9bWdy3CBZBlr8qyinlC72dSXPaOG6DGOznzmf3TDr6z7ifrHp8HEPBaAixILvvljC1dp7zZl00AvAVD5F8
@@ -14,8 +17,11 @@ PUBLIC_CLOUDINARY_CLOUD_NAME=dd1o3cxgv
 CLOUDINARY_API_KEY=864671212517855
 CLOUDINARY_API_SECRET=OPgxS6jzSpthK1dsnAnabYmCfz0
 
-# Brevo - Servicio de Email
-BREVO_API_KEY=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
+# Gmail SMTP - Servicio de Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=joseluisgq17@gmail.com
+SMTP_PASS=xsss hiof lbpi qavp
 FROM_EMAIL=joseluisgq17@gmail.com
 ADMIN_EMAIL=joseluisgq17@gmail.com
 

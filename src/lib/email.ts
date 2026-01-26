@@ -1,19 +1,35 @@
-// Validar que existe la clave API de Brevo
-const BREVO_KEY: string | undefined = import.meta.env.BREVO_API_KEY || import.meta.env.BREVO_SMTP_KEY;
-const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || 'joseluisgq17@gmail.com';
+import nodemailer from 'nodemailer';
 
-if (!BREVO_KEY) {
+// Configuración SMTP de Gmail
+const SMTP_HOST = import.meta.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = parseInt(import.meta.env.SMTP_PORT || '587');
+const SMTP_USER = import.meta.env.SMTP_USER;
+const SMTP_PASS = import.meta.env.SMTP_PASS;
+const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || SMTP_USER;
+
+if (!SMTP_USER || !SMTP_PASS) {
   console.error(
-    '❌ ERROR CRÍTICO: BREVO_API_KEY no está configurada en .env\n' +
-    'Los emails NO serán enviados hasta que configures esta variable.\n' +
-    'Ve a https://www.brevo.com para obtener tu clave API.'
+    '❌ ERROR CRÍTICO: Credenciales SMTP no configuradas en .env\n' +
+    'Los emails NO serán enviados hasta que configures SMTP_USER y SMTP_PASS.\n' +
+    'Usa una contraseña de aplicación de Gmail.'
   );
 }
 
+// Crear transporter de nodemailer
+const transporter = nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465, // true para 465, false para otros puertos
+  auth: {
+    user: SMTP_USER,
+    pass: SMTP_PASS,
+  },
+});
+
 /**
- * Función para enviar emails usando la API HTTP de Brevo (más confiable que SMTP)
+ * Función para enviar emails usando SMTP (Gmail)
  */
-export async function sendEmailWithBrevo(options: {
+export async function sendEmailWithSMTP(options: {
   to: string | string[];
   subject: string;
   html: string;
@@ -24,56 +40,35 @@ export async function sendEmailWithBrevo(options: {
     contentType: string;
   }>;
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  if (!BREVO_KEY) {
-    console.warn('⚠️ BREVO_API_KEY no configurada. Email no será enviado.');
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.warn('⚠️ Credenciales SMTP no configuradas. Email no será enviado.');
     return { success: false, error: 'Email service not configured' };
   }
 
   try {
     const toArray = Array.isArray(options.to) ? options.to : [options.to];
     
-    const payload: any = {
-      sender: {
-        name: 'Kicks Premium',
-        email: options.from || FROM_EMAIL_CONFIG,
-      },
-      to: toArray.map(email => ({ email })),
+    const mailOptions: any = {
+      from: `"Kicks Premium" <${options.from || FROM_EMAIL_CONFIG}>`,
+      to: toArray.join(', '),
       subject: options.subject,
-      htmlContent: options.html,
+      html: options.html,
     };
 
     // Agregar adjuntos si existen
     if (options.attachments && options.attachments.length > 0) {
-      payload.attachment = options.attachments.map(att => ({
-        name: att.filename,
-        content: att.content.toString('base64'),
+      mailOptions.attachments = options.attachments.map(att => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType,
       }));
     }
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': BREVO_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ Error enviando email con Brevo API:', response.status, errorData);
-      return { 
-        success: false, 
-        error: errorData.message || `HTTP ${response.status}` 
-      };
-    }
-
-    const data = await response.json();
-    console.log('✅ Email enviado con Brevo API:', data);
-    return { success: true, messageId: data.messageId };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email enviado via SMTP:', info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Error enviando email con Brevo:', error);
+    console.error('❌ Error enviando email via SMTP:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : String(error) 
@@ -81,34 +76,22 @@ export async function sendEmailWithBrevo(options: {
   }
 }
 
-// Verificar conexión con Brevo al iniciar
-if (BREVO_KEY) {
-  (async () => {
-    try {
-      const response = await fetch('https://api.brevo.com/v3/account', {
-        headers: {
-          'accept': 'application/json',
-          'api-key': BREVO_KEY,
-        },
-      });
-      
-      if (response.ok) {
-        const account = await response.json();
-        console.log('✅ Conexión con Brevo API verificada');
-        console.log(`   → Cuenta: ${account.email || 'N/A'}`);
-        console.log(`   → Plan: ${account.plan?.[0]?.type || 'Free'}`);
-      } else {
-        console.error('❌ Error verificando cuenta Brevo:', response.status);
-      }
-    } catch (error) {
-      console.error('❌ Error conectando con Brevo API:', error);
-    }
-  })();
+// Verificar conexión SMTP al iniciar
+if (SMTP_USER && SMTP_PASS) {
+  transporter.verify()
+    .then(() => {
+      console.log('✅ Conexión SMTP verificada correctamente');
+      console.log(`   → Servidor: ${SMTP_HOST}:${SMTP_PORT}`);
+      console.log(`   → Usuario: ${SMTP_USER}`);
+    })
+    .catch((error) => {
+      console.error('❌ Error verificando conexión SMTP:', error);
+    });
 }
 
 /**
  * Email desde donde se envían los correos
- * IMPORTANTE: Debe ser un email verificado en tu cuenta de Brevo
+ * Configurado con tu cuenta de Gmail
  */
 const FROM_EMAIL = FROM_EMAIL_CONFIG;
 const ADMIN_EMAIL = import.meta.env.ADMIN_EMAIL || 'admin@kickspremium.com';
@@ -147,9 +130,9 @@ interface OrderDetails {
  */
 export async function sendOrderConfirmationEmail(order: OrderDetails) {
   try {
-    // Validar que está configurado Brevo
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email no será enviado.');
+    // Validar que está configurado SMTP
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -391,7 +374,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 </html>
     `;
 
-    // Construir attachments para Brevo API
+    // Construir attachments
     const attachments: any[] = [];
     if (order.invoicePDF) {
       attachments.push({
@@ -401,7 +384,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
       });
     }
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: order.email,
       subject: `Pedido Confirmado #${order.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
@@ -427,9 +410,9 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
  */
 export async function sendNewsletterWelcomeEmail(email: string, discountCode: string = 'WELCOME10') {
   try {
-    // Validar que está configurado Brevo
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email de newsletter no será enviado.');
+    // Validar que está configurado SMTP
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email de newsletter no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -576,7 +559,7 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: email,
       subject: '🎁 ¡Tu código de descuento del 10% está aquí!',
       html: htmlContent,
@@ -619,9 +602,9 @@ export async function sendNewProductEmail(
   product: ProductNewsletterData
 ) {
   try {
-    // Validar que está configurado Brevo
-    if (!BREVO_KEY) {
-      console.warn(`⚠️ BREVO_API_KEY no configurada. Email a ${subscriberEmail} no será enviado.`);
+    // Validar que está configurado SMTP
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn(`⚠️ Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
       throw new Error('Email service not configured');
     }
 
@@ -804,7 +787,7 @@ export async function sendNewProductEmail(
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: subscriberEmail,
       subject: `🔥 ¡Nuevo Drop! ${product.name}`,
       html: htmlContent,
@@ -878,9 +861,9 @@ export async function sendAdminNotification(
   metadata?: Record<string, any>
 ) {
   try {
-    // Validar que está configurado Brevo
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email a admin no será enviado.');
+    // Validar que está configurado SMTP
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email a admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -913,7 +896,7 @@ ${JSON.stringify(metadata, null, 2)}
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: ADMIN_EMAIL,
       subject: `[ADMIN] ${subject}`,
       html: htmlContent,
@@ -942,8 +925,8 @@ interface OrderCancellationData {
  */
 export async function sendOrderCancellationEmail(data: OrderCancellationData) {
   try {
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email de cancelación no será enviado.');
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email de cancelación no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -991,7 +974,7 @@ export async function sendOrderCancellationEmail(data: OrderCancellationData) {
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: data.email,
       subject: `Pedido #${data.orderId.substring(0, 8).toUpperCase()} cancelado`,
       html: htmlContent,
@@ -1027,8 +1010,8 @@ interface ReturnRequestData {
  */
 export async function sendReturnRequestEmail(data: ReturnRequestData) {
   try {
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email de devolución no será enviado.');
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email de devolución no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1089,7 +1072,7 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: data.email,
       subject: `Instrucciones de devolución - Pedido #${data.orderId.substring(0, 8).toUpperCase()}`,
       html: htmlContent,
@@ -1108,8 +1091,8 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
  */
 export async function sendAdminOrderNotification(order: OrderDetails) {
   try {
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_KEY no configurada. Email de notificación admin no será enviado.');
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email de notificación admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1193,7 +1176,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: ADMIN_EMAIL,
       subject: `🎉 Nuevo Pedido #${order.orderId.substring(0, 8).toUpperCase()} - ${formatPrice(order.total)}`,
       html: htmlContent,
@@ -1212,8 +1195,8 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
  */
 export async function sendAbandonedCartEmail(email: string) {
   try {
-    if (!BREVO_KEY) {
-      console.warn('⚠️ BREVO_API_KEY no configurada. Email de carrito abandonado no será enviado.');
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas. Email de carrito abandonado no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1267,7 +1250,7 @@ export async function sendAbandonedCartEmail(email: string) {
 </html>
     `;
 
-    const result = await sendEmailWithBrevo({
+    const result = await sendEmailWithSMTP({
       to: email,
       subject: '🛒 ¿Olvidaste algo en tu carrito? - 10% de descuento',
       html: htmlContent,

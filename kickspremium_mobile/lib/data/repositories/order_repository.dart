@@ -10,13 +10,28 @@ class OrderRepository {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    final data = await _client
-        .from('orders')
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
+    try {
+      final data = await _client
+          .from('orders')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
 
-    return (data as List).map((e) => Order.fromJson(e)).toList();
+      return (data as List)
+          .map((e) {
+            try {
+              return Order.fromJson(e as Map<String, dynamic>);
+            } catch (itemError) {
+              print('Error parsing order item $e: $itemError');
+              return null;
+            }
+          })
+          .whereType<Order>()
+          .toList();
+    } catch (e) {
+      print('Error fetching orders: $e');
+      rethrow;
+    }
   }
 
   Future<Order?> getOrderById(String orderId) async {

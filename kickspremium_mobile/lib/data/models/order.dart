@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class OrderItem {
   final String productId;
   final String productName;
@@ -77,27 +79,65 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    final itemsList = json['items'] as List?;
+    List<OrderItem> items = [];
+    final itemsData = json['items'];
+    
+    if (itemsData != null) {
+      if (itemsData is String) {
+        // Si viene como string JSON, parsearlo
+        try {
+          final jsonDecoded = jsonDecode(itemsData);
+          if (jsonDecoded is List) {
+            items = jsonDecoded.map((e) => OrderItem.fromJson(e as Map<String, dynamic>)).toList();
+          }
+        } catch (e) {
+          print('Error parsing items from string: $e');
+        }
+      } else if (itemsData is List) {
+        // Si ya es una lista, mapearla directamente
+        try {
+          items = itemsData.map((e) {
+            if (e is Map<String, dynamic>) {
+              return OrderItem.fromJson(e);
+            } else if (e is String) {
+              return OrderItem.fromJson(jsonDecode(e) as Map<String, dynamic>);
+            }
+            return null;
+          }).whereType<OrderItem>().toList();
+        } catch (e) {
+          print('Error parsing items from list: $e');
+        }
+      }
+    }
+    
     return Order(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       stripeSessionId: json['stripe_session_id'] as String?,
-      userId: json['user_id'] as String,
-      totalPrice: json['total_price'] as int? ?? 0,
-      discountAmount: json['discount_amount'] as int?,
+      userId: json['user_id'] as String? ?? '',
+      totalPrice: _parseInt(json['total_price']),
+      discountAmount: _parseInt(json['discount_amount']),
       discountCode: json['discount_code'] as String?,
       status: json['status'] as String? ?? 'pending',
       returnStatus: json['return_status'] as String?,
-      items: itemsList != null
-          ? itemsList.map((e) => OrderItem.fromJson(e as Map<String, dynamic>)).toList()
-          : [],
+      items: items,
       shippingName: json['shipping_name'] as String?,
       shippingAddress: json['shipping_address'] as Map<String, dynamic>?,
       billingEmail: json['billing_email'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
       updatedAt: json['updated_at'] != null 
           ? DateTime.parse(json['updated_at'] as String)
           : null,
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 
   String get displayId {

@@ -17,7 +17,7 @@ const emailContent = fs.readFileSync(emailFile, 'utf-8');
 
 // Funciones esperadas
 const expectedFunctions = [
-  'sendEmailWithBrevo',
+  'sendEmailWithResend',
   'sendOrderConfirmationEmail',
   'sendNewsletterWelcomeEmail',
   'sendNewProductEmail',
@@ -54,20 +54,20 @@ const totalCount = results.length;
 
 console.log(`Funciones encontradas: ${foundCount}/${totalCount}`);
 
-// Verificar estructura de Brevo
-console.log('\n🔍 Verificando integración con Brevo...\n');
+// Verificar estructura de Resend
+console.log('\n🔍 Verificando integración con Resend...\n');
 
-const brevoChecks = [
+const resendChecks = [
   {
     name: 'API Key en .env.local',
     check: () => {
       const envContent = fs.readFileSync('./.env.local', 'utf-8');
-      return envContent.includes('BREVO_API_KEY');
+      return envContent.includes('RESEND_API_KEY');
     }
   },
   {
-    name: 'HTTP API de Brevo utilizado',
-    check: () => emailContent.includes('api.brevo.com/v3/smtp/email')
+    name: 'HTTP API de Resend utilizado',
+    check: () => emailContent.includes('api.resend.com/emails')
   },
   {
     name: 'FROM_EMAIL configurado',
@@ -82,7 +82,7 @@ const brevoChecks = [
   },
 ];
 
-for (const check of brevoChecks) {
+for (const check of resendChecks) {
   const result = check.check();
   console.log(`${result ? '✅' : '❌'} ${check.name}`);
 }

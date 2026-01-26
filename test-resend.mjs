@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 
 // Script para probar la API de Resend
-const apiKey = 're_2ZEvrBAq_AaW5M24aQgTtzJTPh9YheuUA';
+const apiKey = 're_e6deJgMZ_L3LWyTTDzbb2Nzdpj219Sc1D';
 const resend = new Resend(apiKey);
 
 async function testResend() {
