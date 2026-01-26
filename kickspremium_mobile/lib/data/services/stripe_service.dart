@@ -1,152 +1,136 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 class StripeService {
-  static final String publicKey = dotenv.env['PUBLIC_STRIPE_PUBLIC_KEY'] ?? '';
-  // Cambia esto según tu ambiente (localhost para desarrollo, producción para la web)
-  static const String _backendUrl = 'http://localhost:3000'; 
+  static String get publicKey => dotenv.env['PUBLIC_STRIPE_PUBLIC_KEY'] ?? '';
+  static String get _backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000';
 
-  static void init() {
-    Stripe.publishableKey = publicKey;
-    Stripe.instance.applySettings();
+  static Future<void> init() async {
+    final key = publicKey;
+    if (key.isEmpty) {
+      debugPrint('ERROR: PUBLIC_STRIPE_PUBLIC_KEY no está en .env');
+      return;
+    }
+    
+    try {
+      Stripe.publishableKey = key;
+      Stripe.instance.applySettings();
+      debugPrint('✅ Stripe inicializado');
+    } catch (e) {
+      debugPrint('❌ Error inicializando Stripe: $e');
+      rethrow;
+    }
   }
 
-  /// Crea un Payment Intent en el backend
   static Future<Map<String, dynamic>> createPaymentIntent({
     required int amount,
     required String currency,
     required String orderId,
     Map<String, String>? metadata,
   }) async {
+    if (amount <= 0) throw Exception('Monto debe ser mayor a 0');
+    if (orderId.isEmpty) throw Exception('orderId vacío');
+
+    final url = Uri.parse('$_backendUrl/api/stripe/create-payment-intent');
+    
     try {
-      final response = await http.post(
-        Uri.parse('$_backendUrl/api/stripe/create-payment-intent'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'amount': amount,
-          'currency': currency,
-          'orderId': orderId,
-          'metadata': metadata ?? {},
-        }),
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () => throw Exception('Timeout al conectar con el servidor'),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'amount': amount,
+              'currency': currency,
+              'orderId': orderId,
+              'metadata': metadata ?? {},
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        final error = jsonDecode(response.body)['error'] ?? 'Error desconocido';
-        throw Exception('Error creando payment intent: $error');
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data.containsKey('clientSecret')) {
+          return data;
+        }
+        throw Exception('clientSecret no recibido');
       }
+
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    } on TimeoutException {
+      throw Exception('Timeout: servidor no responde');
+    } on FormatException catch (e) {
+      throw Exception('JSON inválido: $e');
     } on http.ClientException catch (e) {
-      throw Exception('Error de conexión: ${e.message}');
-    } catch (e) {
-      rethrow;
+      throw Exception('Error conexión: $e');
     }
   }
 
-  /// Procesa el pago con Stripe
-  static Future<bool> processPayment({
+  static Future<void> initPaymentSheet({
     required String clientSecret,
-    required String returnUrl,
+    required String email,
+    String merchantName = 'KicksPremium',
   }) async {
-    try {
-      await Stripe.instance.confirmPaymentSheetPayment();
-      return true;
-    } catch (e) {
-      throw Exception('Error al procesar pago: $e');
-    }
-  }
+    if (clientSecret.isEmpty) throw Exception('clientSecret vacío');
 
-  /// Inicializa el Payment Sheet
-  static Future<void> initializePaymentSheet({
-    required String clientSecret,
-    required String customerEmail,
-    required String merchantDisplayName,
-  }) async {
     try {
+      final params = SetupPaymentSheetParameters(
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: merchantName,
+        billingDetails: BillingDetails(email: email),
+      );
+      
       await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          customerEphemeralKeySecret: null,
-          customerId: null,
-          merchantDisplayName: merchantDisplayName,
-          defaultBillingDetails: BillingDetails(
-            email: customerEmail,
-          ),
-          appearance: PaymentSheetAppearance(
-            colors: PaymentSheetAppearanceColors(
-              primary: const Color(0xFFFF1744),
-              background: const Color(0xFF1C1C1C),
-              componentBackground: const Color(0xFF2A2A2A),
-              componentBorder: const Color(0xFF404040),
-              componentText: const Color(0xFFFFFFFF),
-              secondaryText: const Color(0xFF999999),
-              placeholderText: const Color(0xFF666666),
-            ),
-            shapes: PaymentSheetShape(
-              borderRadius: 12,
-              shadowColor: const Color(0xFF000000),
-            ),
-            primaryButtonAppearance: PaymentSheetPrimaryButtonAppearance(
-              colors: PrimaryButtonColors(
-                background: const Color(0xFFFF1744),
-                text: const Color(0xFFFFFFFF),
-              ),
-              shapes: PrimaryButtonShape(
-                borderRadius: 8,
-                elevation: 2,
-              ),
-            ),
-          ),
-        ),
+        paymentSheetParameters: params,
       );
     } catch (e) {
-      throw Exception('Error inicializando payment sheet: $e');
+      debugPrint('Error initPaymentSheet: $e');
+      throw Exception('Error inicializando pago: $e');
     }
   }
 
-  /// Confirma el pago con el PaymentSheet
-  static Future<bool> confirmPayment() async {
+  static Future<bool> presentPaymentSheet() async {
     try {
-      await Stripe.instance.confirmPaymentSheetPayment();
+      await Stripe.instance.presentPaymentSheet();
       return true;
     } catch (e) {
-      if (e is StripeException) {
-        throw Exception('Pago cancelado: ${e.error.localizedMessage}');
+      final msg = e.toString().toLowerCase();
+      
+      if (msg.contains('cancel')) {
+        throw Exception('Pago cancelado');
       }
-      throw Exception('Error confirming payment: $e');
+      
+      debugPrint('Error presentPaymentSheet: $e');
+      throw Exception('Error procesando pago: $e');
     }
   }
 
-  /// Procesa el reembolso (para el admin)
-  static Future<bool> refundPayment({
-    required String paymentIntentId,
-  }) async {
+  static Future<bool> refundPayment({required String paymentIntentId}) async {
+    if (paymentIntentId.isEmpty) throw Exception('paymentIntentId vacío');
+
+    final url = Uri.parse('$_backendUrl/api/stripe/refund');
+
     try {
-      final response = await http.post(
-        Uri.parse('$_backendUrl/api/stripe/refund'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'paymentIntentId': paymentIntentId,
-        }),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'paymentIntentId': paymentIntentId}),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return true;
-      } else {
-        throw Exception('Error reembolsando: ${response.body}');
       }
-    } catch (e) {
-      rethrow;
+
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    } on TimeoutException {
+      throw Exception('Timeout en reembolso');
+    } on http.ClientException catch (e) {
+      throw Exception('Error conexión: $e');
     }
   }
 }

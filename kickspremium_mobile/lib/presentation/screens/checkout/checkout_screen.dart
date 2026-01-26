@@ -19,28 +19,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    StripeService.init();
+    _initStripe();
+  }
+
+  Future<void> _initStripe() async {
+    await StripeService.init();
   }
 
   Future<void> _processPayment() async {
     if (_isProcessing) return;
 
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _error = null;
+    });
 
     try {
       final cartItems = ref.read(cartProvider);
       final cartTotal = ref.read(cartTotalProvider);
       final userEmail = ref.read(userEmailProvider);
 
-      if (cartItems.isEmpty) {
-        throw Exception('El carrito está vacío');
-      }
+      if (cartItems.isEmpty) throw Exception('Carrito vacío');
+      if (userEmail.isEmpty) throw Exception('Usuario no autenticado');
+      if (cartTotal <= 0) throw Exception('Monto inválido');
 
-      if (userEmail.isEmpty) {
-        throw Exception('Usuario no autenticado');
-      }
-
-      // Crear Payment Intent en el backend
+      // 1. Crear Payment Intent
       final paymentData = await StripeService.createPaymentIntent(
         amount: cartTotal,
         currency: 'eur',
@@ -51,47 +54,69 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         },
       );
 
-      final clientSecret = paymentData['clientSecret'] as String;
+      if (!mounted) return;
 
-      // Inicializar Payment Sheet
-      await StripeService.initializePaymentSheet(
+      final clientSecret = paymentData['clientSecret'] as String?;
+      if (clientSecret == null || clientSecret.isEmpty) {
+        throw Exception('clientSecret no recibido');
+      }
+
+      // 2. Init Payment Sheet
+      await StripeService.initPaymentSheet(
         clientSecret: clientSecret,
-        customerEmail: userEmail,
-        merchantDisplayName: 'KicksPremium',
+        email: userEmail,
       );
 
-      // Mostrar Payment Sheet y procesar pago
-      final success = await StripeService.confirmPayment();
+      if (!mounted) return;
+
+      // 3. Presentar y pagar
+      final success = await StripeService.presentPaymentSheet();
 
       if (success && mounted) {
-        // Limpiar carrito
         ref.read(cartProvider.notifier).clearCart();
 
-        // Mostrar éxito
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('¡Pago realizado con éxito!'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
             ),
           );
 
-          // Navegar a pantalla de éxito
-          context.go('/orders');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) context.go('/orders');
+          });
         }
       }
-    } catch (e) {
-      setState(() => _error = e.toString());
+    } on Exception catch (e) {
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      setState(() => _error = errorMsg);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(errorMsg),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      final errorMsg = 'Error inesperado: $e';
+      setState(() => _error = errorMsg);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
     } finally {
-      setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
