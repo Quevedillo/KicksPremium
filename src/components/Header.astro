@@ -2,6 +2,7 @@
 import KicksPremiumLogo from '@components/ui/KicksPremiumLogo';
 import CartIcon from '@components/islands/CartIcon';
 import UserMenu from '@components/islands/UserMenu';
+import LiveSearch from '@components/islands/LiveSearch';
 
 interface Props {
   title?: string;
@@ -11,65 +12,103 @@ const { title } = Astro.props;
 ---
 
 <header class="sticky top-0 z-40 bg-brand-black/95 backdrop-blur-sm border-b border-brand-gray">
-  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-    {/* Logo */}
-    <a href="/" class="flex items-center gap-2 group">
-      <div class="w-12 h-8 animate-bounce-slow">
-        <svg
-          viewBox="0 0 400 240"
-          className="w-full h-full"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Shoe outline - White */}
-          <g stroke="white" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none">
-            <path d="M 60 140 Q 80 110 120 95 L 260 75 Q 300 85 320 130 L 310 170 Q 280 190 210 195 L 80 200 Q 65 190 60 170 Z" />
-            <path d="M 120 75 Q 100 55 90 35" />
-            <path d="M 135 70 Q 125 45 120 20" />
-            <path d="M 150 68 Q 145 40 142 15" />
-          </g>
-          
-          {/* Red accent stripe */}
-          <line 
-            x1="80" 
-            y1="100" 
-            x2="340" 
-            y2="65" 
-            stroke="#FF3131"
-            strokeWidth="16"
-            strokeLinecap="round"
-          />
-        </svg>
-      </div>
-      <div class="flex flex-col leading-tight">
-        <span class="text-white font-bold text-sm">KICKS</span>
-        <span class="text-brand-red font-bold text-sm">PREMIUM</span>
-      </div>
-    </a>
+  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div class="flex items-center justify-between gap-4">
+      {/* Logo */}
+      <a href="/" class="flex items-center gap-2 group flex-shrink-0">
+        <div class="w-12 h-8 animate-bounce-slow">
+          <svg
+            viewBox="0 0 400 240"
+            class="w-full h-full"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Shoe outline - White */}
+            <g stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <path d="M 60 140 Q 80 110 120 95 L 260 75 Q 300 85 320 130 L 310 170 Q 280 190 210 195 L 80 200 Q 65 190 60 170 Z" />
+              <path d="M 120 75 Q 100 55 90 35" />
+              <path d="M 135 70 Q 125 45 120 20" />
+              <path d="M 150 68 Q 145 40 142 15" />
+            </g>
+            
+            {/* Red accent stripe */}
+            <line 
+              x1="80" 
+              y1="100" 
+              x2="340" 
+              y2="65" 
+              stroke="#FF3131"
+              stroke-width="16"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div class="flex flex-col leading-tight">
+          <span class="text-white font-bold text-sm">KICKS</span>
+          <span class="text-brand-red font-bold text-sm">PREMIUM</span>
+        </div>
+      </a>
 
-    {/* Center - Navigation Links */}
-    <div class="hidden md:flex items-center gap-8">
-      <a href="/productos" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
-        Productos
-        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
-      </a>
-      <a href="/categoria" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
-        Categorías
-        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
-      </a>
-      <a href="#contact" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
-        Contacto
-        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
-      </a>
+      {/* Center - Search Bar (Desktop) */}
+      <div class="hidden md:block flex-1 max-w-lg mx-8">
+        <LiveSearch client:load />
+      </div>
+
+      {/* Navigation Links */}
+      <div class="hidden lg:flex items-center gap-6">
+        <a href="/productos" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
+          Productos
+          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
+        </a>
+        <a href="/categoria" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
+          Categorías
+          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
+        </a>
+        <a href="#contact" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-sm tracking-wide group relative">
+          Contacto
+          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
+        </a>
+      </div>
+
+      {/* Right - Actions */}
+      <div class="flex items-center gap-4">
+        {/* Mobile Search Toggle */}
+        <button 
+          id="mobile-search-toggle"
+          class="md:hidden p-2 text-neutral-400 hover:text-white transition-colors"
+          aria-label="Abrir búsqueda"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+        <CartIcon />
+        <UserMenu />
+      </div>
     </div>
 
-    {/* Right - Actions */}
-    <div class="flex items-center gap-6">
-      <CartIcon />
-      <UserMenu />
+    {/* Mobile Search Bar */}
+    <div id="mobile-search-container" class="hidden md:hidden mt-4 pb-2">
+      <LiveSearch client:load />
     </div>
   </nav>
 </header>
+
+<script>
+  // Toggle mobile search
+  const toggleBtn = document.getElementById('mobile-search-toggle');
+  const searchContainer = document.getElementById('mobile-search-container');
+  
+  if (toggleBtn && searchContainer) {
+    toggleBtn.addEventListener('click', () => {
+      searchContainer.classList.toggle('hidden');
+      if (!searchContainer.classList.contains('hidden')) {
+        const input = searchContainer.querySelector('input');
+        input?.focus();
+      }
+    });
+  }
+</script>
 
 <style>
   header {

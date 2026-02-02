@@ -8,7 +8,11 @@ const url = new URL(Astro.request.url);
 const brandFilter = url.searchParams.get('brand');
 const colorFilter = url.searchParams.get('color');
 const categoryFilter = url.searchParams.get('category');
-const sortFilter = url.searchParams.get('sort') || 'newest'; // newest, price-asc, price-desc
+const collectionFilter = url.searchParams.get('collection'); // Nueva colección
+const priceRange = url.searchParams.get('price'); // Rango de precios
+const conditionFilter = url.searchParams.get('condition'); // Estado del producto
+const sortFilter = url.searchParams.get('sort') || 'newest';
+const searchQuery = url.searchParams.get('search'); // Búsqueda desde header
 
 // Fetch brands for filter
 const { data: brands } = await supabase
@@ -33,11 +37,18 @@ let productsQuery = supabase
   .from('products')
   .select('*, categories(name, slug)');
 
+// Apply search query if present
+if (searchQuery && searchQuery.length >= 2) {
+  productsQuery = productsQuery.or(`name.ilike.%${searchQuery}%,brand.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%,colorway.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+}
+
 // Apply sort
 if (sortFilter === 'price-asc') {
   productsQuery = productsQuery.order('price', { ascending: true });
 } else if (sortFilter === 'price-desc') {
   productsQuery = productsQuery.order('price', { ascending: false });
+} else if (sortFilter === 'name-asc') {
+  productsQuery = productsQuery.order('name', { ascending: true });
 } else {
   productsQuery = productsQuery.order('created_at', { ascending: false });
 }
@@ -47,8 +58,6 @@ if (brandFilter) {
 }
 
 if (colorFilter) {
-  // Filtrar por nombre de color (case-insensitive)
-  // Intentar búsqueda exacta primero
   productsQuery = productsQuery.ilike('color', colorFilter);
 }
 
@@ -59,7 +68,26 @@ if (categoryFilter) {
   }
 }
 
-// Filtrar solo productos con stock > 0 (que tengan tallas disponibles)
+// Filter by collection/edition type
+if (collectionFilter) {
+  if (collectionFilter === 'limited') {
+    productsQuery = productsQuery.eq('is_limited_edition', true);
+  } else if (collectionFilter === 'featured') {
+    productsQuery = productsQuery.eq('is_featured', true);
+  }
+}
+
+// Filter by price range
+if (priceRange) {
+  const [minStr, maxStr] = priceRange.split('-');
+  const min = parseInt(minStr) * 100; // Convert to cents
+  const max = maxStr ? parseInt(maxStr) * 100 : null;
+  
+  if (min) productsQuery = productsQuery.gte('price', min);
+  if (max) productsQuery = productsQuery.lte('price', max);
+}
+
+// Filtrar solo productos con stock > 0
 productsQuery = productsQuery.gt('stock', 0);
 
 const { data: products, error } = await productsQuery;
@@ -67,7 +95,6 @@ const { data: products, error } = await productsQuery;
 // Filtrar productos que realmente tienen tallas con stock
 let productsWithSizes = (products || []).filter(p => {
   if (!p.sizes_available || Object.keys(p.sizes_available).length === 0) return false;
-  // Verificar que al menos una talla tenga stock > 0
   return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
 });
 
@@ -84,9 +111,53 @@ const activeFilters = {
   brand: brandFilter,
   color: colorFilter,
   category: categoryFilter,
+  collection: collectionFilter,
+  price: priceRange,
+  condition: conditionFilter,
   sort: sortFilter,
+  search: searchQuery,
 };
-const hasFilters = brandFilter || colorFilter || categoryFilter;
+const hasFilters = brandFilter || colorFilter || categoryFilter || collectionFilter || priceRange || conditionFilter || searchQuery;
+
+// Collections/editions options (mejores opciones que los estilos)
+const collections = [
+  { value: 'limited', label: 'Ediciones Limitadas', icon: '⭐' },
+  { value: 'featured', label: 'Destacados', icon: '🔥' },
+];
+
+// Price ranges in EUR
+const priceRanges = [
+  { value: '0-200', label: 'Hasta €200' },
+  { value: '200-500', label: '€200 - €500' },
+  { value: '500-1000', label: '€500 - €1.000' },
+  { value: '1000-', label: 'Más de €1.000' },
+];
+
+// Helper function to build URL with params
+function buildUrl(params: Record<string, string | null>) {
+  const currentParams = new URLSearchParams();
+  
+  // Preserve existing params
+  if (brandFilter && !('brand' in params)) currentParams.set('brand', brandFilter);
+  if (colorFilter && !('color' in params)) currentParams.set('color', colorFilter);
+  if (categoryFilter && !('category' in params)) currentParams.set('category', categoryFilter);
+  if (collectionFilter && !('collection' in params)) currentParams.set('collection', collectionFilter);
+  if (priceRange && !('price' in params)) currentParams.set('price', priceRange);
+  if (sortFilter && sortFilter !== 'newest' && !('sort' in params)) currentParams.set('sort', sortFilter);
+  if (searchQuery && !('search' in params)) currentParams.set('search', searchQuery);
+  
+  // Apply new params
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      currentParams.set(key, value);
+    } else {
+      currentParams.delete(key);
+    }
+  });
+  
+  const queryString = currentParams.toString();
+  return '/productos' + (queryString ? '?' + queryString : '');
+}
 ---
 
 <PublicLayout title="Catálogo Exclusivo - KicksPremium" description="Colecciones limitadas y exclusivas de sneakers: Travis Scott, Jordan Special, Adidas Collab y ediciones raras">
@@ -97,7 +168,7 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
         <div>
           <div class="text-brand-red font-bold uppercase text-sm tracking-wider mb-2">Colección Exclusiva</div>
           <h1 class="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight">
-            Sneakers Limitados
+            {searchQuery ? `Resultados: "${searchQuery}"` : 'Sneakers Limitados'}
           </h1>
         </div>
         <p class="text-neutral-500">
@@ -107,108 +178,259 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
     </div>
   </section>
 
-  {/* Filters Section */}
+  {/* Filters Section - All Dropdowns */}
   <section class="bg-brand-gray border-b border-brand-black sticky top-16 z-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-      <div class="flex flex-col lg:flex-row gap-4">
-        {/* Category Filter */}
-        <div class="flex flex-wrap gap-2 items-center">
-          <span class="text-neutral-500 text-sm uppercase font-bold">Estilo:</span>
-          <a 
-            href="/productos" 
-            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!categoryFilter ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+      <div class="flex flex-wrap gap-3 items-center">
+        
+        {/* Collection Filter - Dropdown */}
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="collection"
           >
-            Todos
-          </a>
-          {categories?.map(cat => (
+            <span class="text-neutral-400 text-xs uppercase">Colección</span>
+            <span class="text-white">{collectionFilter ? collections.find(c => c.value === collectionFilter)?.label : 'Todas'}</span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full left-0 mt-2 min-w-[200px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50">
             <a 
-              href={`/productos?category=${cat.slug}${brandFilter ? `&brand=${brandFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
-              class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${categoryFilter === cat.slug ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+              href={buildUrl({ collection: null })}
+              class={`block px-4 py-3 text-sm font-semibold transition-colors ${!collectionFilter ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
             >
-              {cat.icon} {cat.name}
+              Todas las colecciones
             </a>
-          ))}
+            {collections.map(col => (
+              <a 
+                href={buildUrl({ collection: col.value })}
+                class={`block px-4 py-3 text-sm transition-colors ${collectionFilter === col.value ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+              >
+                <span class="mr-2">{col.icon}</span>
+                {col.label}
+              </a>
+            ))}
+          </div>
         </div>
 
-        {/* Brand Filter */}
-        <div class="flex flex-wrap gap-2 items-center">
-          <span class="text-neutral-500 text-sm uppercase font-bold">Marca:</span>
-          <a 
-            href={`/productos${categoryFilter ? `?category=${categoryFilter}` : ''}${colorFilter ? `${categoryFilter ? '&' : '?'}color=${colorFilter}` : ''}`}
-            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!brandFilter ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+        {/* Brand Filter - Dropdown */}
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="brand"
           >
-            Todas
-          </a>
-          {brands?.filter(b => b.is_featured).map(brand => (
+            <span class="text-neutral-400 text-xs uppercase">Marca</span>
+            <span class="text-white">{brandFilter || 'Todas'}</span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full left-0 mt-2 min-w-[180px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50 max-h-[300px] overflow-y-auto">
             <a 
-              href={`/productos?brand=${brand.name}${categoryFilter ? `&category=${categoryFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
-              class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${brandFilter === brand.name ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+              href={buildUrl({ brand: null })}
+              class={`block px-4 py-3 text-sm font-semibold transition-colors ${!brandFilter ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
             >
-              {brand.name}
+              Todas las marcas
             </a>
-          ))}
+            {brands?.filter(b => b.is_featured).map(brand => (
+              <a 
+                href={buildUrl({ brand: brand.name })}
+                class={`block px-4 py-3 text-sm transition-colors ${brandFilter === brand.name ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+              >
+                {brand.name}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Category Filter - Dropdown */}
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="category"
+          >
+            <span class="text-neutral-400 text-xs uppercase">Categoría</span>
+            <span class="text-white">{categoryFilter ? categories?.find(c => c.slug === categoryFilter)?.name : 'Todas'}</span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full left-0 mt-2 min-w-[220px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50 max-h-[300px] overflow-y-auto">
+            <a 
+              href={buildUrl({ category: null })}
+              class={`block px-4 py-3 text-sm font-semibold transition-colors ${!categoryFilter ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Todas las categorías
+            </a>
+            {categories?.map(cat => (
+              <a 
+                href={buildUrl({ category: cat.slug })}
+                class={`block px-4 py-3 text-sm transition-colors ${categoryFilter === cat.slug ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+              >
+                <span class="mr-2">{cat.icon}</span>
+                {cat.name}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Price Range Filter - Dropdown */}
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="price"
+          >
+            <span class="text-neutral-400 text-xs uppercase">Precio</span>
+            <span class="text-white">{priceRange ? priceRanges.find(p => p.value === priceRange)?.label : 'Cualquiera'}</span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full left-0 mt-2 min-w-[180px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50">
+            <a 
+              href={buildUrl({ price: null })}
+              class={`block px-4 py-3 text-sm font-semibold transition-colors ${!priceRange ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Cualquier precio
+            </a>
+            {priceRanges.map(range => (
+              <a 
+                href={buildUrl({ price: range.value })}
+                class={`block px-4 py-3 text-sm transition-colors ${priceRange === range.value ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+              >
+                {range.label}
+              </a>
+            ))}
+          </div>
         </div>
 
         {/* Color Filter - Dropdown */}
-        <div class="flex items-center gap-2">
-          <span class="text-neutral-500 text-sm uppercase font-bold">Color:</span>
-          <select 
-            id="color-filter"
-            class="px-3 py-1.5 text-xs font-bold uppercase bg-brand-dark text-white rounded border border-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-red transition-colors cursor-pointer"
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="color"
           >
-            <option value="">Todos</option>
+            <span class="text-neutral-400 text-xs uppercase">Color</span>
+            <span class="text-white">{colorFilter || 'Todos'}</span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full left-0 mt-2 min-w-[160px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50 max-h-[300px] overflow-y-auto">
+            <a 
+              href={buildUrl({ color: null })}
+              class={`block px-4 py-3 text-sm font-semibold transition-colors ${!colorFilter ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Todos los colores
+            </a>
             {colors?.map(color => (
-              <option value={color.name} selected={colorFilter === color.name}>
+              <a 
+                href={buildUrl({ color: color.name })}
+                class={`flex items-center gap-2 px-4 py-3 text-sm transition-colors ${colorFilter === color.name ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+              >
+                {color.hex && (
+                  <span 
+                    class="w-4 h-4 rounded-full border border-neutral-600" 
+                    style={`background-color: ${color.hex};`}
+                  ></span>
+                )}
                 {color.name}
-              </option>
+              </a>
             ))}
-          </select>
+          </div>
         </div>
 
-        {/* Sort Filter */}
-        <div class="flex flex-wrap gap-2 items-center ml-auto">
-          <span class="text-neutral-500 text-sm uppercase font-bold">Ordenar:</span>
-          <a 
-            href={`/productos${categoryFilter ? `?category=${categoryFilter}` : ''}${brandFilter ? `${categoryFilter ? '&' : '?'}brand=${brandFilter}` : ''}${colorFilter ? `${categoryFilter || brandFilter ? '&' : '?'}color=${colorFilter}` : ''}`}
-            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${!sortFilter || sortFilter === 'newest' ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
+        {/* Spacer */}
+        <div class="flex-1"></div>
+
+        {/* Sort Filter - Dropdown */}
+        <div class="filter-dropdown relative">
+          <button 
+            class="filter-btn flex items-center gap-2 px-4 py-2.5 bg-brand-dark border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-brand-red transition-colors"
+            data-dropdown="sort"
           >
-            Más recientes
-          </a>
-          <a 
-            href={`/productos?sort=price-asc${categoryFilter ? `&category=${categoryFilter}` : ''}${brandFilter ? `&brand=${brandFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
-            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${sortFilter === 'price-asc' ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
-          >
-            Precio: Menor a Mayor
-          </a>
-          <a 
-            href={`/productos?sort=price-desc${categoryFilter ? `&category=${categoryFilter}` : ''}${brandFilter ? `&brand=${brandFilter}` : ''}${colorFilter ? `&color=${colorFilter}` : ''}`}
-            class={`px-3 py-1.5 text-xs font-bold uppercase transition-colors ${sortFilter === 'price-desc' ? 'bg-brand-red text-white' : 'bg-brand-dark text-white/70 hover:bg-brand-red hover:text-white'}`}
-          >
-            Precio: Mayor a Menor
-          </a>
+            <span class="text-neutral-400 text-xs uppercase">Ordenar</span>
+            <span class="text-white">
+              {sortFilter === 'price-asc' ? 'Precio ↑' : 
+               sortFilter === 'price-desc' ? 'Precio ↓' : 
+               sortFilter === 'name-asc' ? 'A-Z' : 'Recientes'}
+            </span>
+            <svg class="w-4 h-4 text-neutral-500 transition-transform dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div class="dropdown-menu absolute top-full right-0 mt-2 min-w-[180px] bg-brand-dark border border-neutral-700 rounded-lg shadow-2xl overflow-hidden hidden z-50">
+            <a 
+              href={buildUrl({ sort: null })}
+              class={`block px-4 py-3 text-sm transition-colors ${!sortFilter || sortFilter === 'newest' ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Más recientes
+            </a>
+            <a 
+              href={buildUrl({ sort: 'price-asc' })}
+              class={`block px-4 py-3 text-sm transition-colors ${sortFilter === 'price-asc' ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Precio: menor a mayor
+            </a>
+            <a 
+              href={buildUrl({ sort: 'price-desc' })}
+              class={`block px-4 py-3 text-sm transition-colors ${sortFilter === 'price-desc' ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Precio: mayor a menor
+            </a>
+            <a 
+              href={buildUrl({ sort: 'name-asc' })}
+              class={`block px-4 py-3 text-sm transition-colors ${sortFilter === 'name-asc' ? 'bg-brand-red text-white' : 'text-white hover:bg-brand-gray'}`}
+            >
+              Nombre: A-Z
+            </a>
+          </div>
         </div>
+      </div>
 
       {/* Active Filters Display */}
       {hasFilters && (
-        <div class="mt-4 flex items-center gap-2">
-          <span class="text-neutral-500 text-sm">Filtros activos:</span>
-          {brandFilter && (
-            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
-              Marca: {brandFilter}
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <span class="text-neutral-500 text-sm">Filtros:</span>
+          {searchQuery && (
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              Búsqueda: "{searchQuery}"
+              <a href={buildUrl({ search: null })} class="hover:text-white ml-1">✕</a>
             </span>
           )}
-          {colorFilter && (
-            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
-              Color: {colorFilter}
+          {collectionFilter && (
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              {collections.find(c => c.value === collectionFilter)?.label}
+              <a href={buildUrl({ collection: null })} class="hover:text-white ml-1">✕</a>
+            </span>
+          )}
+          {brandFilter && (
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              {brandFilter}
+              <a href={buildUrl({ brand: null })} class="hover:text-white ml-1">✕</a>
             </span>
           )}
           {categoryFilter && (
-            <span class="bg-brand-red/20 text-brand-red px-2 py-1 text-xs font-bold">
-              Categoría: {categories?.find(c => c.slug === categoryFilter)?.name}
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              {categories?.find(c => c.slug === categoryFilter)?.name}
+              <a href={buildUrl({ category: null })} class="hover:text-white ml-1">✕</a>
             </span>
           )}
-          <a href="/productos" class="text-brand-red hover:text-brand-orange text-sm font-bold ml-2">
-            ✕ Limpiar filtros
+          {priceRange && (
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              {priceRanges.find(p => p.value === priceRange)?.label}
+              <a href={buildUrl({ price: null })} class="hover:text-white ml-1">✕</a>
+            </span>
+          )}
+          {colorFilter && (
+            <span class="inline-flex items-center gap-1 bg-brand-red/20 text-brand-red px-3 py-1 text-xs font-bold rounded-full">
+              {colorFilter}
+              <a href={buildUrl({ color: null })} class="hover:text-white ml-1">✕</a>
+            </span>
+          )}
+          <a href="/productos" class="text-brand-red hover:text-brand-orange text-sm font-bold ml-2 underline">
+            Limpiar todo
           </a>
         </div>
       )}
@@ -221,16 +443,16 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
       {productsList.length > 0 ? (
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {productsList.map((product) => (
-            <a href={`/productos/${product.slug}`} class="group bg-brand-gray overflow-hidden hover:scale-[1.02] transition-all">
+            <a href={`/productos/${product.slug}`} class="group bg-brand-gray overflow-hidden hover:scale-[1.02] transition-all rounded-lg">
               {/* Image */}
               <div class="aspect-square bg-brand-dark relative overflow-hidden">
                 {product.is_limited_edition && (
-                  <div class="absolute top-3 left-3 bg-brand-red text-white text-xs font-bold px-2 py-1 z-10 uppercase">
+                  <div class="absolute top-3 left-3 bg-brand-red text-white text-xs font-bold px-2 py-1 z-10 uppercase rounded">
                     Limited
                   </div>
                 )}
                 {product.stock <= 5 && product.stock > 0 && (
-                  <div class="absolute top-3 right-3 bg-brand-orange text-white text-xs font-bold px-2 py-1 z-10 uppercase">
+                  <div class="absolute top-3 right-3 bg-brand-orange text-white text-xs font-bold px-2 py-1 z-10 uppercase rounded">
                     Últimas {product.stock}
                   </div>
                 )}
@@ -238,6 +460,7 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
                   src={product.images?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop'}
                   alt={product.name}
                   class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  loading="lazy"
                 />
               </div>
               {/* Info */}
@@ -259,7 +482,7 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
                       </span>
                     )}
                   </div>
-                  <span class="text-brand-red text-sm">→</span>
+                  <span class="text-brand-red text-sm group-hover:translate-x-1 transition-transform">→</span>
                 </div>
               </div>
             </a>
@@ -267,13 +490,15 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
         </div>
       ) : (
         <div class="text-center py-20">
-          <div class="text-6xl mb-4 text-neutral-500">•</div>
+          <div class="text-6xl mb-4">🔍</div>
           <p class="text-neutral-500 text-lg">
-            No hay sneakers que coincidan con los filtros seleccionados.
+            {searchQuery 
+              ? `No hay sneakers que coincidan con "${searchQuery}".`
+              : 'No hay sneakers que coincidan con los filtros seleccionados.'}
           </p>
           <a
             href="/productos"
-            class="inline-block mt-6 bg-brand-red text-white px-6 py-3 font-bold uppercase hover:bg-brand-orange transition-colors"
+            class="inline-block mt-6 bg-brand-red text-white px-6 py-3 font-bold uppercase hover:bg-brand-orange transition-colors rounded-lg"
           >
             Ver todo el catálogo
           </a>
@@ -284,21 +509,70 @@ const hasFilters = brandFilter || colorFilter || categoryFilter;
 </PublicLayout>
 
 <script>
-  // Manejar cambio de color filter
-  const colorSelect = document.getElementById('color-filter');
-  if (colorSelect) {
-    colorSelect.addEventListener('change', (e) => {
-      const selectedColor = (e.target as HTMLSelectElement).value;
-      const params = new URLSearchParams(window.location.search);
+  // Dropdown filters functionality
+  document.querySelectorAll('.filter-dropdown').forEach(dropdown => {
+    const btn = dropdown.querySelector('.filter-btn');
+    const menu = dropdown.querySelector('.dropdown-menu');
+    const arrow = dropdown.querySelector('.dropdown-arrow');
+    
+    if (!btn || !menu) return;
+    
+    // Toggle dropdown on click
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       
-      if (selectedColor) {
-        params.set('color', selectedColor);
-      } else {
-        params.delete('color');
-      }
+      // Close all other dropdowns
+      document.querySelectorAll('.dropdown-menu').forEach(m => {
+        if (m !== menu) {
+          m.classList.add('hidden');
+          m.closest('.filter-dropdown')?.querySelector('.dropdown-arrow')?.classList.remove('rotate-180');
+        }
+      });
       
-      const newUrl = '/productos' + (params.toString() ? '?' + params.toString() : '');
-      window.location.href = newUrl;
+      // Toggle current dropdown
+      menu.classList.toggle('hidden');
+      arrow?.classList.toggle('rotate-180');
     });
-  }
+  });
+  
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest('.filter-dropdown')) {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.add('hidden');
+        menu.closest('.filter-dropdown')?.querySelector('.dropdown-arrow')?.classList.remove('rotate-180');
+      });
+    }
+  });
+  
+  // Close dropdowns on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.add('hidden');
+        menu.closest('.filter-dropdown')?.querySelector('.dropdown-arrow')?.classList.remove('rotate-180');
+      });
+    }
+  });
 </script>
+
+<style>
+  .dropdown-menu {
+    animation: dropdownSlideIn 0.15s ease-out;
+  }
+  
+  @keyframes dropdownSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .filter-dropdown:hover .filter-btn {
+    border-color: #FF3131;
+  }
+</style>
