@@ -20,6 +20,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# Instalar curl para healthcheck
+RUN apk add --no-cache curl
+
 # Copiar package.json para instalar solo dependencias de producción
 COPY package*.json ./
 
@@ -32,9 +35,9 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 4321
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4321/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+# Health check con curl
+HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:4321/ || exit 1
 
 # Ejecutar el servidor SSR
 CMD ["node", "./dist/server/entry.mjs"]
