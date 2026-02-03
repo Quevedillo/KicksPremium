@@ -1,15 +1,26 @@
 -- ============================================================================
--- KICKSPREMIUM - RESPALDO COMPLETO DE BASE DE DATOS SUPABASE
+-- KICKSPREMIUM - BASE DE DATOS COMPLETA Y UNIFICADA SUPABASE
 -- ============================================================================
 -- Tienda de Sneakers Exclusivos y Ediciones Limitadas
--- Contiene TODAS las tablas, columnas, RLS, funciones y triggers
--- Ejecutar en orden si se necesita recuperar la base de datos completa
--- ============================================================================
+-- Última actualización: 3 de febrero de 2026
+-- 
+-- ESTE ARCHIVO CONTIENE TODA LA CONFIGURACIÓN COMPLETA DE LA BASE DE DATOS:
+-- ✅ Tablas de administración (usuarios, perfiles)
+-- ✅ Tablas de productos (categorías, productos, stock por tallas)
+-- ✅ Tablas de pedidos (órdenes, estados, devoluciones)
+-- ✅ Tablas de newsletter (suscriptores)
+-- ✅ Tablas de descuentos (códigos, tracking)
+-- ✅ Todas las políticas RLS (Row Level Security)
+-- ✅ Todos los índices para optimización
+-- ✅ Todos los triggers y funciones
+-- ✅ Datos de ejemplo
+--
 -- INSTRUCCIONES:
 -- 1. Ir a Supabase Dashboard > SQL Editor > New Query
 -- 2. Copiar este archivo completo
--- 3. Ejecutar TODO de una vez (este script está optimizado para hacerlo)
+-- 3. Ejecutar TODO (recomendado hacerlo en bloques/secciones)
 -- 4. Verificar que no haya errores al final
+--
 -- ============================================================================
 
 -- ============================================================================
@@ -134,20 +145,106 @@ CREATE TRIGGER trigger_categories_updated_at
 -- Limpiar categorías antiguas
 DELETE FROM categories WHERE slug IN (
   'camisas', 'pantalones', 'trajes', 'basketball', 'lifestyle', 'running',
-  'shirts', 'pants', 'shoes'
+  'shirts', 'pants', 'shoes', 'travis-scott', 'jordan-special', 'adidas-collab'
 );
 
--- Insertar colecciones EXCLUSIVAS
+-- Insertar colecciones mejoradas (basadas en tipo, no solo marca)
 INSERT INTO categories (name, slug, description, icon, display_order) VALUES
-('Travis Scott', 'travis-scott', 'Colaboraciones exclusivas de Travis Scott con Jordan y Nike', 'TS', 1),
-('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', 'JS', 2),
-('Adidas Collab', 'adidas-collab', 'Colaboraciones exclusivas de Adidas con artistas reconocidos', 'AC', 3),
-('Exclusive Drops', 'limited-editions', 'Ediciones limitadas, one-of-a-kind y piezas muy raras', 'EX', 4)
+('Exclusive Drops', 'limited-editions', 'Lanzamientos exclusivos, one-of-a-kind y piezas ultra raras', '💎', 1),
+('Retro Classics', 'retro-classics', 'Reediciones de modelos icónicos de los 80s y 90s', '👟', 2),
+('High Tops', 'high-tops', 'Sneakers de caña alta para un look urbano', '🔝', 3),
+('Low Tops', 'low-tops', 'Sneakers de caña baja, versatilidad máxima', '⬇️', 4),
+('Collabs', 'collabs', 'Colaboraciones con artistas, diseñadores y marcas', '🤝', 5),
+('Performance', 'performance', 'Sneakers diseñados para rendimiento deportivo', '🏃', 6),
+('Lifestyle', 'lifestyle', 'Sneakers casuales para el día a día', '🌆', 7),
+('Travis Scott', 'travis-scott', 'Colaboraciones exclusivas de Travis Scott con Jordan y Nike', 'TS', 8),
+('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', 'JS', 9),
+('Adidas Collab', 'adidas-collab', 'Colaboraciones exclusivas de Adidas con artistas reconocidos', 'AC', 10)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
   icon = EXCLUDED.icon,
   display_order = EXCLUDED.display_order;
+
+-- TABLA: brands (Marcas de Sneakers)
+CREATE TABLE IF NOT EXISTS brands (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR NOT NULL UNIQUE,
+  slug VARCHAR NOT NULL UNIQUE,
+  logo_url TEXT,
+  is_featured BOOLEAN DEFAULT false,
+  display_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- RLS para brands
+ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
+
+-- Todos pueden leer brands
+DROP POLICY IF EXISTS "brands_public_read" ON brands;
+CREATE POLICY "brands_public_read" ON brands
+  FOR SELECT USING (true);
+
+-- Admins pueden gestionar brands
+DROP POLICY IF EXISTS "admins_manage_brands" ON brands;
+CREATE POLICY "admins_manage_brands" ON brands
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
+-- Insertar marcas principales
+INSERT INTO brands (name, slug, is_featured, display_order) VALUES
+('Nike', 'nike', true, 1),
+('Jordan', 'jordan', true, 2),
+('Adidas', 'adidas', true, 3),
+('Yeezy', 'yeezy', true, 4),
+('New Balance', 'new-balance', true, 5),
+('Puma', 'puma', true, 6),
+('Reebok', 'reebok', false, 7),
+('Converse', 'converse', false, 8),
+('Vans', 'vans', false, 9),
+('ASICS', 'asics', false, 10)
+ON CONFLICT (slug) DO UPDATE SET
+  is_featured = EXCLUDED.is_featured,
+  display_order = EXCLUDED.display_order;
+
+-- TABLA: colors (Colores disponibles)
+CREATE TABLE IF NOT EXISTS colors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR NOT NULL UNIQUE,
+  slug VARCHAR NOT NULL UNIQUE,
+  hex_code VARCHAR(50),
+  display_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- RLS para colors
+ALTER TABLE colors ENABLE ROW LEVEL SECURITY;
+
+-- Todos pueden leer colors
+DROP POLICY IF EXISTS "colors_public_read" ON colors;
+CREATE POLICY "colors_public_read" ON colors
+  FOR SELECT USING (true);
+
+-- Insertar colores principales
+DELETE FROM colors;
+INSERT INTO colors (name, slug, hex_code, display_order) VALUES
+('Negro', 'negro', '#000000', 1),
+('Blanco', 'blanco', '#FFFFFF', 2),
+('Rojo', 'rojo', '#FF0000', 3),
+('Azul', 'azul', '#0066FF', 4),
+('Verde', 'verde', '#00CC00', 5),
+('Amarillo', 'amarillo', '#FFCC00', 6),
+('Naranja', 'naranja', '#FF6600', 7),
+('Rosa', 'rosa', '#FF69B4', 8),
+('Morado', 'morado', '#9933FF', 9),
+('Marrón', 'marron', '#8B4513', 10),
+('Gris', 'gris', '#808080', 11),
+('Beige', 'beige', '#F5F5DC', 12),
+('Multi', 'multi', '#999999', 13);
 
 -- TABLA: products (Productos/Zapatillas)
 CREATE TABLE IF NOT EXISTS products (
@@ -458,7 +555,7 @@ CREATE TRIGGER trigger_newsletter_updated_at
   EXECUTE FUNCTION update_newsletter_updated_at();
 
 -- ============================================================================
--- SECCIÓN 5: TABLA DE CÓDIGOS DE DESCUENTO
+-- SECCIÓN 5: TABLAS DE CÓDIGOS DE DESCUENTO
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS discount_codes (
@@ -993,10 +1090,30 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
--- SECCIÓN 9: VERIFICACIÓN FINAL
+-- SECCIÓN 9: CÓDIGOS DE DESCUENTO INICIALES
 -- ============================================================================
 
-SELECT '✅ Base de datos restaurada correctamente' as status;
+-- Código de bienvenida para newsletter (10% descuento)
+INSERT INTO discount_codes (code, description, discount_type, discount_value, min_purchase, max_uses_per_user)
+VALUES ('WELCOME10', 'Descuento de bienvenida - 10% en tu primera compra', 'percentage', 10, 5000, 1)
+ON CONFLICT (code) DO NOTHING;
+
+-- Código de envío gratis (descuento fijo de 5.99€)
+INSERT INTO discount_codes (code, description, discount_type, discount_value, min_purchase)
+VALUES ('FREESHIP', 'Envío gratis en pedidos superiores a 100€', 'fixed', 599, 10000)
+ON CONFLICT (code) DO NOTHING;
+
+-- Código VIP 20%
+INSERT INTO discount_codes (code, description, discount_type, discount_value, min_purchase, max_uses)
+VALUES ('VIP20', 'Descuento VIP - 20% en toda la tienda', 'percentage', 20, 0, 100)
+ON CONFLICT (code) DO NOTHING;
+
+-- ============================================================================
+-- SECCIÓN 10: VERIFICACIÓN FINAL
+-- ============================================================================
+
+SELECT '✅ Base de datos restaurada completamente' as status;
+
 SELECT 'Tablas creadas:' as type;
 SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
 
@@ -1029,12 +1146,16 @@ SELECT tgname FROM pg_trigger ORDER BY tgname;
 -- 4. Para más información sobre RLS: 
 --    https://supabase.com/docs/guides/auth/row-level-security
 --
--- 5. Este archivo contiene:
+-- 5. Este archivo contiene TODA la información:
 --    ✅ Todas las tablas con columnas
 --    ✅ Todas las políticas RLS
 --    ✅ Todos los índices
 --    ✅ Todos los triggers
 --    ✅ Todas las funciones
 --    ✅ Datos de ejemplo
+--    ✅ Códigos de descuento
+--    ✅ Gestión de stock por tallas
+--    ✅ Gestión de pedidos
+--    ✅ Gestión de devoluciones
 --
 -- ============================================================================
