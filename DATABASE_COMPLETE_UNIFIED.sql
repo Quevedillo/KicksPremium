@@ -963,6 +963,7 @@ DECLARE
   v_discount RECORD;
   v_user_uses INTEGER;
   v_discount_amount INTEGER;
+  v_user_orders INTEGER;
 BEGIN
   -- 1. Buscar el código
   SELECT * INTO v_discount
@@ -976,12 +977,23 @@ BEGIN
     RETURN jsonb_build_object('valid', false, 'error', 'Código no válido o expirado');
   END IF;
   
-  -- 2. Verificar usos máximos globales
+  -- 2. VALIDACIÓN ESPECIAL: Si es código de primera compra, verificar que el usuario no haya comprado
+  IF v_discount.code IN ('WELCOME10', 'PRIMERA_COMPRA') AND p_user_id IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_user_orders
+    FROM orders
+    WHERE user_id = p_user_id AND status IN ('completed', 'pending', 'processing', 'shipped');
+    
+    IF v_user_orders > 0 THEN
+      RETURN jsonb_build_object('valid', false, 'error', 'Este código solo es válido para tu primera compra');
+    END IF;
+  END IF;
+  
+  -- 3. Verificar usos máximos globales
   IF v_discount.max_uses IS NOT NULL AND v_discount.current_uses >= v_discount.max_uses THEN
     RETURN jsonb_build_object('valid', false, 'error', 'Este código ha alcanzado su límite de usos');
   END IF;
   
-  -- 3. Verificar usos por usuario
+  -- 4. Verificar usos por usuario
   IF p_user_id IS NOT NULL THEN
     SELECT COUNT(*) INTO v_user_uses
     FROM discount_code_uses
@@ -992,7 +1004,7 @@ BEGIN
     END IF;
   END IF;
   
-  -- 4. Verificar compra mínima
+  -- 5. Verificar compra mínima
   IF p_cart_total < v_discount.min_purchase THEN
     RETURN jsonb_build_object(
       'valid', false,
@@ -1000,7 +1012,7 @@ BEGIN
     );
   END IF;
   
-  -- 5. Calcular descuento
+  -- 6. Calcular descuento
   IF v_discount.discount_type = 'percentage' THEN
     v_discount_amount := (p_cart_total * v_discount.discount_value / 100);
   ELSE
