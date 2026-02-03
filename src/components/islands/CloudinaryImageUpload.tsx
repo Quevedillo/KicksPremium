@@ -85,6 +85,7 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
         const response = await fetch('/api/upload/image', {
           method: 'POST',
           body: formData,
+          credentials: 'include', // Incluir cookies de autenticación
         });
 
         if (!response.ok) {
