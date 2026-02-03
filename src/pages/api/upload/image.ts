@@ -135,7 +135,6 @@ export const POST: APIRoute = async (context) => {
             resolve(result);
           }
         }
-        }
       );
 
       uploadStream.end(Buffer.from(buffer));
@@ -151,5 +150,11 @@ export const POST: APIRoute = async (context) => {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
-    console.error('[Upload] Error general:', error);
+    } catch (error) {
+      console.error('[Upload] Error general:', error);
+      return new Response(
+        JSON.stringify({ error: 'Error al subir imagen' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  };

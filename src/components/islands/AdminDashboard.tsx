@@ -8,6 +8,8 @@ interface Stats {
   totalRevenue: number;
   pendingOrders: number;
   recentOrders: any[];
+  lowStockProducts: any[];
+  outOfStockProducts: any[];
 }
 
 export default function AdminDashboard() {
@@ -18,6 +20,8 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     pendingOrders: 0,
     recentOrders: [],
+    lowStockProducts: [],
+    outOfStockProducts: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +40,30 @@ export default function AdminDashboard() {
       const { count: categoryCount } = await supabase
         .from('categories')
         .select('id', { count: 'exact', head: true });
+
+      // Obtener productos con stock bajo (menos de 3) o sin stock
+      const { data: allProducts } = await supabase
+        .from('products')
+        .select('id, name, brand, stock, sizes_available');
+
+      const lowStockProducts: any[] = [];
+      const outOfStockProducts: any[] = [];
+
+      (allProducts || []).forEach(product => {
+        // Calcular stock total de sizes_available
+        let totalStock = 0;
+        if (product.sizes_available && typeof product.sizes_available === 'object') {
+          totalStock = Object.values(product.sizes_available).reduce((sum: number, qty: any) => sum + (parseInt(String(qty)) || 0), 0);
+        } else {
+          totalStock = product.stock || 0;
+        }
+
+        if (totalStock === 0) {
+          outOfStockProducts.push({ ...product, totalStock });
+        } else if (totalStock <= 3) {
+          lowStockProducts.push({ ...product, totalStock });
+        }
+      });
 
       // Obtener total de órdenes
       const { data: ordersData, count: orderCount } = await supabase
@@ -66,6 +94,8 @@ export default function AdminDashboard() {
         totalRevenue,
         pendingOrders,
         recentOrders: ordersData || [],
+        lowStockProducts,
+        outOfStockProducts,
       });
       
       setLoading(false);
@@ -239,18 +269,62 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-bold text-brand-black">⚠️ Alertas de Stock</h2>
             </div>
             
-            <div className="p-4 space-y-3">
-              <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="text-sm font-medium text-green-800">
-                    Stock correcto
-                  </span>
+            <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+              {stats.outOfStockProducts.length > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    <span className="text-sm font-medium text-red-800">
+                      Sin stock ({stats.outOfStockProducts.length})
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {stats.outOfStockProducts.slice(0, 5).map(p => (
+                      <p key={p.id} className="text-xs text-red-700 truncate">
+                        • {p.brand} - {p.name}
+                      </p>
+                    ))}
+                    {stats.outOfStockProducts.length > 5 && (
+                      <p className="text-xs text-red-600 font-medium">+{stats.outOfStockProducts.length - 5} más</p>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-green-600 mt-1">
-                  Todos los productos tienen stock suficiente
-                </p>
-              </div>
+              )}
+
+              {stats.lowStockProducts.length > 0 && (
+                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    <span className="text-sm font-medium text-yellow-800">
+                      Stock bajo ({stats.lowStockProducts.length})
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {stats.lowStockProducts.slice(0, 5).map(p => (
+                      <p key={p.id} className="text-xs text-yellow-700 truncate">
+                        • {p.brand} - {p.name} ({p.totalStock} uds)
+                      </p>
+                    ))}
+                    {stats.lowStockProducts.length > 5 && (
+                      <p className="text-xs text-yellow-600 font-medium">+{stats.lowStockProducts.length - 5} más</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {stats.outOfStockProducts.length === 0 && stats.lowStockProducts.length === 0 && (
+                <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="text-sm font-medium text-green-800">
+                      Stock correcto
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">
+                    Todos los productos tienen stock suficiente
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
