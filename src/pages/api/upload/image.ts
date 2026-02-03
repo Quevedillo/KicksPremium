@@ -1,18 +1,6 @@
 import type { APIRoute } from 'astro';
 import { cloudinary } from '@lib/cloudinary';
-import { getSupabaseServiceClient } from '@lib/supabase';
-
-// Verificar que el usuario sea admin
-const isAdmin = async (userId: string): Promise<boolean> => {
-  const supabase = getSupabaseServiceClient();
-  const { data } = await supabase
-    .from('user_profiles')
-    .select('is_admin')
-    .eq('id', userId)
-    .single();
-
-  return data?.is_admin === true;
-};
+import { supabase } from '@lib/supabase';
 
 export const POST: APIRoute = async (context) => {
   try {
@@ -22,6 +10,44 @@ export const POST: APIRoute = async (context) => {
         status: 405,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // Obtener tokens de sesión
+    const accessToken = context.cookies.get('sb-access-token')?.value;
+    const refreshToken = context.cookies.get('sb-refresh-token')?.value;
+
+    if (!accessToken || !refreshToken) {
+      return new Response(
+        JSON.stringify({ error: 'No autenticado' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validar sesión
+    const { data: sessionData } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (!sessionData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Sesión inválida' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verificar que sea admin
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('id', sessionData.user.id)
+      .single();
+
+    if (!profile?.is_admin) {
+      return new Response(
+        JSON.stringify({ error: 'No autorizado: acceso solo para administradores' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Obtener el FormData
