@@ -1,0 +1,41 @@
+# Build stage
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Copiar package.json y package-lock.json
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar el código fuente
+COPY . .
+
+# Compilar la aplicación Astro
+RUN npm run build
+
+# Production stage
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copiar package.json para instalar solo dependencias de producción
+COPY package*.json ./
+
+# Instalar solo dependencias de producción
+RUN npm install --only=production
+
+# Copiar archivos compilados desde el builder
+COPY --from=builder /app/dist ./dist
+
+# Expose port
+EXPOSE 4321
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:4321/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+
+# Ejecutar el servidor SSR
+CMD ["node", "./dist/server/entry.mjs"]
+
