@@ -1121,53 +1121,271 @@ VALUES ('VIP20', 'Descuento VIP - 20% en toda la tienda', 'percentage', 20, 0, 1
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================================
--- SECCIÓN 10: VERIFICACIÓN FINAL
+-- SECCIÓN 10: SISTEMA VIP ACCESS (desde VIP_AND_CUSTOMIZER_MIGRATION.sql)
 -- ============================================================================
 
-SELECT '✅ Base de datos restaurada completamente' as status;
+-- TABLA: vip_subscriptions (Suscripciones VIP)
+CREATE TABLE IF NOT EXISTS vip_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending, active, cancelled, past_due, expired
+  plan_type TEXT NOT NULL DEFAULT 'monthly', -- monthly, annual
+  price_cents INTEGER NOT NULL DEFAULT 999, -- 9.99€/mes por defecto
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-SELECT 'Tablas creadas:' as type;
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_vip_user_id ON vip_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_vip_email ON vip_subscriptions(email);
+CREATE INDEX IF NOT EXISTS idx_vip_status ON vip_subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_vip_stripe_sub ON vip_subscriptions(stripe_subscription_id);
+
+-- RLS
+ALTER TABLE vip_subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "users_see_own_vip" ON vip_subscriptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "service_manage_vip" ON vip_subscriptions
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- TABLA: vip_notifications (Notificaciones para VIPs)
+CREATE TABLE IF NOT EXISTS vip_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL, -- 'new_product', 'restock', 'vip_discount'
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vip_notif_type ON vip_notifications(type);
+CREATE INDEX IF NOT EXISTS idx_vip_notif_created ON vip_notifications(created_at DESC);
+
+ALTER TABLE vip_notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_manage_vip_notif" ON vip_notifications
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- TABLA: vip_notification_reads (Qué notificaciones ha leído cada VIP)
+CREATE TABLE IF NOT EXISTS vip_notification_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  notification_id UUID REFERENCES vip_notifications(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  read_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(notification_id, user_id)
+);
+
+ALTER TABLE vip_notification_reads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_own_reads" ON vip_notification_reads
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "service_manage_reads" ON vip_notification_reads
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================================
+-- SECCIÓN 11: PAGE CUSTOMIZER (Personalización de página)
+-- ============================================================================
+
+-- TABLA: page_sections (Secciones de la página principal)
+CREATE TABLE IF NOT EXISTS page_sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_type TEXT NOT NULL, -- 'hero', 'featured_products', 'categories', 'banner', 'brands', 'newsletter', 'custom_products'
+  title TEXT,
+  subtitle TEXT,
+  content JSONB DEFAULT '{}', -- Contenido flexible según tipo
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_visible BOOLEAN DEFAULT TRUE,
+  settings JSONB DEFAULT '{}', -- Estilos, colores, etc.
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_page_sections_order ON page_sections(display_order);
+CREATE INDEX IF NOT EXISTS idx_page_sections_visible ON page_sections(is_visible);
+
+ALTER TABLE page_sections ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "public_read_sections" ON page_sections
+  FOR SELECT USING (true);
+
+CREATE POLICY "admins_manage_sections" ON page_sections
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles up 
+      WHERE up.id = auth.uid() AND up.is_admin = true
+    )
+  );
+
+CREATE POLICY "service_manage_sections" ON page_sections
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- TABLA: featured_product_selections (Productos seleccionados para secciones)
+CREATE TABLE IF NOT EXISTS featured_product_selections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID REFERENCES page_sections(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(section_id, product_id)
+);
+
+ALTER TABLE featured_product_selections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public_read_featured" ON featured_product_selections
+  FOR SELECT USING (true);
+CREATE POLICY "admins_manage_featured" ON featured_product_selections
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles up 
+      WHERE up.id = auth.uid() AND up.is_admin = true
+    )
+  );
+CREATE POLICY "service_manage_featured" ON featured_product_selections
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- Trigger para updated_at en page_sections
+CREATE OR REPLACE FUNCTION update_page_sections_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_page_sections_updated_at ON page_sections;
+CREATE TRIGGER trigger_page_sections_updated_at
+  BEFORE UPDATE ON page_sections
+  FOR EACH ROW
+  EXECUTE FUNCTION update_page_sections_updated_at();
+
+-- ============================================================================
+-- SECCIÓN 12: DATOS INICIALES COMPLETOS
+-- ============================================================================
+
+-- Secciones iniciales de la página
+INSERT INTO page_sections (section_type, title, subtitle, display_order, is_visible, content, settings) VALUES
+('hero', 'SNEAKERS EXCLUSIVOS & LIMITADOS', 'Colaboraciones especiales, ediciones limitadas y piezas únicas. Travis Scott • Jordan Special • Adidas Collab • Nike Rare', 1, true, 
+  '{"cta_primary": {"text": "Explorar Colección", "url": "/productos"}, "cta_secondary": {"text": "Ediciones Limitadas", "url": "/categoria/limited-editions"}, "badge": "Exclusively Limited"}'::jsonb,
+  '{"bg_color": "brand-black", "text_color": "white"}'::jsonb),
+('brands_bar', 'Marcas', null, 2, true,
+  '{"brands": ["Travis Scott", "Jordan Special", "Adidas Collab", "Nike Rare", "Yeezy SZN"]}'::jsonb,
+  '{}'::jsonb),
+('categories', 'Colecciones', 'Piezas exclusivas y únicamente disponibles', 3, true,
+  '{}'::jsonb,
+  '{"columns": 4}'::jsonb),
+('featured_products', 'Destacados', 'Hot Right Now', 4, true,
+  '{"max_products": 6}'::jsonb,
+  '{"columns": 3}'::jsonb),
+('vip_access', 'VIP ACCESS', 'Acceso exclusivo a drops, descuentos especiales y notificaciones prioritarias', 5, true,
+  '{"monthly_price": 999, "benefits": ["Descuentos exclusivos VIP (15%)", "Notificaciones de nuevos productos", "Acceso anticipado a drops", "Alertas de restock"]}'::jsonb,
+  '{"bg_color": "brand-black"}'::jsonb),
+('newsletter', 'No te pierdas ningún drop', 'Únete a nuestra lista y sé el primero en enterarte de los nuevos lanzamientos y ofertas exclusivas.', 6, true,
+  '{}'::jsonb,
+  '{}'::jsonb)
+ON CONFLICT DO NOTHING;
+
+-- Código de descuento VIP (15% permanente)
+INSERT INTO discount_codes (code, description, discount_type, discount_value, min_purchase, max_uses_per_user, max_uses)
+VALUES ('VIP15', 'Descuento exclusivo para miembros VIP - 15%', 'percentage', 15, 0, 999, NULL)
+ON CONFLICT (code) DO NOTHING;
+
+-- ============================================================================
+-- SECCIÓN 13: VERIFICACIÓN FINAL
+-- ============================================================================
+
+SELECT '✅ Base de datos COMPLETA y UNIFICADA restaurada correctamente' as resultado;
+
+SELECT 'Tablas creadas:' as tipo;
 SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
 
-SELECT 'Funciones creadas:' as type;
+SELECT 'Funciones creadas:' as tipo;
 SELECT proname FROM pg_proc 
 WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
 ORDER BY proname;
 
-SELECT 'Triggers creados:' as type;
+SELECT 'Triggers creados:' as tipo;
 SELECT tgname FROM pg_trigger ORDER BY tgname;
 
 -- ============================================================================
--- NOTAS FINALES
+-- NOTAS FINALES - INFORMACIÓN CONSOLIDADA
 -- ============================================================================
 -- 
--- 1. ADMIN SETUP: Ejecutar después de que el usuario se registre:
---    UPDATE user_profiles SET is_admin = true WHERE email = 'joseluisgq17@gmail.com';
+-- Este archivo contiene TODA la información de la base de datos:
+-- 
+-- ✅ SECCIÓN 1-2: ADMINISTRACIÓN
+--    - user_profiles (Perfiles de usuarios y administradores)
+--    - Políticas RLS y triggers
 --
--- 2. STRIPE WEBHOOK: Configurar en Stripe Dashboard para que envíe eventos a:
---    /api/webhooks/stripe
+-- ✅ SECCIÓN 2-4: PRODUCTOS Y CATEGORÍAS
+--    - categories (Categorías de productos)
+--    - brands (Marcas de sneakers)
+--    - colors (Paleta de colores)
+--    - products (Zapatillas con stock por tallas)
+--    - Todas las políticas RLS
 --
--- 3. ENVIRONMENT VARIABLES necesarias:
+-- ✅ SECCIÓN 5: PEDIDOS (INTEGRACIÓN STRIPE)
+--    - orders (Pedidos y estado)
+--    - Relación con usuarios y descuentos
+--    - Timestamps de envío y devoluciones
+--
+-- ✅ SECCIÓN 6: NEWSLETTER
+--    - newsletter_subscribers (Suscriptores)
+--    - Verificación de email
+--    - Metadata flexible
+--
+-- ✅ SECCIÓN 7-8: DESCUENTOS Y TRACKING
+--    - discount_codes (Códigos de descuento)
+--    - discount_code_uses (Historial de uso)
+--    - Validación de primera compra
+--    - Límites por usuario y global
+--
+-- ✅ SECCIÓN 9: FUNCIONES DE SINCRONIZACIÓN
+--    - calculate_total_stock_from_sizes() - Calcula stock desde tallas
+--    - sync_stock_from_sizes() - Trigger automático
+--    - get_available_sizes() - Tallas disponibles
+--    - reduce_size_stock() - Reduce stock de una talla
+--    - add_size_stock() - Aumenta stock de una talla
+--
+-- ✅ SECCIÓN 10: FUNCIONES DE GESTIÓN
+--    - cancel_order_atomic() - Cancela pedido y restaura stock
+--    - validate_discount_code() - Valida y aplica descuentos (ACTUALIZADO)
+--    - request_return() - Solicita devolución de pedido
+--    - create_user_profile() - Crea perfiles de usuario
+--
+-- ✅ SECCIÓN 10-11: SISTEMA VIP (VIP ACCESS)
+--    - vip_subscriptions (Suscripciones VIP de Stripe)
+--    - vip_notifications (Notificaciones exclusivas para VIPs)
+--    - vip_notification_reads (Control de lectura de notificaciones)
+--
+-- ✅ SECCIÓN 11: PAGE CUSTOMIZER
+--    - page_sections (Secciones personalizables de la página)
+--    - featured_product_selections (Productos destacados)
+--    - Gestión de orden y visibilidad
+--
+-- CAMBIOS PRINCIPALES:
+-- 1. validate_discount_code() actualizada con validación mejorada de primera compra
+-- 2. Sistema VIP integrado con Stripe
+-- 3. Page Customizer para flexible homepage
+-- 4. Gestión completa de stock por tallas
+-- 5. Sistema de devoluciones
+--
+-- PASOS SIGUIENTES:
+-- 1. Ejecutar este archivo completo en Supabase SQL Editor
+-- 2. ADMIN SETUP: UPDATE user_profiles SET is_admin = true WHERE email = 'joseluisgq17@gmail.com';
+-- 3. Configurar webhook de Stripe en /api/webhooks/stripe
+-- 4. Variables de entorno requeridas:
 --    - PUBLIC_SUPABASE_URL
 --    - PUBLIC_SUPABASE_ANON_KEY
 --    - SUPABASE_SERVICE_ROLE_KEY
---    - PUBLIC_STRIPE_KEY
+--    - PUBLIC_STRIPE_PUBLIC_KEY
 --    - STRIPE_SECRET_KEY
 --    - PUBLIC_ADMIN_EMAIL
---
--- 4. Para más información sobre RLS: 
---    https://supabase.com/docs/guides/auth/row-level-security
---
--- 5. Este archivo contiene TODA la información:
---    ✅ Todas las tablas con columnas
---    ✅ Todas las políticas RLS
---    ✅ Todos los índices
---    ✅ Todos los triggers
---    ✅ Todas las funciones
---    ✅ Datos de ejemplo
---    ✅ Códigos de descuento
---    ✅ Gestión de stock por tallas
---    ✅ Gestión de pedidos
---    ✅ Gestión de devoluciones
 --
 -- ============================================================================
