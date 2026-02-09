@@ -119,6 +119,41 @@ export const POST: APIRoute = async ({ request }) => {
         } else {
           console.log(`Order saved for user ${userId}`);
 
+          // Track discount code usage if a discount was applied
+          const discountCode = session.metadata?.discount_code;
+          if (discountCode && discountCode.length > 0) {
+            try {
+              // Find the discount code in DB
+              const { data: codeData } = await supabase
+                .from('discount_codes')
+                .select('id, current_uses')
+                .eq('code', discountCode.toUpperCase())
+                .single();
+
+              if (codeData) {
+                // Record usage
+                await supabase
+                  .from('discount_code_uses')
+                  .insert({
+                    code_id: codeData.id,
+                    user_id: userId,
+                    order_id: order.id,
+                    discount_amount: parseInt(session.metadata?.discount_amount || '0'),
+                  });
+
+                // Increment current_uses counter
+                await supabase
+                  .from('discount_codes')
+                  .update({ current_uses: (codeData.current_uses || 0) + 1 })
+                  .eq('id', codeData.id);
+
+                console.log(`✅ Discount code usage tracked: ${discountCode} for user ${userId}`);
+              }
+            } catch (discountTrackError) {
+              console.error('⚠️ Error tracking discount usage:', discountTrackError);
+            }
+          }
+
           // Decrement stock for each item in the order
           try {
             console.log(`Starting stock decrement for ${cartItems.length} items...`);
@@ -264,24 +299,82 @@ export const POST: APIRoute = async ({ request }) => {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log('Payment failed:', paymentIntent.id);
       
-      // Use service client
       const supabase = getSupabaseServiceClient();
       
       if (paymentIntent.metadata?.user_id) {
         const userId = paymentIntent.metadata.user_id;
         
-        // Save failed order for audit
         await supabase
           .from('orders')
           .insert({
             user_id: userId,
             stripe_payment_intent_id: paymentIntent.id,
             status: 'failed',
-            total_amount: paymentIntent.amount || 0, // Keep in cents (integer)
+            total_amount: paymentIntent.amount || 0,
             items: JSON.parse(paymentIntent.metadata.cart_items || '[]'),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
+      }
+    }
+
+    // Handle VIP subscription events
+    if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object as Stripe.Subscription;
+      const supabase = getSupabaseServiceClient();
+
+      // Check if this is a VIP subscription
+      const customerId = typeof subscription.customer === 'string' 
+        ? subscription.customer 
+        : subscription.customer.id;
+
+      try {
+        const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
+        const email = customer.email;
+        const userId = customer.metadata?.user_id || null;
+
+        if (email) {
+          const status = subscription.status === 'active' ? 'active' :
+                         subscription.status === 'past_due' ? 'past_due' :
+                         subscription.status === 'canceled' ? 'cancelled' : 'pending';
+
+          await supabase
+            .from('vip_subscriptions')
+            .upsert({
+              email: email.toLowerCase(),
+              user_id: userId || null,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscription.id,
+              status,
+              plan_type: subscription.items.data[0]?.price?.recurring?.interval === 'year' ? 'annual' : 'monthly',
+              price_cents: subscription.items.data[0]?.price?.unit_amount || 999,
+              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            }, { onConflict: 'stripe_subscription_id' });
+
+          console.log(`✅ VIP subscription ${subscription.status}: ${email}`);
+        }
+      } catch (vipError) {
+        console.error('⚠️ Error processing VIP subscription:', vipError);
+      }
+    }
+
+    if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as Stripe.Subscription;
+      const supabase = getSupabaseServiceClient();
+
+      try {
+        await supabase
+          .from('vip_subscriptions')
+          .update({ 
+            status: 'cancelled', 
+            cancelled_at: new Date().toISOString() 
+          })
+          .eq('stripe_subscription_id', subscription.id);
+
+        console.log(`✅ VIP subscription cancelled: ${subscription.id}`);
+      } catch (cancelError) {
+        console.error('⚠️ Error cancelling VIP subscription:', cancelError);
       }
     }
 

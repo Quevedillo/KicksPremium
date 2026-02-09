@@ -1,0 +1,219 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+---
+
+<PublicLayout title="VIP Access - KicksPremium" description="Acceso VIP exclusivo con descuentos especiales, notificaciones de nuevos productos y acceso anticipado a drops.">
+  <section class="min-h-screen bg-brand-black text-white py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Header -->
+      <div class="text-center mb-16 animate-fade-in-up">
+        <div class="inline-block bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-xs font-bold px-4 py-1.5 mb-6 uppercase tracking-widest rounded-full">
+          Exclusive Membership
+        </div>
+        <h1 class="text-5xl md:text-7xl font-display font-bold mb-6 leading-none uppercase tracking-tight">
+          VIP<br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500">ACCESS</span>
+        </h1>
+        <p class="text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+          Únete al club más exclusivo de sneakers. Acceso anticipado, descuentos especiales y notificaciones VIP.
+        </p>
+      </div>
+
+      <!-- Benefits Grid -->
+      <div class="grid md:grid-cols-2 gap-6 mb-16">
+        <div class="bg-brand-gray border border-neutral-800 p-8 hover:border-yellow-500/50 transition-all">
+          <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-400">15% Descuento Permanente</h3>
+          <p class="text-neutral-400">Código exclusivo VIP15 válido en todas tus compras mientras seas miembro.</p>
+        </div>
+        <div class="bg-brand-gray border border-neutral-800 p-8 hover:border-yellow-500/50 transition-all">
+          <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-400">Notificaciones Prioritarias</h3>
+          <p class="text-neutral-400">Sé el primero en saber de nuevos productos, restock y lanzamientos exclusivos.</p>
+        </div>
+        <div class="bg-brand-gray border border-neutral-800 p-8 hover:border-yellow-500/50 transition-all">
+          <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-400">Acceso Anticipado</h3>
+          <p class="text-neutral-400">Compra antes que nadie cuando llegan nuevos drops y ediciones limitadas.</p>
+        </div>
+        <div class="bg-brand-gray border border-neutral-800 p-8 hover:border-yellow-500/50 transition-all">
+          <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold mb-2 text-yellow-400">Alertas de Restock</h3>
+          <p class="text-neutral-400">Recibe alertas cuando vuelvan al stock productos agotados que te interesan.</p>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-16">
+        <!-- Monthly -->
+        <div class="bg-brand-gray border-2 border-neutral-700 p-8 text-center relative hover:border-yellow-500/50 transition-all">
+          <h3 class="text-lg font-bold text-neutral-300 uppercase tracking-wider mb-4">Mensual</h3>
+          <div class="mb-6">
+            <span class="text-5xl font-display font-bold text-white">€9.99</span>
+            <span class="text-neutral-500">/mes</span>
+          </div>
+          <ul class="text-left space-y-3 mb-8 text-neutral-400">
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> 15% descuento permanente</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Notificaciones prioritarias</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Acceso anticipado a drops</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Alertas de restock</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Cancela cuando quieras</li>
+          </ul>
+          <button 
+            data-plan="monthly" 
+            class="vip-subscribe-btn w-full py-4 font-bold uppercase tracking-wide border-2 border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black transition-all disabled:opacity-50"
+          >
+            Suscribirse
+          </button>
+        </div>
+
+        <!-- Annual -->
+        <div class="bg-brand-gray border-2 border-yellow-500 p-8 text-center relative">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-xs font-bold px-4 py-1 uppercase tracking-wider">
+            Ahorra 25%
+          </div>
+          <h3 class="text-lg font-bold text-yellow-400 uppercase tracking-wider mb-4">Anual</h3>
+          <div class="mb-6">
+            <span class="text-5xl font-display font-bold text-white">€89.99</span>
+            <span class="text-neutral-500">/año</span>
+          </div>
+          <p class="text-sm text-yellow-500/80 mb-4">€7.50/mes efectivo</p>
+          <ul class="text-left space-y-3 mb-8 text-neutral-400">
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Todo lo del plan mensual</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> 2 meses gratis</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Descuentos VIP exclusivos extra</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Envío gratuito permanente</li>
+            <li class="flex items-center gap-2"><span class="text-yellow-500">✓</span> Soporte prioritario</li>
+          </ul>
+          <button 
+            data-plan="annual" 
+            class="vip-subscribe-btn w-full py-4 font-bold uppercase tracking-wide bg-gradient-to-r from-yellow-500 to-amber-600 text-black hover:from-yellow-400 hover:to-amber-500 transition-all disabled:opacity-50"
+          >
+            Suscribirse Anual
+          </button>
+        </div>
+      </div>
+
+      <!-- Email Input (for non-authenticated users) -->
+      <div id="vip-email-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-brand-gray border border-neutral-700 p-8 max-w-md w-full">
+          <h3 class="text-xl font-bold mb-4 text-yellow-400">Introduce tu email</h3>
+          <p class="text-neutral-400 text-sm mb-6">Necesitamos tu email para crear tu suscripción VIP.</p>
+          <input type="email" id="vip-email-input" placeholder="tu@email.com" class="w-full bg-brand-black border border-neutral-700 text-white px-4 py-3 mb-4 focus:outline-none focus:border-yellow-500" />
+          <div class="flex gap-3">
+            <button id="vip-email-cancel" class="flex-1 py-3 border border-neutral-700 text-neutral-400 hover:text-white transition-colors">Cancelar</button>
+            <button id="vip-email-confirm" class="flex-1 py-3 bg-yellow-500 text-black font-bold hover:bg-yellow-400 transition-colors">Continuar</button>
+          </div>
+          <div id="vip-email-error" class="mt-3 text-sm text-red-400 hidden"></div>
+        </div>
+      </div>
+
+      <div id="vip-message" class="text-center text-sm mt-6 hidden"></div>
+    </div>
+  </section>
+</PublicLayout>
+
+<script is:inline>
+  let selectedPlan = 'monthly';
+
+  document.querySelectorAll('.vip-subscribe-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      selectedPlan = this.getAttribute('data-plan') || 'monthly';
+      
+      // Check if user is authenticated (has cookies)
+      const cookies = document.cookie;
+      const hasAuth = cookies.includes('sb-access-token');
+
+      if (hasAuth) {
+        // Get email from auth  
+        await processVipSubscription(null);
+      } else {
+        // Show email modal
+        document.getElementById('vip-email-modal').classList.remove('hidden');
+      }
+    });
+  });
+
+  document.getElementById('vip-email-cancel')?.addEventListener('click', () => {
+    document.getElementById('vip-email-modal').classList.add('hidden');
+  });
+
+  document.getElementById('vip-email-confirm')?.addEventListener('click', async () => {
+    const email = document.getElementById('vip-email-input').value.trim();
+    if (!email || !email.includes('@')) {
+      const errEl = document.getElementById('vip-email-error');
+      errEl.textContent = 'Por favor introduce un email válido';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    document.getElementById('vip-email-modal').classList.add('hidden');
+    await processVipSubscription(email);
+  });
+
+  async function processVipSubscription(email) {
+    const buttons = document.querySelectorAll('.vip-subscribe-btn');
+    buttons.forEach(b => { b.disabled = true; b.textContent = 'Procesando...'; });
+    
+    const msgEl = document.getElementById('vip-message');
+
+    try {
+      const bodyData = { planType: selectedPlan };
+      if (email) bodyData.email = email;
+      else {
+        // Try to get email from user session
+        const statusRes = await fetch('/api/vip/status');
+        const statusData = await statusRes.json();
+        if (statusData.isVip) {
+          msgEl.textContent = '¡Ya eres miembro VIP! Tu código de descuento es VIP15';
+          msgEl.className = 'text-center text-sm mt-6 text-yellow-400';
+          msgEl.classList.remove('hidden');
+          buttons.forEach(b => { b.disabled = false; b.textContent = 'Ya eres VIP ✓'; });
+          return;
+        }
+        // Get email from auth
+        bodyData.email = '';
+      }
+
+      const response = await fetch('/api/vip/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        msgEl.textContent = data.error || 'Error al procesar la suscripción';
+        msgEl.className = 'text-center text-sm mt-6 text-red-400';
+        msgEl.classList.remove('hidden');
+      }
+    } catch (error) {
+      msgEl.textContent = 'Error de conexión. Intenta de nuevo.';
+      msgEl.className = 'text-center text-sm mt-6 text-red-400';
+      msgEl.classList.remove('hidden');
+    } finally {
+      buttons.forEach(b => {
+        b.disabled = false;
+        if (b.getAttribute('data-plan') === 'monthly') b.textContent = 'Suscribirse';
+        else b.textContent = 'Suscribirse Anual';
+      });
+    }
+  }
+</script>

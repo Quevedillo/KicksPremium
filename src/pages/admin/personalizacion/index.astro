@@ -1,0 +1,11 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import AdminGuard from '@components/AdminGuard';
+import PageCustomizer from '@components/islands/PageCustomizer';
+---
+
+<AdminLayout title="Personalizar Página" currentPage="personalizacion">
+  <AdminGuard client:load>
+    <PageCustomizer client:load />
+  </AdminGuard>
+</AdminLayout>
