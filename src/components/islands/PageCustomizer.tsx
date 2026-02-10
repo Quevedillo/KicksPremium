@@ -36,7 +36,6 @@ const SECTION_TYPES = [
   { value: 'categories', label: 'Colecciones', icon: '📦', description: 'Grid de categorías' },
   { value: 'featured_products', label: 'Productos Destacados', icon: '⭐', description: 'Productos seleccionados manualmente' },
   { value: 'custom_products', label: 'Productos Personalizados', icon: '🛍️', description: 'Selección personalizada de productos' },
-  { value: 'vip_access', label: 'VIP Access', icon: '👑', description: 'Sección de acceso VIP' },
   { value: 'banner', label: 'Banner Promocional', icon: '📣', description: 'Banner de promoción o anuncio' },
   { value: 'newsletter', label: 'Newsletter', icon: '📧', description: 'Formulario de suscripción' },
 ];

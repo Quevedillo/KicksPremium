@@ -1283,10 +1283,7 @@ INSERT INTO page_sections (section_type, title, subtitle, display_order, is_visi
 ('featured_products', 'Destacados', 'Hot Right Now', 4, true,
   '{"max_products": 6}'::jsonb,
   '{"columns": 3}'::jsonb),
-('vip_access', 'VIP ACCESS', 'Acceso exclusivo a drops, descuentos especiales y notificaciones prioritarias', 5, true,
-  '{"monthly_price": 999, "benefits": ["Descuentos exclusivos VIP (15%)", "Notificaciones de nuevos productos", "Acceso anticipado a drops", "Alertas de restock"]}'::jsonb,
-  '{"bg_color": "brand-black"}'::jsonb),
-('newsletter', 'No te pierdas ningún drop', 'Únete a nuestra lista y sé el primero en enterarte de los nuevos lanzamientos y ofertas exclusivas.', 6, true,
+('newsletter', 'No te pierdas ningún drop', 'Únete a nuestra lista y sé el primero en enterarte de los nuevos lanzamientos y ofertas exclusivas.', 5, true,
   '{}'::jsonb,
   '{}'::jsonb)
 ON CONFLICT DO NOTHING;

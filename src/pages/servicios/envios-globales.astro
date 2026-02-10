@@ -1,0 +1,148 @@
+---
+import PublicLayout from '@layouts/PublicLayout.astro';
+---
+
+<PublicLayout title="Envíos Globales - KicksPremium" description="Información completa sobre nuestros envíos nacionales e internacionales de sneakers.">
+  <section class="py-16 bg-brand-dark min-h-screen">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <div class="text-center mb-12">
+        <h1 class="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight mb-4">
+          Envíos <span class="text-brand-red">Globales</span>
+        </h1>
+        <p class="text-neutral-400 text-lg max-w-2xl mx-auto">
+          Enviamos tus sneakers a cualquier parte del mundo con total seguridad y tracking en tiempo real.
+        </p>
+      </div>
+
+      {/* Envío nacional */}
+      <div class="bg-brand-gray rounded-xl p-8 mb-10">
+        <h2 class="text-2xl font-bold text-white uppercase mb-6">🇪🇸 Envíos Nacionales (España)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-brand-dark rounded-lg p-6 border border-brand-red/30">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="text-3xl">⚡</span>
+              <h3 class="text-white font-bold text-lg">Envío Express</h3>
+            </div>
+            <ul class="space-y-3 text-neutral-400 text-sm">
+              <li class="flex justify-between"><span>Plazo de entrega</span><span class="text-white font-bold">24-48h</span></li>
+              <li class="flex justify-between"><span>Península</span><span class="text-white font-bold">GRATIS +100€</span></li>
+              <li class="flex justify-between"><span>Pedidos menores de 100€</span><span class="text-white font-bold">4,95€</span></li>
+              <li class="flex justify-between"><span>Baleares</span><span class="text-white font-bold">7,95€</span></li>
+              <li class="flex justify-between"><span>Canarias, Ceuta y Melilla</span><span class="text-white font-bold">12,95€</span></li>
+            </ul>
+          </div>
+          <div class="bg-brand-dark rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="text-3xl">📦</span>
+              <h3 class="text-white font-bold text-lg">Envío Estándar</h3>
+            </div>
+            <ul class="space-y-3 text-neutral-400 text-sm">
+              <li class="flex justify-between"><span>Plazo de entrega</span><span class="text-white font-bold">3-5 días</span></li>
+              <li class="flex justify-between"><span>Península</span><span class="text-white font-bold">GRATIS +80€</span></li>
+              <li class="flex justify-between"><span>Pedidos menores de 80€</span><span class="text-white font-bold">2,95€</span></li>
+              <li class="flex justify-between"><span>Baleares</span><span class="text-white font-bold">5,95€</span></li>
+              <li class="flex justify-between"><span>Canarias, Ceuta y Melilla</span><span class="text-white font-bold">9,95€</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Envío internacional */}
+      <div class="bg-brand-gray rounded-xl p-8 mb-10">
+        <h2 class="text-2xl font-bold text-white uppercase mb-6">🌍 Envíos Internacionales</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-neutral-700">
+                <th class="py-3 px-4 text-left text-brand-red font-bold uppercase text-xs">Zona</th>
+                <th class="py-3 px-4 text-left text-brand-red font-bold uppercase text-xs">Países</th>
+                <th class="py-3 px-4 text-left text-brand-red font-bold uppercase text-xs">Plazo</th>
+                <th class="py-3 px-4 text-left text-brand-red font-bold uppercase text-xs">Precio</th>
+              </tr>
+            </thead>
+            <tbody class="text-neutral-300">
+              <tr class="border-b border-neutral-800 hover:bg-brand-dark/50">
+                <td class="py-3 px-4 font-bold text-white">Europa 1</td>
+                <td class="py-3 px-4">Portugal, Francia, Alemania, Italia, Países Bajos</td>
+                <td class="py-3 px-4">3-5 días</td>
+                <td class="py-3 px-4 text-white font-bold">9,95€</td>
+              </tr>
+              <tr class="border-b border-neutral-800 hover:bg-brand-dark/50">
+                <td class="py-3 px-4 font-bold text-white">Europa 2</td>
+                <td class="py-3 px-4">Reino Unido, Suecia, Polonia, Grecia, resto de UE</td>
+                <td class="py-3 px-4">5-7 días</td>
+                <td class="py-3 px-4 text-white font-bold">14,95€</td>
+              </tr>
+              <tr class="border-b border-neutral-800 hover:bg-brand-dark/50">
+                <td class="py-3 px-4 font-bold text-white">América</td>
+                <td class="py-3 px-4">Estados Unidos, Canadá, México, Latinoamérica</td>
+                <td class="py-3 px-4">7-12 días</td>
+                <td class="py-3 px-4 text-white font-bold">24,95€</td>
+              </tr>
+              <tr class="hover:bg-brand-dark/50">
+                <td class="py-3 px-4 font-bold text-white">Asia / Oceanía</td>
+                <td class="py-3 px-4">Japón, Corea, Australia, resto de Asia</td>
+                <td class="py-3 px-4">10-15 días</td>
+                <td class="py-3 px-4 text-white font-bold">29,95€</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tracking y seguridad */}
+      <div class="bg-brand-gray rounded-xl p-8 mb-10">
+        <h2 class="text-2xl font-bold text-white uppercase mb-6">📱 Tracking y seguridad</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-brand-dark rounded-lg p-6 text-center">
+            <div class="text-4xl mb-4">📍</div>
+            <h3 class="text-white font-bold mb-2">Tracking en tiempo real</h3>
+            <p class="text-neutral-400 text-sm">Recibirás un número de seguimiento por email para rastrear tu pedido en todo momento.</p>
+          </div>
+          <div class="bg-brand-dark rounded-lg p-6 text-center">
+            <div class="text-4xl mb-4">🔒</div>
+            <h3 class="text-white font-bold mb-2">Embalaje seguro</h3>
+            <p class="text-neutral-400 text-sm">Doble caja protectora para garantizar que tus sneakers llegan en perfecto estado.</p>
+          </div>
+          <div class="bg-brand-dark rounded-lg p-6 text-center">
+            <div class="text-4xl mb-4">🛡️</div>
+            <h3 class="text-white font-bold mb-2">Seguro de envío</h3>
+            <p class="text-neutral-400 text-sm">Todos los envíos incluyen seguro. Si algo sale mal, te reponemos o devolvemos el dinero.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ envíos */}
+      <div class="bg-brand-gray rounded-xl p-8 mb-10">
+        <h2 class="text-2xl font-bold text-white uppercase mb-6">❓ Preguntas frecuentes</h2>
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-white font-bold mb-2">¿Cuándo se procesa mi pedido?</h3>
+            <p class="text-neutral-400 text-sm">Los pedidos realizados antes de las 14:00 (hora peninsular) se procesan el mismo día laborable. Los realizados después se procesan al siguiente día laborable.</p>
+          </div>
+          <div>
+            <h3 class="text-white font-bold mb-2">¿Los envíos internacionales incluyen aduanas?</h3>
+            <p class="text-neutral-400 text-sm">Los envíos dentro de la UE no tienen costes adicionales de aduanas. Para destinos fuera de la UE, los impuestos y aranceles de importación son responsabilidad del comprador.</p>
+          </div>
+          <div>
+            <h3 class="text-white font-bold mb-2">¿Puedo cambiar la dirección de envío?</h3>
+            <p class="text-neutral-400 text-sm">Sí, puedes modificar la dirección de envío siempre que el pedido no haya sido expedido. Contacta con nosotros lo antes posible.</p>
+          </div>
+          <div>
+            <h3 class="text-white font-bold mb-2">¿Qué pasa si no estoy en casa?</h3>
+            <p class="text-neutral-400 text-sm">El transportista intentará la entrega hasta 2 veces. Si no te localiza, dejará un aviso para que recojas el paquete en la oficina más cercana.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div class="text-center">
+        <p class="text-neutral-400 mb-4">Envío seguro y rápido a todo el mundo.</p>
+        <a href="/productos" class="inline-block bg-brand-red text-white px-8 py-3 font-bold uppercase tracking-wider hover:bg-brand-orange transition-colors">
+          Explorar catálogo
+        </a>
+      </div>
+    </div>
+  </section>
+</PublicLayout>

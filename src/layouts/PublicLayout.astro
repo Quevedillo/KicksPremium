@@ -106,7 +106,7 @@ const { title, description } = Astro.props;
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
         {/* Brand */}
         <div class="flex flex-col gap-4">
           <h3
@@ -186,60 +186,29 @@ const { title, description } = Astro.props;
           <ul class="space-y-3 text-sm text-neutral-400">
             <li>
               <a
-                href="#"
+                href="/servicios/guia-tallas"
                 class="hover:text-white hover:translate-x-2 inline-block transition-all"
                 >Guía de Tallas</a>
             </li>
             <li>
               <a
-                href="#"
+                href="/servicios/legit-check"
                 class="hover:text-white hover:translate-x-2 inline-block transition-all"
                 >Legit Check</a>
             </li>
             <li>
               <a
-                href="#"
+                href="/servicios/envios-globales"
                 class="hover:text-white hover:translate-x-2 inline-block transition-all"
                 >Envíos Globales</a>
             </li>
             <li>
               <a
-                href="#"
+                href="/servicios/devoluciones"
                 class="hover:text-white hover:translate-x-2 inline-block transition-all"
                 >Devoluciones</a>
             </li>
           </ul>
-        </div>
-
-        {/* Newsletter */}
-        <div>
-          <h4
-            class="font-bold mb-6 uppercase tracking-widest text-brand-red text-sm"
-          >
-            V.I.P. Access
-          </h4>
-          <p class="text-neutral-400 text-sm mb-6">
-            Suscríbete para recibir alertas de lanzamientos exclusivos y
-            preventas.
-          </p>
-          <form id="newsletter-footer-form" class="flex flex-col gap-3">
-            <input
-              type="email"
-              id="newsletter-footer-email"
-              name="email"
-              placeholder="tu@email.com"
-              required
-              class="bg-brand-dark/50 border border-neutral-800 text-white px-4 py-3 text-sm focus:outline-none focus:border-brand-red transition-all rounded"
-            />
-            <button
-              type="submit"
-              id="newsletter-footer-btn"
-              class="btn-primary py-2 text-xs"
-            >
-              SUSCRIBIRSE
-            </button>
-          </form>
-          <div id="newsletter-footer-message" class="mt-3 text-xs"></div>
         </div>
       </div>
 
@@ -264,54 +233,4 @@ const { title, description } = Astro.props;
 
   {/* Newsletter Popup - Aparece tras 5 segundos para nuevos visitantes */}
   <NewsletterPopup client:only="react" delayMs={5000} discountPercent={10} />
-
-  {/* Newsletter Footer Script */}
-  <script is:inline>
-    // Handle newsletter subscription (Footer)
-    const footerForm = document.getElementById("newsletter-footer-form");
-    const footerEmail = document.getElementById("newsletter-footer-email");
-    const footerBtn = document.getElementById("newsletter-footer-btn");
-    const footerMsg = document.getElementById("newsletter-footer-message");
-
-    if (footerForm) {
-      footerForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const email = footerEmail.value.trim();
-        if (!email) return;
-
-        footerBtn.setAttribute("disabled", "true");
-        footerBtn.textContent = "...";
-
-        try {
-          const response = await fetch("/api/newsletter/subscribe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            footerMsg.textContent = "✓ ¡Suscrito!";
-            footerMsg.className = "mt-2 text-xs text-green-400";
-            footerForm.reset();
-            setTimeout(() => {
-              footerMsg.textContent = "";
-              footerMsg.className = "mt-2 text-xs";
-            }, 3000);
-          } else {
-            footerMsg.textContent = data.error || "Error";
-            footerMsg.className = "mt-2 text-xs text-red-400";
-          }
-        } catch (error) {
-          footerMsg.textContent = "Error de conexión";
-          footerMsg.className = "mt-2 text-xs text-red-400";
-        } finally {
-          footerBtn.removeAttribute("disabled");
-          footerBtn.textContent = "→";
-        }
-      });
-    }
-  </script>
 </BaseLayout>

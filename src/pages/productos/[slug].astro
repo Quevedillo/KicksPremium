@@ -2,6 +2,7 @@
 import PublicLayout from '@layouts/PublicLayout.astro';
 import ProductGallery from '@components/product/ProductGallery.astro';
 import AddToCartButton from '@components/islands/AddToCartButton';
+import SizeRecommender from '@components/islands/SizeRecommender';
 import { SizePicker } from '@components/islands/SizePicker';
 import { supabase } from '@lib/supabase';
 import type { Product } from '@lib/supabase';
@@ -144,6 +145,16 @@ const { data: relatedProducts } = await supabase
           {/* Add to Cart Component (Island) - Handles size selection */}
           <div class="pt-4">
             <AddToCartButton product={product} client:only="react" />
+          </div>
+
+          {/* Size Recommender - Mide tu pie */}
+          <div class="pt-2">
+            <SizeRecommender 
+              availableSizes={Object.entries(product.sizes_available || {})
+                .filter(([_, qty]) => (parseInt(String(qty)) || 0) > 0)
+                .map(([size]) => size)} 
+              client:only="react" 
+            />
           </div>
 
           {/* Additional Info */}

@@ -6,7 +6,7 @@ export const GET: APIRoute = async (context) => {
     // Obtener todos los usuarios desde user_profiles
     const { data: users, error } = await supabase
       .from('user_profiles')
-      .select('id, full_name, phone, city, is_admin, is_active, created_at')
+      .select('id, full_name, email, is_admin, is_active, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -23,11 +23,10 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    // Agregar email manualmente basado en el ID del usuario si no está en user_profiles
     const usersWithDefaults = (users || []).map(user => ({
       ...user,
-      email: user.full_name ? `${user.full_name.toLowerCase().replace(/\s+/g, '.')}@cliente` : `${user.id.slice(0, 8)}@usuario`,
-      is_active: user.is_active !== false, // Default to true if null
+      email: user.email || (user.full_name ? `${user.full_name.toLowerCase().replace(/\s+/g, '.')}@cliente` : `${user.id.slice(0, 8)}@usuario`),
+      is_active: user.is_active !== false,
     }));
 
     return new Response(

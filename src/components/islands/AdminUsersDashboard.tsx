@@ -4,8 +4,6 @@ interface User {
   id: string;
   full_name: string;
   email: string;
-  phone?: string;
-  city?: string;
   is_admin: boolean;
   is_active: boolean;
   created_at: string;
@@ -103,8 +101,7 @@ export default function AdminUsersDashboard() {
   const filteredUsers = useMemo(() => {
     return users.filter(user =>
       user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone?.includes(searchTerm)
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
 
@@ -286,7 +283,7 @@ export default function AdminUsersDashboard() {
               </svg>
               <input
                 type="text"
-                placeholder="Buscar por nombre, email o teléfono..."
+                placeholder="Buscar por nombre o email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
@@ -303,7 +300,7 @@ export default function AdminUsersDashboard() {
                       Usuario
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
-                      Contacto
+                      Email
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">
                       Rol
@@ -338,9 +335,7 @@ export default function AdminUsersDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {user.phone && <p className="text-sm text-neutral-600">{user.phone}</p>}
-                        {user.city && <p className="text-xs text-neutral-400">{user.city}</p>}
-                        {!user.phone && !user.city && <p className="text-sm text-neutral-400">Sin contacto</p>}
+                        <p className="text-sm text-neutral-600">{user.email}</p>
                       </td>
                       <td className="px-6 py-4">
                         {user.is_admin ? (
