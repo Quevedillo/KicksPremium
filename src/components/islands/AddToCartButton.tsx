@@ -52,13 +52,6 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
   }, []);
 
   const handleAddToCart = () => {
-    // Check authentication first
-    if (!user) {
-      setFeedback('');
-      window.location.href = '/auth/login?redirect=/productos/' + product.slug;
-      return;
-    }
-
     if (!selectedSize) {
       setFeedback('Por favor, selecciona una talla');
       return;
@@ -112,12 +105,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
         </div>
       )}
 
-      {/* Authentication Warning */}
-      {!isLoading && !user && (
-        <div className="p-4 bg-brand-gray border border-brand-red/30 text-neutral-300 text-sm">
-          Necesitas iniciar sesión para agregar al carrito. <a href="/auth/login" className="font-bold text-brand-red hover:text-brand-orange underline">Hacerlo ahora</a>
-        </div>
-      )}
+
 
       {/* Size Selection */}
       <div>
@@ -131,7 +119,6 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
               <button
                 key={size}
                 onClick={() => setSelectedSize(size)}
-                disabled={!user}
                 className={`py-3 px-2 text-sm font-bold transition-all flex flex-col items-center justify-center ${
                   selectedSize === size
                     ? 'bg-brand-red text-white ring-2 ring-brand-orange'
@@ -156,7 +143,6 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
             className="w-12 h-12 bg-brand-gray text-white font-bold hover:bg-brand-red transition-colors"
-            disabled={!user}
           >
             −
           </button>
@@ -169,12 +155,12 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
               setQuantity(Math.max(1, Math.min(maxQuantityForSelectedSize, parseInt(e.target.value) || 1)))
             }
             className="w-20 h-12 text-center bg-brand-gray text-white font-bold border-0 focus:ring-2 focus:ring-brand-red"
-            disabled={!user || !selectedSize}
+            disabled={!selectedSize}
           />
           <button
             onClick={() => setQuantity(Math.min(maxQuantityForSelectedSize, quantity + 1))}
             className="w-12 h-12 bg-brand-gray text-white font-bold hover:bg-brand-red transition-colors"
-            disabled={!user || quantity >= maxQuantityForSelectedSize}
+            disabled={quantity >= maxQuantityForSelectedSize}
           >
             +
           </button>
