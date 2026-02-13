@@ -68,7 +68,7 @@ export default function AdminDashboard() {
       // Obtener total de órdenes
       const { data: ordersData, count: orderCount } = await supabase
         .from('orders')
-        .select('id, status, total_price, created_at, billing_email', { count: 'exact' })
+        .select('id, status, total_amount, created_at, billing_email', { count: 'exact' })
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
       if (ordersData) {
         ordersData.forEach((order) => {
           if (order.status === 'completed' || order.status === 'paid') {
-            totalRevenue += order.total_price || 0;
+            totalRevenue += order.total_amount || 0;
           }
           if (order.status === 'pending') {
             pendingOrders += 1;
@@ -237,7 +237,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-brand-black">
-                          {formatCurrency(order.total_price)}
+                          {formatCurrency(order.total_amount)}
                         </p>
                         <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
                           {badge.label}

@@ -199,7 +199,7 @@ const statusOptions = [
                 const badge = getStatusBadge(order.status);
                 const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
                 const itemCount = Array.isArray(items) ? items.reduce((sum: number, item: any) => sum + (item.quantity || item.qty || 1), 0) : 0;
-                const orderTotal = order.total_amount || order.total_price || 0;
+                const orderTotal = order.total_amount || 0;
                 
                 return (
                   <tr class="hover:bg-neutral-50 transition-colors">

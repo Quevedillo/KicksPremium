@@ -21,6 +21,8 @@ export default function CartSlideOver() {
   const [discountCode, setDiscountCode] = useState('');
   const [applyingDiscount, setApplyingDiscount] = useState(false);
   const [discountMessage, setDiscountMessage] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [isGuest, setIsGuest] = useState(false);
   
   useEffect(() => {
     // Mark component as mounted to prevent hydration mismatch
@@ -112,33 +114,37 @@ export default function CartSlideOver() {
     setError(null);
 
     try {
-      // Try to get current access token from Supabase
+      // Try to get current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      console.log('Checkout - Session:', session ? 'exists' : 'null');
-      console.log('Checkout - Session error:', sessionError);
+      let accessToken: string | null = null;
       
-      if (!session) {
-        setError('Debes iniciar sesión para pagar. Redirigiendo...');
-        setIsProcessing(false);
-        setTimeout(() => {
-          window.location.href = '/auth/login?redirect=/carrito';
-        }, 1500);
-        return;
+      if (session) {
+        accessToken = session.access_token;
+      } else {
+        // Guest checkout - validate email
+        setIsGuest(true);
+        if (!guestEmail || !guestEmail.includes('@')) {
+          setError('Por favor, introduce un email válido para recibir la confirmación de tu pedido.');
+          setIsProcessing(false);
+          return;
+        }
       }
 
-      const accessToken = session.access_token;
-      console.log('Checkout - Token exists:', !!accessToken);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
 
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           items: cart.items,
+          guestEmail: !session ? guestEmail : undefined,
           discountCode: cart.discountCode?.code,
           discountInfo: cart.discountCode ? {
             discount_type: cart.discountCode.discount_type,
@@ -148,7 +154,6 @@ export default function CartSlideOver() {
       });
 
       const data = await response.json();
-      console.log('Checkout - Response:', response.status, data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Error al procesar el pago');
@@ -374,6 +379,25 @@ export default function CartSlideOver() {
               {error && (
                 <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 text-sm">
                   {error}
+                </div>
+              )}
+
+              {/* Guest Email Input - shown when not logged in */}
+              {isGuest && (
+                <div className="space-y-2">
+                  <label className="text-sm text-neutral-400 block">
+                    Email para recibir tu pedido:
+                  </label>
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    placeholder="tu@email.com"
+                    className="w-full px-3 py-2 bg-brand-gray text-white placeholder-neutral-500 border border-neutral-600 focus:border-brand-red focus:outline-none"
+                  />
+                  <p className="text-xs text-neutral-500">
+                    Si te registras con este email en el futuro, podrás ver todos tus pedidos.
+                  </p>
                 </div>
               )}
 

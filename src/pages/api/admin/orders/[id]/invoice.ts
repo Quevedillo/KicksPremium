@@ -251,8 +251,8 @@ export const GET: APIRoute = async (context) => {
     y -= 20;
 
     // ===== TOTALES =====
-    const subtotal = order.total_amount || order.total_price || subtotalCalc || 0;
-    const discount = order.discount_amount || 0;
+    const subtotal = order.total_amount || subtotalCalc || 0;
+    const discount = 0;
     const total = subtotal - discount;
 
     page.drawText('Subtotal:', { x: 380, y: y, size: 10, font: helvetica, color: grayDark });

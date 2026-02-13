@@ -32,8 +32,7 @@ if (typeof order.shipping_address === 'string') {
   }
 }
 
-// Obtener el total correcto (puede estar en total_amount o total_price)
-const orderTotal = order.total_amount || order.total_price || 0;
+const orderTotal = order.total_amount || 0;
 
 // Formatear moneda
 const formatCurrency = (cents: number) => {

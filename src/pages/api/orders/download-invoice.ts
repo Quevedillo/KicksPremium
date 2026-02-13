@@ -64,7 +64,7 @@ export const GET: APIRoute = async ({ request, params }) => {
       subtotal: items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || item.qty || 1), 0),
       tax: 0, // Se calcula del total
       discount: order.discount_amount || 0,
-      total: order.total_price || order.total_amount || 0,
+      total: order.total_amount || 0,
       orderStatus: order.status === 'completed' ? 'Completado' : order.status === 'pending' ? 'Pendiente' : order.status === 'paid' ? 'Pagado' : order.status,
     };
 

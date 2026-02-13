@@ -147,6 +147,19 @@ export const POST: APIRoute = async ({ request }) => {
       console.log('Profile creation error (no crítico):', profileError);
     }
 
+    // Link any guest orders made with this email to the new user account
+    try {
+      const { data: linkResult } = await adminClient.rpc('link_guest_orders_to_user', {
+        p_user_id: data.user.id,
+        p_email: data.user.email,
+      });
+      if (linkResult && linkResult > 0) {
+        console.log(`✅ Linked ${linkResult} guest order(s) to new user ${data.user.email}`);
+      }
+    } catch (linkError) {
+      console.log('Guest order linking (no crítico):', linkError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

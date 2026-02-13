@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     const body = await request.json();
-    const { items, discountCode } = body;
+    const { items, discountCode, guestEmail } = body;
 
     if (!items || items.length === 0) {
       return new Response(
@@ -23,72 +23,66 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const accessToken = bearer || cookies.get('sb-access-token')?.value;
     const refreshToken = cookies.get('sb-refresh-token')?.value;
 
-    console.log('Checkout: accessToken exists:', !!accessToken);
-    console.log('Checkout: refreshToken exists:', !!refreshToken);
+    let userId: string | null = null;
+    let userEmail: string = '';
 
-    if (!accessToken) {
-      return new Response(
-        JSON.stringify({ error: 'Debe estar autenticado para hacer checkout. Por favor inicie sesión.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+    if (accessToken) {
+      // Authenticated user flow
+      const supabase = createClient(
+        import.meta.env.PUBLIC_SUPABASE_URL,
+        import.meta.env.PUBLIC_SUPABASE_ANON_KEY
       );
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+
+      if (userError || !user) {
+        // Try refresh token
+        if (refreshToken) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+            refresh_token: refreshToken,
+          });
+          
+          if (refreshError || !refreshData.session) {
+            // Token invalid - fall through to guest checkout if email provided
+            if (!guestEmail) {
+              return new Response(
+                JSON.stringify({ error: 'Sesión expirada. Por favor inicie sesión o introduzca su email.' }),
+                { status: 401, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
+          } else {
+            cookies.set('sb-access-token', refreshData.session.access_token, {
+              path: '/',
+              maxAge: 3600,
+              sameSite: 'lax',
+            });
+            cookies.set('sb-refresh-token', refreshData.session.refresh_token, {
+              path: '/',
+              maxAge: 604800,
+              sameSite: 'lax',
+            });
+            userId = refreshData.session.user.id;
+            userEmail = refreshData.session.user.email || '';
+          }
+        }
+      } else {
+        userId = user.id;
+        userEmail = user.email || '';
+      }
     }
 
-    // Create Supabase client and set session
-    const supabase = createClient(
-      import.meta.env.PUBLIC_SUPABASE_URL,
-      import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    let userId: string;
-    let userEmail: string;
-
-    // Try to get user from access token first
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !user) {
-      console.error('Error getting user from token:', userError);
-      
-      // If we have a refresh token, try to refresh the session
-      if (refreshToken) {
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
-          refresh_token: refreshToken,
-        });
-        
-        if (refreshError || !refreshData.session) {
-          console.error('Error refreshing session:', refreshError);
-          return new Response(
-            JSON.stringify({ error: 'Sesión expirada. Por favor inicie sesión nuevamente.' }),
-            { status: 401, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        // Update cookies with new tokens
-        cookies.set('sb-access-token', refreshData.session.access_token, {
-          path: '/',
-          maxAge: 3600,
-          sameSite: 'lax',
-        });
-        cookies.set('sb-refresh-token', refreshData.session.refresh_token, {
-          path: '/',
-          maxAge: 604800,
-          sameSite: 'lax',
-        });
-        
-        // Use the refreshed user
-        userId = refreshData.session.user.id;
-        userEmail = refreshData.session.user.email || '';
-      } else {
+    // Guest checkout: require email
+    if (!userId) {
+      if (!guestEmail || !guestEmail.includes('@')) {
         return new Response(
-          JSON.stringify({ error: 'Sesión inválida. Por favor inicie sesión nuevamente.' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Debe introducir un email válido para continuar con la compra.' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
-    } else {
-      userId = user.id;
-      userEmail = user.email || '';
+      userEmail = guestEmail;
     }
 
-    console.log('Checkout: User ID:', userId);
+    console.log('Checkout:', userId ? `User ${userId}` : `Guest ${userEmail}`);
 
     // Transform cart items to Stripe line items
     const lineItems = items.map((item: {
@@ -197,8 +191,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       locale: 'es',
       metadata: {
         items_count: items.length.toString(),
-        user_id: userId,
+        user_id: userId || '',
         user_email: userEmail,
+        guest_email: !userId ? userEmail : '',
         cart_items: JSON.stringify(minimalCartItems),
         discount_code: discountCode || '',
         discount_amount: discountInfo ? String(discountInfo.discount_value) : '0',

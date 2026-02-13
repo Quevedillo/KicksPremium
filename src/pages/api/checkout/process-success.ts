@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
       .insert({
         user_id: userId,
         stripe_session_id: sessionId,
-        total_price: totalAmount, // Use total_price (not total_amount)
+        total_amount: totalAmount,
         status: 'completed',
         shipping_name: shippingName,
         shipping_address: shippingAddress ? JSON.stringify(shippingAddress) : null,

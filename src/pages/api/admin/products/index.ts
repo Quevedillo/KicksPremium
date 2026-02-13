@@ -279,51 +279,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             console.error(`❌ Error enviando newsletter para ${product.slug}:`, emailError);
           });
 
-        // Crear notificación VIP para nuevo producto
-        const serviceClient = getSupabaseServiceClient();
-        serviceClient.from('vip_notifications').insert({
-          type: 'new_product',
-          product_id: product.id,
-          title: `Nuevo producto: ${product.brand} ${product.name}`,
-          message: `Se ha añadido ${product.name} a la tienda. ${product.is_limited_edition ? '¡Edición limitada!' : ''} Precio: €${(product.price / 100).toFixed(2)}`,
-          metadata: { slug: product.slug, price: product.price, brand: product.brand, image: product.images?.[0] },
-        }).then(() => {
-          console.log(`✅ VIP notification created for product ${product.slug}`);
-        }).catch((err: any) => {
-          console.error(`⚠️ Error creating VIP notification:`, err);
-        });
-
-        // Send email to VIP subscribers about new product
-        serviceClient.from('vip_subscriptions')
-          .select('email')
-          .eq('status', 'active')
-          .then(({ data: vipMembers }) => {
-            if (vipMembers && vipMembers.length > 0) {
-              const { sendEmailWithSMTP } = require('@lib/email');
-              vipMembers.forEach((vip: any) => {
-                sendEmailWithSMTP({
-                  to: vip.email,
-                  subject: `🔥 VIP Alert: Nuevo ${product.brand} ${product.name}`,
-                  html: `
-                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #000; color: #fff; padding: 30px;">
-                      <div style="text-align: center; margin-bottom: 20px;">
-                        <span style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; padding: 5px 15px; font-weight: bold; font-size: 12px; text-transform: uppercase;">VIP Exclusive</span>
-                      </div>
-                      <h1 style="text-align: center; color: #FFD700;">Nuevo Producto Disponible</h1>
-                      ${product.images?.[0] ? `<img src="${product.images[0]}" alt="${product.name}" style="width: 100%; max-height: 300px; object-fit: cover; margin: 20px 0;">` : ''}
-                      <h2 style="color: #fff;">${product.brand} - ${product.name}</h2>
-                      <p style="color: #aaa;">${product.description || ''}</p>
-                      <p style="font-size: 24px; font-weight: bold; color: #FFD700;">€${(product.price / 100).toFixed(2)}</p>
-                      <p style="color: #aaa;">Como miembro VIP, tienes acceso anticipado. Usa tu código <strong style="color: #FFD700;">VIP15</strong> para un 15% de descuento.</p>
-                      <a href="${new URL(`/productos/${product.slug}`, 'https://kickspremium.com')}" style="display: inline-block; background: #FFD700; color: #000; padding: 12px 30px; font-weight: bold; text-decoration: none; margin-top: 15px;">Ver Producto</a>
-                    </div>
-                  `,
-                }).catch(() => {});
-              });
-              console.log(`✅ VIP emails sent to ${vipMembers.length} members`);
-            }
-          });
-
         newsletterResult = {
           scheduledFor: subscribers.length,
           message: 'Notificación programada para enviar a los suscriptores',

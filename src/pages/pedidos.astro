@@ -7,6 +7,7 @@ const accessToken = Astro.cookies.get('sb-access-token')?.value;
 const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
 
 let userId = null;
+let userEmail = null;
 let userOrders: any[] = [];
 let fetchError = null;
 
@@ -19,12 +20,13 @@ if (accessToken && refreshToken) {
 
   if (session?.user) {
     userId = session.user.id;
+    userEmail = session.user.email;
 
-    // Fetch user orders from database
+    // Fetch user orders: by user_id OR by billing_email (for guest orders before registration)
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('user_id', userId)
+      .or(`user_id.eq.${userId},billing_email.eq.${userEmail}`)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -153,7 +155,7 @@ const canReturn = (status: string) => status === 'delivered';
                       </p>
                     )}
                     <p class="text-white font-bold text-2xl mt-2">
-                      {formatPrice(order.total_price || 0)}
+                      {formatPrice(order.total_amount || 0)}
                     </p>
                   </div>
                 </div>
