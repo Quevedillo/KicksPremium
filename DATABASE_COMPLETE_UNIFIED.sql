@@ -2,18 +2,21 @@
 -- KICKSPREMIUM - BASE DE DATOS COMPLETA Y UNIFICADA SUPABASE
 -- ============================================================================
 -- Tienda de Sneakers Exclusivos y Ediciones Limitadas
--- Última actualización: 3 de febrero de 2026
+-- Última actualización: 13 de febrero de 2026
 -- 
 -- ESTE ARCHIVO CONTIENE TODA LA CONFIGURACIÓN COMPLETA DE LA BASE DE DATOS:
 -- ✅ Tablas de administración (usuarios, perfiles)
--- ✅ Tablas de productos (categorías, productos, stock por tallas)
--- ✅ Tablas de pedidos (órdenes, estados, devoluciones)
+-- ✅ Tablas de productos (categorías, productos, stock por tallas, colores)
+-- ✅ Tablas de carrito y favoritos
+-- ✅ Tablas de pedidos (órdenes, order_items, estados, devoluciones)
+-- ✅ Tablas de reviews y alertas de restock
 -- ✅ Tablas de newsletter (suscriptores)
 -- ✅ Tablas de descuentos (códigos, tracking)
+-- ✅ Tablas VIP (suscripciones, notificaciones)
+-- ✅ Tablas de personalización (page_sections, featured_products)
 -- ✅ Todas las políticas RLS (Row Level Security)
 -- ✅ Todos los índices para optimización
 -- ✅ Todos los triggers y funciones
--- ✅ Datos de ejemplo
 --
 -- INSTRUCCIONES:
 -- 1. Ir a Supabase Dashboard > SQL Editor > New Query
@@ -28,10 +31,8 @@
 -- ============================================================================
 
 -- TABLA: user_profiles (Perfiles de Usuarios y Admin)
-DROP TABLE IF EXISTS user_profiles CASCADE;
-
-CREATE TABLE user_profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
   full_name TEXT,
   is_admin BOOLEAN DEFAULT FALSE,
