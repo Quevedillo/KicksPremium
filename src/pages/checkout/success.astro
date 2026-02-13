@@ -17,8 +17,11 @@ if (sessionId) {
       expand: ['line_items', 'customer'],
     });
     
-    // Only process if payment was successful and we have user_id
-    if (stripeSession.payment_status === 'paid' && stripeSession.metadata?.user_id) {
+    // Only process if payment was successful
+    if (stripeSession.payment_status === 'paid') {
+      const hasUserId = stripeSession.metadata?.user_id;
+      const guestEmail = stripeSession.metadata?.guest_email || stripeSession.customer_email;
+      
       // Call backend endpoint to handle order creation, stock update, and emails
       try {
         const response = await fetch('http://localhost:4321/api/checkout/process-success', {
@@ -26,12 +29,12 @@ if (sessionId) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sessionId,
-            userId: stripeSession.metadata.user_id,
-            cartItems: JSON.parse(stripeSession.metadata.cart_items || '[]'),
+            userId: stripeSession.metadata?.user_id || null,
+            cartItems: JSON.parse(stripeSession.metadata?.cart_items || '[]'),
             shippingAddress: (stripeSession as any).shipping_details?.address || null,
             shippingName: (stripeSession as any).shipping_details?.name || stripeSession.customer_details?.name || null,
             shippingPhone: stripeSession.customer_details?.phone || null,
-            billingEmail: stripeSession.customer_email || stripeSession.customer_details?.email || null,
+            billingEmail: guestEmail || stripeSession.customer_details?.email || null,
             totalAmount: stripeSession.amount_total || 0,
           }),
         });
@@ -94,17 +97,24 @@ const amountTotal = stripeSession?.amount_total ? (stripeSession.amount_total / 
               <span class="text-white font-bold text-lg">€{amountTotal}</span>
             </div>
 
-            {stripeSession.customer_details?.email && (
+            {(stripeSession.metadata?.guest_email || stripeSession.customer_email || stripeSession.customer_details?.email) && (
               <div class="flex justify-between">
                 <span class="text-neutral-500">Email:</span>
-                <span class="text-white">{stripeSession.customer_details.email}</span>
+                <span class="text-white">{stripeSession.metadata?.guest_email || stripeSession.customer_email || stripeSession.customer_details?.email}</span>
               </div>
             )}
 
-            {orderSaved && (
+            {orderSaved && stripeSession?.metadata?.user_id && (
               <div class="flex justify-between items-center pt-2 border-t border-brand-black mt-2">
                 <span class="text-neutral-500">Sincronizado:</span>
                 <span class="text-green-400 text-sm">Guardado en tu cuenta</span>
+              </div>
+            )}
+            
+            {orderSaved && !stripeSession?.metadata?.user_id && (
+              <div class="flex justify-between items-center pt-2 border-t border-brand-black mt-2">
+                <span class="text-neutral-500">Estado:</span>
+                <span class="text-green-400 text-sm">Pedido registrado</span>
               </div>
             )}
           </div>

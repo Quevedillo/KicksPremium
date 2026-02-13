@@ -6,10 +6,14 @@ import { supabase } from '@lib/supabase';
 const accessToken = Astro.cookies.get('sb-access-token')?.value;
 const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
 
+// Check for guest email lookup via query param
+const guestEmailParam = Astro.url.searchParams.get('email');
+
 let userId = null;
 let userEmail = null;
 let userOrders: any[] = [];
 let fetchError = null;
+let isGuestLookup = false;
 
 // Try to get session from tokens
 if (accessToken && refreshToken) {
@@ -35,6 +39,30 @@ if (accessToken && refreshToken) {
     } else {
       userOrders = orders || [];
     }
+  }
+}
+
+// Guest email lookup - only if not authenticated
+if (!userId && guestEmailParam && guestEmailParam.includes('@')) {
+  isGuestLookup = true;
+  userEmail = guestEmailParam;
+  
+  // Use service client to search by billing_email (bypasses RLS)
+  const { getSupabaseServiceClient } = await import('@lib/supabase');
+  const serviceClient = getSupabaseServiceClient();
+  
+  const { data: orders, error } = await serviceClient
+    .from('orders')
+    .select('*')
+    .is('user_id', null)
+    .eq('billing_email', guestEmailParam)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching guest orders:', error);
+    fetchError = error.message;
+  } else {
+    userOrders = orders || [];
   }
 }
 
@@ -84,18 +112,59 @@ const canReturn = (status: string) => status === 'delivered';
         Mis Pedidos
       </h1>
 
-      {/* Check if not logged in */}
-      {!userId && (
+      {/* Check if not logged in and no guest lookup */}
+      {!userId && !isGuestLookup && (
         <div class="bg-brand-dark rounded-lg p-8 text-center">
-          <div class="text-6xl mb-4 text-neutral-500">•</div>
+          <div class="text-6xl mb-4 text-neutral-500">📦</div>
           <p class="text-neutral-400 text-lg mb-6">
-            Debes iniciar sesión para ver tus pedidos
+            Inicia sesión o busca tus pedidos con tu email
           </p>
+          
+          <!-- Guest email lookup form -->
+          <form method="GET" action="/pedidos" class="max-w-md mx-auto mb-6">
+            <div class="flex gap-2">
+              <input
+                type="email"
+                name="email"
+                placeholder="tu@email.com"
+                required
+                class="flex-1 px-4 py-3 bg-brand-gray text-white placeholder-neutral-500 border border-neutral-600 focus:border-brand-red focus:outline-none"
+              />
+              <button
+                type="submit"
+                class="px-6 py-3 bg-brand-red text-white font-bold uppercase hover:bg-brand-orange transition-colors"
+              >
+                Buscar
+              </button>
+            </div>
+          </form>
+          
+          <div class="text-neutral-600 text-sm mb-4">— o —</div>
+          
           <a 
             href="/auth/login?redirect=/pedidos" 
-            class="inline-block bg-brand-red text-white px-8 py-3 font-bold uppercase hover:bg-brand-orange transition-colors"
+            class="inline-block bg-brand-gray text-white px-8 py-3 font-bold uppercase hover:bg-neutral-600 transition-colors"
           >
             Iniciar Sesión
+          </a>
+        </div>
+      )}
+      
+      {/* Guest lookup with no results */}
+      {isGuestLookup && userOrders.length === 0 && !fetchError && (
+        <div class="bg-brand-dark rounded-lg p-8 text-center">
+          <div class="text-6xl mb-4 text-neutral-500">🔍</div>
+          <p class="text-neutral-400 text-lg mb-4">
+            No se encontraron pedidos para <span class="text-white font-bold">{guestEmailParam}</span>
+          </p>
+          <p class="text-neutral-500 text-sm mb-6">
+            Verifica que el email sea el mismo que usaste al comprar.
+          </p>
+          <a 
+            href="/pedidos" 
+            class="inline-block bg-brand-red text-white px-8 py-3 font-bold uppercase hover:bg-brand-orange transition-colors"
+          >
+            Intentar con otro email
           </a>
         </div>
       )}
@@ -110,7 +179,7 @@ const canReturn = (status: string) => status === 'delivered';
         </div>
       )}
 
-      {/* No orders */}
+      {/* No orders for logged-in user */}
       {userId && userOrders.length === 0 && !fetchError && (
         <div class="bg-brand-dark rounded-lg p-8 text-center">
           <div class="text-6xl mb-4 text-neutral-500">•</div>
@@ -127,8 +196,16 @@ const canReturn = (status: string) => status === 'delivered';
       )}
 
       {/* Orders list */}
-      {userId && userOrders.length > 0 && (
+      {(userId || isGuestLookup) && userOrders.length > 0 && (
         <div class="space-y-6">
+          {isGuestLookup && (
+            <div class="bg-brand-dark p-4 flex items-center justify-between mb-2">
+              <p class="text-neutral-400 text-sm">
+                Mostrando pedidos de <span class="text-white font-bold">{guestEmailParam}</span>
+              </p>
+              <a href="/pedidos" class="text-brand-red text-sm hover:text-brand-orange">← Cambiar email</a>
+            </div>
+          )}
           {userOrders.map((order: any) => {
             const statusConfig = getStatusBadge(order.status);
             const items = Array.isArray(order.items) ? order.items : [];

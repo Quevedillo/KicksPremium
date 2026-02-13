@@ -32,6 +32,19 @@ export default function CartSlideOver() {
     const unsubscribe = cartStore.subscribe((newCart) => {
       setCart(newCart);
     });
+
+    // Check auth state on mount - show email field proactively for guests
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setIsGuest(true);
+        }
+      } catch {
+        setIsGuest(true);
+      }
+    };
+    checkAuth();
     
     return () => unsubscribe();
   }, []);
@@ -114,16 +127,28 @@ export default function CartSlideOver() {
     setError(null);
 
     try {
-      // Try to get current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // If guest email field is filled, always use guest checkout
+      // This handles stale sessions where cookies persist but user wants guest checkout
+      const hasGuestEmail = guestEmail && guestEmail.includes('@');
       
       let accessToken: string | null = null;
+      let useGuestCheckout = isGuest || hasGuestEmail;
       
-      if (session) {
-        accessToken = session.access_token;
-      } else {
-        // Guest checkout - validate email
-        setIsGuest(true);
+      if (!hasGuestEmail) {
+        // Only try auth if no guest email was provided
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (session) {
+          accessToken = session.access_token;
+          useGuestCheckout = false;
+        } else {
+          useGuestCheckout = true;
+          setIsGuest(true);
+        }
+      }
+
+      // Validate guest email if doing guest checkout
+      if (useGuestCheckout) {
         if (!guestEmail || !guestEmail.includes('@')) {
           setError('Por favor, introduce un email válido para recibir la confirmación de tu pedido.');
           setIsProcessing(false);
@@ -134,17 +159,17 @@ export default function CartSlideOver() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (accessToken) {
+      if (accessToken && !useGuestCheckout) {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
 
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers,
-        credentials: 'include',
+        credentials: useGuestCheckout ? 'omit' : 'include',
         body: JSON.stringify({
           items: cart.items,
-          guestEmail: !session ? guestEmail : undefined,
+          guestEmail: useGuestCheckout ? guestEmail : undefined,
           discountCode: cart.discountCode?.code,
           discountInfo: cart.discountCode ? {
             discount_type: cart.discountCode.discount_type,

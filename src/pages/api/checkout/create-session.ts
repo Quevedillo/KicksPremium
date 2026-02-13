@@ -26,8 +26,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     let userId: string | null = null;
     let userEmail: string = '';
 
-    if (accessToken) {
-      // Authenticated user flow
+    // IMPORTANT: If guestEmail is explicitly provided, this is a guest checkout request.
+    // Skip all auth detection - the client explicitly chose to checkout as guest.
+    if (guestEmail && guestEmail.includes('@')) {
+      userId = null;
+      userEmail = guestEmail;
+      console.log('Guest checkout requested with email:', guestEmail);
+    } else if (accessToken) {
+      // Authenticated user flow (no guestEmail provided)
       const supabase = createClient(
         import.meta.env.PUBLIC_SUPABASE_URL,
         import.meta.env.PUBLIC_SUPABASE_ANON_KEY
@@ -43,13 +49,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
           });
           
           if (refreshError || !refreshData.session) {
-            // Token invalid - fall through to guest checkout if email provided
-            if (!guestEmail) {
-              return new Response(
-                JSON.stringify({ error: 'Sesión expirada. Por favor inicie sesión o introduzca su email.' }),
-                { status: 401, headers: { 'Content-Type': 'application/json' } }
-              );
-            }
+            return new Response(
+              JSON.stringify({ error: 'Sesión expirada. Por favor inicie sesión o introduzca su email.' }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } }
+            );
           } else {
             cookies.set('sb-access-token', refreshData.session.access_token, {
               path: '/',
@@ -71,15 +74,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       }
     }
 
-    // Guest checkout: require email
-    if (!userId) {
-      if (!guestEmail || !guestEmail.includes('@')) {
-        return new Response(
-          JSON.stringify({ error: 'Debe introducir un email válido para continuar con la compra.' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-      userEmail = guestEmail;
+    // No auth and no guestEmail: require email
+    if (!userId && !userEmail) {
+      return new Response(
+        JSON.stringify({ error: 'Debe introducir un email válido para continuar con la compra.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Checkout:', userId ? `User ${userId}` : `Guest ${userEmail}`);
