@@ -212,19 +212,13 @@ const statusOptions = [
               <span class="text-neutral-600">Subtotal</span>
               <span class="text-brand-black">{formatCurrency(orderTotal)}</span>
             </div>
-            {order.discount_amount && order.discount_amount > 0 && (
-              <div class="flex justify-between text-sm">
-                <span class="text-neutral-600">Descuento</span>
-                <span class="text-green-600">-{formatCurrency(order.discount_amount)}</span>
-              </div>
-            )}
             <div class="flex justify-between text-sm">
               <span class="text-neutral-600">Envío</span>
               <span class="text-green-600">Gratis</span>
             </div>
             <div class="flex justify-between text-lg font-bold pt-2 border-t border-neutral-200">
               <span class="text-brand-black">Total</span>
-              <span class="text-brand-red">{formatCurrency(orderTotal - (order.discount_amount || 0))}</span>
+              <span class="text-brand-red">{formatCurrency(orderTotal)}</span>
             </div>
           </div>
         </div>
