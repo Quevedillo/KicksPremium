@@ -43,19 +43,7 @@ export const POST: APIRoute = async ({ request }) => {
       },
     });
 
-    // Opción 1: Intentar crear usuario SOLO sin trigger de perfil
-    // Primero verificar si el usuario ya existe
-    let existingUser = null;
-    try {
-      const { data: existingData } = await adminClient.auth.admin.getUserById(
-        // No podemos buscar por email directo, así que intentamos crear y vemos qué pasa
-      );
-    } catch (e) {
-      // Ignorar - no podemos buscar por email con admin API
-    }
-
     // Crear usuario en auth.users
-    // El truco es: crear sin metadatos que puedan disparar triggers
     console.log('Intentando crear usuario en Supabase...');
     
     const { data, error } = await adminClient.auth.admin.createUser({
@@ -66,28 +54,15 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     if (error) {
-      console.error('Auth creation error:', error.message);
+      console.error('❌ Auth creation error:', error.message);
       
-      // Si el error es "Database error", podría ser que necesitemos desactivar el trigger
-      // Intentamos con un endpoint alternativo que NO use triggers
-      if (error.message.includes('Database error') || error.message.includes('duplicate')) {
-        console.log('Intentando workaround...');
-        
-        // Verificar si el usuario existe
-        try {
-          const users = await adminClient.auth.admin.listUsers();
-          const userExists = users.data?.users.some(u => u.email === email);
-          
-          if (userExists) {
-            console.log('Usuario ya existe');
-            return new Response(
-              JSON.stringify({ error: 'Este email ya está registrado' }),
-              { status: 400, headers: { 'Content-Type': 'application/json' } }
-            );
-          }
-        } catch (listError) {
-          console.log('Could not list users:', listError);
-        }
+      // Detectar si es un error de usuario duplicado
+      if (error.message.includes('duplicate') || error.message.includes('User already exists')) {
+        console.log('📧 Usuario ya existe');
+        return new Response(
+          JSON.stringify({ error: 'Este email ya está registrado. Intenta con login.' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
       return new Response(
@@ -119,7 +94,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Crear perfil usando función SQL que bypassa RLS
     try {
-      const { error: rpcError } = await adminClient.rpc('create_user_profile', {
+      const { data: profileResult, error: rpcError } = await adminClient.rpc('create_user_profile', {
         p_user_id: data.user.id,
         p_email: data.user.email,
         p_full_name: full_name || email.split('@')[0],
@@ -127,37 +102,58 @@ export const POST: APIRoute = async ({ request }) => {
       });
       
       if (rpcError) {
-        console.log('Profile RPC creation warning:', rpcError.message);
-        // Fallback: intentar inserción directa
-        try {
-          await adminClient.from('user_profiles').insert({
-            id: data.user.id,
-            email: data.user.email,
-            full_name: full_name || email.split('@')[0],
-            is_admin: false,
-          });
-          console.log('Profile created with direct insert');
-        } catch (fallbackError) {
-          console.log('Profile creation fallback failed (no crítico):', fallbackError);
-        }
+        console.error('❌ Profile RPC error:', rpcError);
+        // Para guest order linking, necesitamos el perfil, así que es crítico
+        throw new Error(`Profile creation failed: ${rpcError.message}`);
       } else {
-        console.log('Profile created via RPC');
+        console.log('✅ Profile created via RPC');
       }
     } catch (profileError) {
-      console.log('Profile creation error (no crítico):', profileError);
+      console.error('🔴 Profile creation critical error:', profileError);
+      // Intentar fallback directo
+      try {
+        const { error: insertError } = await adminClient.from('user_profiles').insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: full_name || email.split('@')[0],
+          is_admin: false,
+        });
+        
+        if (insertError) {
+          console.error('🔴 Direct insert also failed:', insertError);
+          return new Response(
+            JSON.stringify({ error: `No se pudo crear el perfil: ${insertError.message}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        console.log('✅ Profile created with fallback direct insert');
+      } catch (fallbackError) {
+        console.error('🔴 Fallback also failed:', fallbackError);
+        return new Response(
+          JSON.stringify({ error: 'No se pudo crear el perfil de usuario' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Link any guest orders made with this email to the new user account
     try {
-      const { data: linkResult } = await adminClient.rpc('link_guest_orders_to_user', {
+      const { data: linkResult, error: linkError } = await adminClient.rpc('link_guest_orders_to_user', {
         p_user_id: data.user.id,
         p_email: data.user.email,
       });
-      if (linkResult && linkResult > 0) {
+      
+      if (linkError) {
+        console.error('❌ Guest order linking error:', linkError);
+        // No es crítico si falla - el usuario ya está registrado
+      } else if (linkResult && linkResult > 0) {
         console.log(`✅ Linked ${linkResult} guest order(s) to new user ${data.user.email}`);
+      } else {
+        console.log('ℹ️  No guest orders to link for', data.user.email);
       }
     } catch (linkError) {
-      console.log('Guest order linking (no crítico):', linkError);
+      console.error('❌ Guest order linking exception:', linkError);
+      // Continuar aunque falle - no es crítico
     }
 
     return new Response(
