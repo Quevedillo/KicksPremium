@@ -22,8 +22,22 @@ if (error || !order) {
 // Parsear items
 const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
 
+// Parsear shipping_address si es un string JSON
+let parsedShippingAddress = order.shipping_address;
+if (typeof order.shipping_address === 'string') {
+  try {
+    parsedShippingAddress = JSON.parse(order.shipping_address);
+  } catch (e) {
+    parsedShippingAddress = order.shipping_address;
+  }
+}
+
+// Obtener el total correcto (puede estar en total_amount o total_price)
+const orderTotal = order.total_amount || order.total_price || 0;
+
 // Formatear moneda
 const formatCurrency = (cents: number) => {
+  if (!cents || isNaN(cents)) return '0,00 €';
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: 'EUR'
@@ -153,34 +167,39 @@ const statusOptions = [
         </div>
         
         <div class="divide-y divide-neutral-100">
-          {items.length > 0 ? items.map((item: any) => (
-            <div class="p-4 flex items-center gap-4">
-              {item.image && (
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  class="w-16 h-16 object-cover rounded-lg bg-neutral-100"
-                />
-              )}
-              <div class="flex-1 min-w-0">
-                <p class="font-semibold text-brand-black truncate">{item.name}</p>
-                {item.size && (
-                  <p class="text-sm text-neutral-500">Talla: {item.size}</p>
+          {items.length > 0 ? items.map((item: any) => {
+            const itemQty = item.quantity || item.qty || 1;
+            const itemPrice = item.price || 0;
+            const itemImage = item.image || item.img || null;
+            return (
+              <div class="p-4 flex items-center gap-4">
+                {itemImage && (
+                  <img
+                    src={itemImage}
+                    alt={item.name}
+                    class="w-16 h-16 object-cover rounded-lg bg-neutral-100"
+                  />
                 )}
-                <p class="text-sm text-neutral-500">
-                  Cantidad: {item.quantity}
-                </p>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-brand-black truncate">{item.name}</p>
+                  {item.size && (
+                    <p class="text-sm text-neutral-500">Talla: {item.size}</p>
+                  )}
+                  <p class="text-sm text-neutral-500">
+                    Cantidad: {itemQty}
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="font-bold text-brand-black">
+                    {formatCurrency(itemPrice * itemQty)}
+                  </p>
+                  <p class="text-sm text-neutral-500">
+                    {formatCurrency(itemPrice)} c/u
+                  </p>
+                </div>
               </div>
-              <div class="text-right">
-                <p class="font-bold text-brand-black">
-                  {formatCurrency(item.price * item.quantity)}
-                </p>
-                <p class="text-sm text-neutral-500">
-                  {formatCurrency(item.price)} c/u
-                </p>
-              </div>
-            </div>
-          )) : (
+            );
+          }) : (
             <div class="p-8 text-center text-neutral-500">
               No hay detalles de productos disponibles
             </div>
@@ -192,15 +211,21 @@ const statusOptions = [
           <div class="space-y-2">
             <div class="flex justify-between text-sm">
               <span class="text-neutral-600">Subtotal</span>
-              <span class="text-brand-black">{formatCurrency(order.total_price)}</span>
+              <span class="text-brand-black">{formatCurrency(orderTotal)}</span>
             </div>
+            {order.discount_amount && order.discount_amount > 0 && (
+              <div class="flex justify-between text-sm">
+                <span class="text-neutral-600">Descuento</span>
+                <span class="text-green-600">-{formatCurrency(order.discount_amount)}</span>
+              </div>
+            )}
             <div class="flex justify-between text-sm">
               <span class="text-neutral-600">Envío</span>
               <span class="text-green-600">Gratis</span>
             </div>
             <div class="flex justify-between text-lg font-bold pt-2 border-t border-neutral-200">
               <span class="text-brand-black">Total</span>
-              <span class="text-brand-red">{formatCurrency(order.total_price)}</span>
+              <span class="text-brand-red">{formatCurrency(orderTotal - (order.discount_amount || 0))}</span>
             </div>
           </div>
         </div>
@@ -237,20 +262,24 @@ const statusOptions = [
             <h2 class="text-lg font-bold text-brand-black">📦 Dirección de Envío</h2>
           </div>
           <div class="p-6">
-            {order.shipping_address ? (
+            {parsedShippingAddress ? (
               <div class="space-y-1 text-brand-black">
-                {typeof order.shipping_address === 'object' ? (
+                {typeof parsedShippingAddress === 'object' ? (
                   <>
-                    {order.shipping_address.line1 && <p>{order.shipping_address.line1}</p>}
-                    {order.shipping_address.line2 && <p>{order.shipping_address.line2}</p>}
-                    {order.shipping_address.city && order.shipping_address.postal_code && (
-                      <p>{order.shipping_address.postal_code} {order.shipping_address.city}</p>
+                    {parsedShippingAddress.line1 && <p>{parsedShippingAddress.line1}</p>}
+                    {parsedShippingAddress.line2 && <p>{parsedShippingAddress.line2}</p>}
+                    {(parsedShippingAddress.city || parsedShippingAddress.postal_code) && (
+                      <p>{parsedShippingAddress.postal_code} {parsedShippingAddress.city}</p>
                     )}
-                    {order.shipping_address.state && <p>{order.shipping_address.state}</p>}
-                    {order.shipping_address.country && <p class="text-neutral-500">{order.shipping_address.country}</p>}
+                    {parsedShippingAddress.state && <p>{parsedShippingAddress.state}</p>}
+                    {parsedShippingAddress.country && (
+                      <p class="text-neutral-500">
+                        {parsedShippingAddress.country === 'ES' ? 'España' : parsedShippingAddress.country === 'FR' ? 'Francia' : parsedShippingAddress.country === 'DE' ? 'Alemania' : parsedShippingAddress.country === 'IT' ? 'Italia' : parsedShippingAddress.country === 'PT' ? 'Portugal' : parsedShippingAddress.country === 'GB' ? 'Reino Unido' : parsedShippingAddress.country === 'US' ? 'Estados Unidos' : parsedShippingAddress.country}
+                      </p>
+                    )}
                   </>
                 ) : (
-                  <p>{order.shipping_address}</p>
+                  <p>{String(parsedShippingAddress)}</p>
                 )}
               </div>
             ) : (

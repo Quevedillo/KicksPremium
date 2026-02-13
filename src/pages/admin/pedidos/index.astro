@@ -43,6 +43,7 @@ const stats = {
 
 // Formatear moneda
 const formatCurrency = (cents: number) => {
+  if (!cents || isNaN(cents)) return '0,00 €';
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: 'EUR'
@@ -197,7 +198,8 @@ const statusOptions = [
               {filteredOrders.map((order) => {
                 const badge = getStatusBadge(order.status);
                 const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
-                const itemCount = Array.isArray(items) ? items.length : 0;
+                const itemCount = Array.isArray(items) ? items.reduce((sum: number, item: any) => sum + (item.quantity || item.qty || 1), 0) : 0;
+                const orderTotal = order.total_amount || order.total_price || 0;
                 
                 return (
                   <tr class="hover:bg-neutral-50 transition-colors">
@@ -226,7 +228,7 @@ const statusOptions = [
                     </td>
                     <td class="px-6 py-4">
                       <p class="font-bold text-brand-black">
-                        {order.total_price !== null && order.total_price !== undefined ? formatCurrency(order.total_price) : '0,00 €'}
+                        {formatCurrency(orderTotal)}
                       </p>
                     </td>
                     <td class="px-6 py-4">

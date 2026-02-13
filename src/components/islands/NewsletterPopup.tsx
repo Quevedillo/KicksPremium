@@ -20,7 +20,13 @@ export default function NewsletterPopup({
     const hasSeenPopup = localStorage.getItem('newsletter_popup_seen');
     const isSubscribed = localStorage.getItem('newsletter_subscribed');
     
-    if (!hasSeenPopup && !isSubscribed) {
+    // Verificar si el usuario ya está logueado - no mostrar popup
+    const cookies = document.cookie || '';
+    const hasAuthCookie = cookies.includes('sb-') && (cookies.includes('access-token') || cookies.includes('auth-token'));
+    // También verificar si hay un código de descuento ya usado (usuario reconocido)
+    const hasUsedDiscount = localStorage.getItem('discount_code_used') === 'true';
+    
+    if (!hasSeenPopup && !isSubscribed && !hasAuthCookie && !hasUsedDiscount) {
       const timer = setTimeout(() => {
         setIsOpen(true);
       }, delayMs);
@@ -157,7 +163,7 @@ export default function NewsletterPopup({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu@email.com"
                   required
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-transparent text-center"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-transparent text-center text-neutral-900 bg-white placeholder-neutral-400"
                   disabled={status === 'loading'}
                 />
               </div>
