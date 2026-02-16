@@ -422,42 +422,43 @@ CREATE POLICY "admins_manage_codes" ON public.discount_codes
     WHERE up.id = auth.uid() AND up.is_admin = true
   ));
 
--- POLÍTICAS: discount_code_uses
+-- POLÍTICAS: discount_code_uses (privado por usuario)
 DROP POLICY IF EXISTS "users_see_own_uses" ON public.discount_code_uses;
 CREATE POLICY "users_see_own_uses" ON public.discount_code_uses
   AS PERMISSIVE FOR SELECT TO public
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR (user_id IS NULL AND current_setting('role', true) = 'service_role'));
 
 DROP POLICY IF EXISTS "service_insert_uses" ON public.discount_code_uses;
 CREATE POLICY "service_insert_uses" ON public.discount_code_uses
   AS PERMISSIVE FOR INSERT TO public
-  WITH CHECK (true);
+  WITH CHECK (current_setting('role', true) = 'service_role');
 
 -- POLÍTICAS: orders (actualizado para guest checkout)
--- Los usuarios ven sus propios pedidos
+-- Los usuarios ven SOLO sus propios pedidos
 DROP POLICY IF EXISTS "users_view_own_orders" ON public.orders;
 CREATE POLICY "users_view_own_orders" ON public.orders
   AS PERMISSIVE FOR SELECT TO public
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR (user_id IS NULL AND current_setting('role', true) = 'service_role'));
 
--- Los usuarios pueden crear sus propios pedidos
+-- Los usuarios pueden crear Sus propios pedidos SOLO
 DROP POLICY IF EXISTS "users_create_orders" ON public.orders;
 CREATE POLICY "users_create_orders" ON public.orders
   AS PERMISSIVE FOR INSERT TO public
   WITH CHECK (auth.uid() = user_id);
 
--- Los usuarios pueden actualizar sus propios pedidos
+-- Los usuarios pueden actualizar SOLO sus propios pedidos
 DROP POLICY IF EXISTS "users_update_own_orders" ON public.orders;
 CREATE POLICY "users_update_own_orders" ON public.orders
   AS PERMISSIVE FOR UPDATE TO public
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
--- Service role tiene acceso completo (necesario para guest checkout via webhook)
+-- Service role (backend/webhooks) tiene acceso completo SOLO cuando es service_role
 DROP POLICY IF EXISTS "service_role_full_orders" ON public.orders;
 CREATE POLICY "service_role_full_orders" ON public.orders
   AS PERMISSIVE FOR ALL TO public
-  USING (true)
-  WITH CHECK (true);
+  USING (current_setting('role', true) = 'service_role')
+  WITH CHECK (current_setting('role', true) = 'service_role');
 
 -- POLÍTICAS: newsletter_subscribers
 DROP POLICY IF EXISTS "anyone_can_subscribe" ON public.newsletter_subscribers;
@@ -1021,7 +1022,7 @@ $$;
 -- SECCIÓN 11: DATOS INICIALES
 -- ============================================================================
 
--- Marcas principales
+-- Marcas principales (Los productos Yeezy usan brand_id de Adidas)
 INSERT INTO brands (name, slug, is_featured, display_order) VALUES
 ('Nike', 'nike', true, 1),
 ('Jordan', 'jordan', true, 2),
