@@ -8,12 +8,13 @@ const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
 
 let user = null;
 let profile = null;
+let orderStats = { total: 0, pending: 0, shipped: 0, delivered: 0 };
 
 if (accessToken && refreshToken) {
   const { data: sessionData } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
-  });    //asda
+  });
   
   if (sessionData?.user) {
     user = sessionData.user;
@@ -26,96 +27,176 @@ if (accessToken && refreshToken) {
       .single();
     
     profile = profileData;
+
+    // Obtener estadisticas de pedidos
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('user_id', user.id);
+    
+    if (orders) {
+      orderStats.total = orders.length;
+      orderStats.pending = orders.filter(o => o.status === 'pending').length;
+      orderStats.shipped = orders.filter(o => o.status === 'shipped').length;
+      orderStats.delivered = orders.filter(o => o.status === 'delivered').length;
+    }
   }
 }
 
-// Redirigir si no está autenticado
+// Redirigir si no esta autenticado
 if (!user) {
   return Astro.redirect('/auth/login?redirect=/mi-cuenta');
 }
 ---
 
 <PublicLayout title="Mi Cuenta" description="Gestiona tu cuenta de usuario">
-  <div class="max-w-4xl mx-auto px-4 py-12">
-    <div class="bg-white rounded-lg shadow p-6">
-      <h1 class="text-3xl font-display font-bold text-brand-navy mb-4">
-        Mi Cuenta
-      </h1>
+  <div class="min-h-screen bg-brand-black">
+    <div class="max-w-6xl mx-auto px-4 py-12">
       
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Sidebar */}
-        <div class="md:col-span-1">
-          <nav class="space-y-2">
-            <a href="/mi-cuenta" class="block px-4 py-2 bg-brand-navy text-white rounded font-semibold">
+      <!-- Header -->
+      <div class="mb-8 md:mb-12">
+        <h1 class="text-4xl md:text-5xl font-display font-bold text-white uppercase mb-2 tracking-tight">
+          Mi Cuenta
+        </h1>
+        <p class="text-neutral-400">Gestiona tu perfil y tus compras</p>
+      </div>
+
+      <!-- Tarjeta de Estadisticas -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-brand-dark rounded-lg border border-brand-gray p-4 text-center">
+          <div class="text-2xl md:text-3xl font-bold text-white">{orderStats.total}</div>
+          <p class="text-sm text-neutral-400 mt-1">Pedidos Totales</p>
+        </div>
+        <div class="bg-brand-dark rounded-lg border border-brand-gray p-4 text-center">
+          <div class="text-2xl md:text-3xl font-bold text-yellow-400">{orderStats.pending}</div>
+          <p class="text-sm text-neutral-400 mt-1">Pendientes</p>
+        </div>
+        <div class="bg-brand-dark rounded-lg border border-brand-gray p-4 text-center">
+          <div class="text-2xl md:text-3xl font-bold text-blue-400">{orderStats.shipped}</div>
+          <p class="text-sm text-neutral-400 mt-1">En Envio</p>
+        </div>
+        <div class="bg-brand-dark rounded-lg border border-brand-gray p-4 text-center">
+          <div class="text-2xl md:text-3xl font-bold text-green-400">{orderStats.delivered}</div>
+          <p class="text-sm text-neutral-400 mt-1">Entregados</p>
+        </div>
+      </div>
+
+      <!-- Contenido Principal -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        <!-- Sidebar de Navegacion -->
+        <div class="lg:col-span-1">
+          <nav class="bg-brand-dark rounded-lg border border-brand-gray overflow-hidden sticky top-4">
+            <a href="/mi-cuenta" class="block px-4 py-3 bg-brand-red text-white font-semibold flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+              </svg>
               Mi Perfil
             </a>
-            <a href="/pedidos" class="block px-4 py-2 text-brand-navy hover:bg-neutral-100 rounded">
+            <a href="/pedidos" class="block px-4 py-3 text-neutral-300 hover:bg-brand-gray hover:text-white font-medium flex items-center gap-2 border-t border-brand-gray transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                <path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+              </svg>
               Mis Pedidos
+            </a>
+            <a href="#newsletter" class="block px-4 py-3 text-neutral-300 hover:bg-brand-gray hover:text-white font-medium flex items-center gap-2 border-t border-brand-gray transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+              </svg>
+              Preferencias
+            </a>
+            <a href="#seguridad" class="block px-4 py-3 text-neutral-300 hover:bg-brand-gray hover:text-white font-medium flex items-center gap-2 border-t border-brand-gray transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+              </svg>
+              Seguridad
             </a>
           </nav>
         </div>
 
-        {/* Main Content */}
-        <div class="md:col-span-2 space-y-8">
+        <!-- Contenido Derecha -->
+        <div class="lg:col-span-2 space-y-6">
           
-          {/* Información del perfil */}
-          <section>
-            <h2 class="text-xl font-semibold text-brand-navy mb-4 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <!-- Informacion del Perfil -->
+          <div class="bg-brand-dark rounded-lg border border-brand-gray p-6">
+            <h2 class="text-xl font-semibold text-white mb-5 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-brand-red" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
               </svg>
-              Información de la cuenta
-            </h2>
-            <div class="bg-neutral-50 rounded-lg p-4 space-y-3">
-              <div class="flex justify-between items-center border-b border-neutral-200 pb-3">
-                <span class="text-neutral-600">Email</span>
-                <span class="font-medium text-brand-navy">{user?.email}</span>
-              </div>
-              <div class="flex justify-between items-center border-b border-neutral-200 pb-3">
-                <span class="text-neutral-600">Nombre</span>
-                <span class="font-medium text-brand-navy">{profile?.full_name || 'No especificado'}</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-neutral-600">Miembro desde</span>
-                <span class="font-medium text-brand-navy">
-                  {new Date(user?.created_at || '').toLocaleDateString('es-ES', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* Cambiar Contraseña */}
-          <section>
-            <h2 class="text-xl font-semibold text-brand-navy mb-4 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
-              </svg>
-              Cambiar Contraseña
+              Informacion del Perfil
             </h2>
             
-            <form id="password-form" class="bg-neutral-50 rounded-lg p-4 space-y-4">
+            <div class="space-y-4">
+              <div class="bg-brand-black rounded-lg p-4">
+                <label class="text-sm text-neutral-500 font-medium">Email</label>
+                <p class="text-lg font-medium text-white mt-1">{user?.email}</p>
+              </div>
+              
+              <div class="bg-brand-black rounded-lg p-4">
+                <label class="text-sm text-neutral-500 font-medium">Nombre Completo</label>
+                <p class="text-lg font-medium text-white mt-1">{profile?.full_name || 'No configurado'}</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="bg-brand-black rounded-lg p-4">
+                  <label class="text-sm text-neutral-500 font-medium">Miembro desde</label>
+                  <p class="text-lg font-medium text-white mt-1">
+                    {new Date(user?.created_at || '').toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <div class="bg-brand-black rounded-lg p-4">
+                  <label class="text-sm text-neutral-500 font-medium">Estado</label>
+                  <p class="text-lg font-medium text-green-400 mt-1 flex items-center gap-1">
+                    <span class="h-2 w-2 bg-green-500 rounded-full"></span> Activo
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onclick="document.getElementById('edit-modal').classList.remove('hidden')"
+                class="w-full mt-4 bg-brand-red text-white py-2 rounded-lg font-medium hover:bg-brand-orange transition flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                Editar Perfil
+              </button>
+            </div>
+          </div>
+
+          <!-- Seguridad y Contrasena -->
+          <div id="seguridad" class="bg-brand-dark rounded-lg border border-brand-gray p-6">
+            <h2 class="text-xl font-semibold text-white mb-5 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-brand-red" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+              </svg>
+              Seguridad y Contrasena
+            </h2>
+            
+            <form id="password-form" class="space-y-4">
               <div>
-                <label for="currentPassword" class="block text-sm font-medium text-neutral-700 mb-1">
-                  Contraseña actual
+                <label for="currentPassword" class="block text-sm font-medium text-neutral-400 mb-2">
+                  Contrasena actual
                 </label>
                 <input 
                   type="password" 
                   id="currentPassword" 
                   name="currentPassword"
                   required
-                  minlength="6"
-                  class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-transparent"
-                  placeholder="••••••••"
+                  class="w-full px-4 py-2 bg-brand-black text-white placeholder-neutral-500 border border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                  placeholder="********"
                 />
               </div>
               
               <div>
-                <label for="newPassword" class="block text-sm font-medium text-neutral-700 mb-1">
-                  Nueva contraseña
+                <label for="newPassword" class="block text-sm font-medium text-neutral-400 mb-2">
+                  Nueva contrasena
                 </label>
                 <input 
                   type="password" 
@@ -123,14 +204,14 @@ if (!user) {
                   name="newPassword"
                   required
                   minlength="6"
-                  class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-transparent"
-                  placeholder="Mínimo 6 caracteres"
+                  class="w-full px-4 py-2 bg-brand-black text-white placeholder-neutral-500 border border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                  placeholder="Minimo 6 caracteres"
                 />
               </div>
               
               <div>
-                <label for="confirmPassword" class="block text-sm font-medium text-neutral-700 mb-1">
-                  Confirmar nueva contraseña
+                <label for="confirmPassword" class="block text-sm font-medium text-neutral-400 mb-2">
+                  Confirmar nueva contrasena
                 </label>
                 <input 
                   type="password" 
@@ -138,8 +219,8 @@ if (!user) {
                   name="confirmPassword"
                   required
                   minlength="6"
-                  class="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-navy focus:border-transparent"
-                  placeholder="Repite la contraseña"
+                  class="w-full px-4 py-2 bg-brand-black text-white placeholder-neutral-500 border border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                  placeholder="Repite la contrasena"
                 />
               </div>
               
@@ -148,67 +229,147 @@ if (!user) {
               <button 
                 type="submit"
                 id="submit-btn"
-                class="w-full bg-brand-navy text-white py-3 rounded-lg font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="w-full bg-brand-red text-white py-2 rounded-lg font-medium hover:bg-brand-orange transition disabled:opacity-50"
               >
-                Cambiar Contraseña
+                Cambiar Contrasena
               </button>
             </form>
-          </section>
+          </div>
 
-          {/* Cerrar Sesión */}
-          <section>
-            <button 
-              id="logout-btn"
-              class="w-full border-2 border-red-500 text-red-500 py-3 rounded-lg font-semibold hover:bg-red-50 transition-colors"
-            >
-              Cerrar Sesión
-            </button>
-          </section>
-          
+          <!-- Preferencias Newsletter -->
+          <div id="newsletter" class="bg-brand-dark rounded-lg border border-brand-gray p-6">
+            <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-brand-red" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+              </svg>
+              Preferencias
+            </h2>
+            <div class="space-y-3">
+              <label class="flex items-center gap-3 p-3 border border-brand-gray rounded-lg hover:bg-brand-gray cursor-pointer transition-colors">
+                <input type="checkbox" id="newsletter-check" class="w-5 h-5 accent-brand-red" />
+                <span class="text-neutral-300"><strong class="text-white">Newsletter</strong> - Recibe ofertas y novedades en tu email</span>
+              </label>
+              <label class="flex items-center gap-3 p-3 border border-brand-gray rounded-lg hover:bg-brand-gray cursor-pointer transition-colors">
+                <input type="checkbox" id="notifications-check" checked class="w-5 h-5 accent-brand-red" />
+                <span class="text-neutral-300"><strong class="text-white">Notificaciones</strong> - Recibe actualizaciones de tus pedidos</span>
+              </label>
+            </div>
+          </div>
+
         </div>
+      </div>
+
+      <!-- Acciones de Cuenta -->
+      <div class="bg-brand-dark rounded-lg border border-brand-gray p-6">
+        <h2 class="text-xl font-semibold text-white mb-4">Acciones de Cuenta</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button 
+            onclick="document.getElementById('logout-confirm').classList.remove('hidden')"
+            class="px-4 py-3 border-2 border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-500/10 transition flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+            </svg>
+            Cerrar Sesion
+          </button>
+          <button
+            id="download-data-btn"
+            class="px-4 py-3 border-2 border-brand-orange text-brand-orange rounded-lg font-medium hover:bg-brand-orange/10 transition flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+            Descargar Datos
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal: Editar Perfil -->
+  <div id="edit-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-brand-dark border border-brand-gray rounded-lg max-w-md w-full p-6">
+      <h3 class="text-xl font-bold text-white mb-4">Editar Perfil</h3>
+      <form id="edit-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-neutral-400 mb-1">Nombre Completo</label>
+          <input 
+            type="text" 
+            id="full-name"
+            value={profile?.full_name || ''}
+            class="w-full px-4 py-2 bg-brand-black text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button type="submit" class="flex-1 bg-brand-red text-white py-2 rounded-lg font-medium hover:bg-brand-orange transition">
+            Guardar
+          </button>
+          <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 border border-neutral-500 text-neutral-400 py-2 rounded-lg font-medium hover:bg-neutral-700 transition">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar Logout -->
+  <div id="logout-confirm" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-brand-dark border border-brand-gray rounded-lg max-w-md w-full p-6">
+      <h3 class="text-xl font-bold text-white mb-2">Cerrar sesion?</h3>
+      <p class="text-neutral-400 mb-6">Seras desconectado de tu cuenta.</p>
+      <div class="flex gap-3">
+        <button id="confirm-logout" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition">
+          Si, cerrar sesion
+        </button>
+        <button type="button" onclick="document.getElementById('logout-confirm').classList.add('hidden')" class="flex-1 border border-neutral-500 text-neutral-400 py-2 rounded-lg font-medium hover:bg-neutral-700 transition">
+          Cancelar
+        </button>
       </div>
     </div>
   </div>
+
+
+
 </PublicLayout>
 
 <script>
-  // Cambio de contraseña
-  const form = document.getElementById('password-form') as HTMLFormElement;
-  const messageDiv = document.getElementById('password-message') as HTMLDivElement;
-  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  // Cambio de contrasena
+  const passwordForm = document.getElementById('password-form') as HTMLFormElement;
+  const passwordMessage = document.getElementById('password-message') as HTMLDivElement;
+  const passwordSubmitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
   
-  function showMessage(message: string, isError: boolean) {
-    messageDiv.textContent = message;
-    messageDiv.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+  function showPasswordMessage(message: string, isError: boolean) {
+    passwordMessage.textContent = message;
+    passwordMessage.classList.remove('hidden', 'bg-green-500/20', 'text-green-400', 'bg-red-500/20', 'text-red-400');
     if (isError) {
-      messageDiv.classList.add('bg-red-100', 'text-red-800');
+      passwordMessage.classList.add('bg-red-500/20', 'text-red-400');
     } else {
-      messageDiv.classList.add('bg-green-100', 'text-green-800');
+      passwordMessage.classList.add('bg-green-500/20', 'text-green-400');
     }
   }
   
-  form?.addEventListener('submit', async (e) => {
+  passwordForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const currentPassword = (document.getElementById('currentPassword') as HTMLInputElement).value;
     const newPassword = (document.getElementById('newPassword') as HTMLInputElement).value;
     const confirmPassword = (document.getElementById('confirmPassword') as HTMLInputElement).value;
     
-    // Validar que las contraseñas coincidan
     if (newPassword !== confirmPassword) {
-      showMessage('Las contraseñas no coinciden', true);
+      showPasswordMessage('Las contrasenas no coinciden', true);
       return;
     }
     
-    // Validar longitud mínima
     if (newPassword.length < 6) {
-      showMessage('La contraseña debe tener al menos 6 caracteres', true);
+      showPasswordMessage('La contrasena debe tener al menos 6 caracteres', true);
       return;
     }
     
-    // Deshabilitar botón
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Actualizando...';
+    passwordSubmitBtn.disabled = true;
+    passwordSubmitBtn.textContent = 'Actualizando...';
     
     try {
       const response = await fetch('/api/auth/change-password', {
@@ -220,26 +381,94 @@ if (!user) {
       const data = await response.json();
       
       if (response.ok) {
-        showMessage('¡Contraseña actualizada correctamente!', false);
-        form.reset();
+        showPasswordMessage('Contrasena actualizada correctamente!', false);
+        passwordForm.reset();
       } else {
-        showMessage(data.error || 'Error al cambiar la contraseña', true);
+        showPasswordMessage(data.error || 'Error al cambiar la contrasena', true);
       }
     } catch (error) {
-      showMessage('Error de conexión. Inténtalo de nuevo.', true);
+      showPasswordMessage('Error de conexion. Intentalo de nuevo.', true);
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Cambiar Contraseña';
+      passwordSubmitBtn.disabled = false;
+      passwordSubmitBtn.textContent = 'Cambiar Contrasena';
     }
   });
-  
-  // Cerrar sesión
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+
+  // Editar Perfil
+  const editForm = document.getElementById('edit-form') as HTMLFormElement;
+  const editModal = document.getElementById('edit-modal') as HTMLDivElement;
+  const fullNameInput = document.getElementById('full-name') as HTMLInputElement;
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: fullNameInput.value }),
+      });
+
+      if (response.ok) {
+        editModal.classList.add('hidden');
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  // Cerrar sesion
+  document.getElementById('confirm-logout')?.addEventListener('click', async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/';
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.error('Error al cerrar sesion:', error);
+    }
+  });
+
+  // Newsletter
+  const newsletterCheck = document.getElementById('newsletter-check') as HTMLInputElement;
+  newsletterCheck?.addEventListener('change', async () => {
+    try {
+      await fetch('/api/auth/update-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsletter: newsletterCheck.checked }),
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  // Descargar datos como PDF
+  document.getElementById('download-data-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('download-data-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="animate-pulse">Generando PDF...</span>';
+    
+    try {
+      const response = await fetch('/api/auth/download-data');
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'MisDatos_KicksPremium.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al descargar los datos');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
     }
   });
 </script>

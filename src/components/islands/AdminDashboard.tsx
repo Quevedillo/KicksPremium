@@ -66,18 +66,23 @@ export default function AdminDashboard() {
       });
 
       // Obtener total de órdenes
-      const { data: ordersData, count: orderCount } = await supabase
+      const { data: ordersRecent, count: orderCount } = await supabase
         .from('orders')
         .select('id, status, total_amount, created_at, billing_email', { count: 'exact' })
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // Calcular ingresos y pedidos pendientes
+      // Obtener TODOS los pedidos para calcular ingresos reales
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('status, total_amount');
+
+      // Calcular ingresos y pedidos pendientes de TODOS los pedidos
       let totalRevenue = 0;
       let pendingOrders = 0;
 
-      if (ordersData) {
-        ordersData.forEach((order) => {
+      if (allOrders) {
+        allOrders.forEach((order) => {
           if (order.status === 'completed' || order.status === 'paid') {
             totalRevenue += order.total_amount || 0;
           }
@@ -93,7 +98,7 @@ export default function AdminDashboard() {
         totalOrders: orderCount || 0,
         totalRevenue,
         pendingOrders,
-        recentOrders: ordersData || [],
+        recentOrders: ordersRecent || [],
         lowStockProducts,
         outOfStockProducts,
       });

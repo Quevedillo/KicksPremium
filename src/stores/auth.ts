@@ -1,6 +1,7 @@
 import { atom } from 'nanostores';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
+import { clearCart } from './cart';
 
 const ADMIN_EMAIL = import.meta.env.PUBLIC_ADMIN_EMAIL || '';
 
@@ -369,6 +370,9 @@ export async function logout() {
     authSubscription = null;
   }
 
+  // Limpiar carrito PRIMERO (antes de resetear estado)
+  clearCart();
+
   // Limpiar estado
   authStore.set({
     user: null,
@@ -378,8 +382,12 @@ export async function logout() {
     initialized: false,
   });
 
-  // Limpiar solo claves de auth (preservar carrito y otras preferencias)
+  // Limpiar claves de auth
   AUTH_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+  
+  // Limpiar carrito (PRIVADO POR USUARIO - no preservar entre sesiones)
+  localStorage.removeItem('kickspremium-cart');
+  
   // Limpiar también claves dinámicas de Supabase
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i);

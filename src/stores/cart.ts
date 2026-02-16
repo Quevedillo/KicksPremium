@@ -114,6 +114,9 @@ export const removeDiscountCode = () => {
 
 export const clearCart = () => {
   cartStore.set({ items: [], isOpen: false, discountCode: null, discountApplied: false });
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('kickspremium-cart');
+  }
 };
 
 export const toggleCart = () => {

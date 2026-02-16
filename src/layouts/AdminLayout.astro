@@ -5,9 +5,10 @@ interface Props {
   title?: string;
   description?: string;
   currentPage?: string;
+  fullWidth?: boolean;
 }
 
-const { title, description, currentPage = 'dashboard' } = Astro.props;
+const { title, description, currentPage = 'dashboard', fullWidth = false } = Astro.props;
 
 // Obtener usuario de la sesión (populado por middleware)
 const user = Astro.locals.user;
@@ -132,6 +133,7 @@ const secondaryNavItems = [
     {/* Main Content */}
     <main class="flex-1 ml-72">
       {/* Top Header */}
+      {!fullWidth && (
       <header class="bg-white border-b border-neutral-200 px-8 py-4 sticky top-0 z-10">
         <div class="flex items-center justify-between">
           <div>
@@ -153,9 +155,10 @@ const secondaryNavItems = [
           </div>
         </div>
       </header>
+      )}
 
       {/* Page Content */}
-      <div class="p-8">
+      <div class={fullWidth ? 'h-[calc(100vh)] overflow-hidden' : 'p-8'}>
         <slot />
       </div>
     </main>
