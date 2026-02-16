@@ -64,10 +64,6 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     if (typeof body.is_admin === 'boolean') {
       updateData.is_admin = body.is_admin;
     }
-    
-    if (typeof body.is_active === 'boolean') {
-      updateData.is_active = body.is_active;
-    }
 
     if (Object.keys(updateData).length === 0) {
       return new Response(JSON.stringify({ error: 'No hay datos para actualizar' }), {

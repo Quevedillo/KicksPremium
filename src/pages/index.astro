@@ -16,13 +16,18 @@ const products = (rawProducts || []).filter(p => {
   return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
 }).slice(0, 6);
 
-const { data: categories } = await supabase
+const { data: allCategories } = await supabase
   .from('categories')
   .select('*')
   .order('display_order');
+
+// Mostrar solo las importantes: Todos los Kicks, Travis Scott, Exclusive Drops
+const categories = (allCategories || []).filter(cat => 
+  ['all-kicks', 'travis-scott', 'exclusive-drops'].includes(cat.slug)
+);
 ---
 
-<PublicLayout title="KicksPremium - Sneakers Exclusivos y Limitados" description="Sneakers únicos, colaboraciones especiales y ediciones limitadas. Travis Scott, Jordan Special, Adidas Collab y más.">
+<PublicLayout title="KicksPremium - Sneakers Exclusivos y Limitados" description="Sneakers únicos, colaboraciones especiales y ediciones limitadas. Travis Scott, Jordan, Adidas y más.">
   {/* Hero Section - Full Impact */}
   <section class="relative bg-brand-black text-white overflow-hidden">
     {/* Background Pattern */}
@@ -72,12 +77,12 @@ const { data: categories } = await supabase
   <section class="bg-brand-gray py-6 border-y border-brand-black animate-fade-in-up">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex justify-center items-center gap-8 md:gap-16 text-neutral-500 font-bold uppercase tracking-widest text-sm flex-wrap">
+        <a href="/categoria/all-kicks" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Todos los Kicks</a>
         <a href="/categoria/travis-scott" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Travis Scott</a>
-        <a href="/categoria/jordan" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan Special</a>
-        <a href="/categoria/nike-dunk" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Nike Dunk</a>
-        <a href="/categoria/new-balance" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">New Balance</a>
-        <a href="/categoria/adidas" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Adidas Collab</a>
-        <a href="/categoria/yeezy" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Yeezy SZN</a>
+        <a href="/categoria/jordan-special" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan Special</a>
+        <a href="/categoria/exclusive-drops" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Exclusive Drops</a>
+        <a href="/categoria/limited-editions" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Limited Editions</a>
+        <a href="/categoria/new-releases" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">New Releases</a>
       </div>
     </div>
   </section>

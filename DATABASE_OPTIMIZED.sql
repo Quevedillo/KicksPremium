@@ -347,6 +347,9 @@ CREATE POLICY "users_read_own_profile" ON public.user_profiles
   AS PERMISSIVE FOR SELECT TO public
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "admins_read_all_profiles" ON public.user_profiles;
+-- REMOVED: Causaba recursión infinita. Se verifica admin en backend.
+
 DROP POLICY IF EXISTS "users_insert_own_profile" ON public.user_profiles;
 CREATE POLICY "users_insert_own_profile" ON public.user_profiles
   AS PERMISSIVE FOR INSERT TO public
@@ -359,12 +362,7 @@ CREATE POLICY "users_update_own_profile" ON public.user_profiles
   WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "admins_update_any_profile" ON public.user_profiles;
-CREATE POLICY "admins_update_any_profile" ON public.user_profiles
-  AS PERMISSIVE FOR UPDATE TO public
-  USING (EXISTS (
-    SELECT 1 FROM user_profiles up
-    WHERE up.id = auth.uid() AND up.is_admin = true
-  ));
+-- REMOVED: Causaba recursión infinita. Se verifica admin en backend.
 
 DROP POLICY IF EXISTS "service_role_all_profiles" ON public.user_profiles;
 CREATE POLICY "service_role_all_profiles" ON public.user_profiles
@@ -1028,29 +1026,27 @@ INSERT INTO brands (name, slug, is_featured, display_order) VALUES
 ('Nike', 'nike', true, 1),
 ('Jordan', 'jordan', true, 2),
 ('Adidas', 'adidas', true, 3),
-('Yeezy', 'yeezy', true, 4),
-('New Balance', 'new-balance', true, 5),
-('Puma', 'puma', true, 6),
-('Reebok', 'reebok', false, 7),
-('Converse', 'converse', false, 8),
-('Vans', 'vans', false, 9),
-('ASICS', 'asics', false, 10)
+('New Balance', 'new-balance', true, 4),
+('Puma', 'puma', true, 5),
+('Converse', 'converse', true, 6),
+('Vans', 'vans', false, 7),
+('ASICS', 'asics', false, 8),
+('Reebok', 'reebok', false, 9),
+('Salomon', 'salomon', false, 10)
 ON CONFLICT (slug) DO UPDATE SET
   is_featured = EXCLUDED.is_featured,
   display_order = EXCLUDED.display_order;
 
 -- Categorías
 INSERT INTO categories (name, slug, description, icon, display_order) VALUES
-('Exclusive Drops', 'limited-editions', 'Lanzamientos exclusivos, one-of-a-kind y piezas ultra raras', '💎', 1),
-('Retro Classics', 'retro-classics', 'Reediciones de modelos icónicos de los 80s y 90s', '👟', 2),
-('High Tops', 'high-tops', 'Sneakers de caña alta para un look urbano', '🔝', 3),
-('Low Tops', 'low-tops', 'Sneakers de caña baja, versatilidad máxima', '⬇️', 4),
-('Collabs', 'collabs', 'Colaboraciones con artistas, diseñadores y marcas', '🤝', 5),
-('Performance', 'performance', 'Sneakers diseñados para rendimiento deportivo', '🏃', 6),
-('Lifestyle', 'lifestyle', 'Sneakers casuales para el día a día', '🌆', 7),
-('Travis Scott', 'travis-scott', 'Colaboraciones exclusivas de Travis Scott con Jordan y Nike', 'TS', 8),
-('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', 'JS', 9),
-('Adidas Collab', 'adidas-collab', 'Colaboraciones exclusivas de Adidas con artistas reconocidos', 'AC', 10)
+('Todos los Kicks', 'all-kicks', 'Explora toda nuestra colección de sneakers auténticos', '👟', 1),
+('Travis Scott', 'travis-scott', 'Colaboraciones exclusivas de Travis Scott con Jordan y Nike', '🔥', 2),
+('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', '🏀', 3),
+('Exclusive Drops', 'exclusive-drops', 'Lanzamientos exclusivos y ediciones limitadas', '💎', 4),
+('Limited Editions', 'limited-editions', 'Piezas ultra raras y one-of-a-kind', '⚡', 5),
+('New Releases', 'new-releases', 'Últimos lanzamientos y novedades en stock', '✨', 6),
+('Retro Classics', 'retro-classics', 'Modelos icónicos de los 80s y 90s', '🕰️', 7),
+('Sale', 'sale', 'Descuentos especiales y ofertas limitadas', '🏷️', 8)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
@@ -1088,19 +1084,19 @@ ON CONFLICT (code) DO NOTHING;
 
 -- Secciones de la página
 INSERT INTO page_sections (section_type, title, subtitle, display_order, is_visible, content, settings) VALUES
-('hero', 'SNEAKERS EXCLUSIVOS & LIMITADOS', 'Colaboraciones especiales, ediciones limitadas y piezas únicas. Travis Scott • Jordan Special • Adidas Collab • Nike Rare', 1, true, 
-  '{"cta_primary": {"text": "Explorar Colección", "url": "/productos"}, "cta_secondary": {"text": "Ediciones Limitadas", "url": "/categoria/limited-editions"}, "badge": "Exclusively Limited"}'::jsonb,
+('hero', 'SNEAKERS AUTÉNTICOS & EXCLUSIVOS', 'Ediciones limitadas, colaboraciones y piezas de colección. Travis Scott • Jordan Special • Exclusive Drops • Limited Editions', 1, true, 
+  '{"cta_primary": {"text": "Explorar Catálogo", "url": "/categoria/all-kicks"}, "cta_secondary": {"text": "Ver Exclusivas", "url": "/categoria/exclusive-drops"}, "badge": "100% Authentic"}'::jsonb,
   '{"bg_color": "brand-black", "text_color": "white"}'::jsonb),
-('brands_bar', 'Marcas', null, 2, true,
-  '{"brands": ["Travis Scott", "Jordan Special", "Adidas Collab", "Nike Rare", "Yeezy SZN"]}'::jsonb,
+('brands_bar', 'Marcas Destacadas', null, 2, true,
+  '{"brands": ["Nike", "Jordan", "Adidas", "New Balance", "Puma", "Converse"]}'::jsonb,
   '{}'::jsonb),
-('categories', 'Colecciones', 'Piezas exclusivas y únicamente disponibles', 3, true,
+('categories', 'Colecciones', 'Descubre nuestras colecciones curadas', 3, true,
   '{}'::jsonb,
   '{"columns": 4}'::jsonb),
-('featured_products', 'Destacados', 'Hot Right Now', 4, true,
+('featured_products', 'Lo Más Vendido', 'Productos destacados ahora', 4, true,
   '{"max_products": 6}'::jsonb,
   '{"columns": 3}'::jsonb),
-('newsletter', 'No te pierdas ningún drop', 'Únete a nuestra lista y sé el primero en enterarte de los nuevos lanzamientos y ofertas exclusivas.', 5, true,
+('newsletter', 'No te pierdas ningún lanzamiento', 'Suscríbete y sé el primero en enterarte de nuevos drops, exclusivas y ofertas especiales', 5, true,
   '{}'::jsonb,
   '{}'::jsonb)
 ON CONFLICT DO NOTHING;
