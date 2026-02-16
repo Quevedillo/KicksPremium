@@ -1,6 +1,5 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import { supabase } from '@lib/supabase';
 
 interface Props {
   title?: string;
@@ -10,7 +9,7 @@ interface Props {
 
 const { title, description, currentPage = 'dashboard' } = Astro.props;
 
-// Obtener usuario de la sesión
+// Obtener usuario de la sesión (populado por middleware)
 const user = Astro.locals.user;
 const userEmail = user?.email || 'Admin';
 

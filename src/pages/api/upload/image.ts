@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { cloudinary } from '@lib/cloudinary';
+import { getCloudinary } from '@lib/cloudinary';
 import { supabase } from '@lib/supabase';
 
 export const POST: APIRoute = async (context) => {
@@ -119,7 +119,7 @@ export const POST: APIRoute = async (context) => {
 
     // Subir a Cloudinary
     const result = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
+      const uploadStream = getCloudinary().uploader.upload_stream(
         {
           folder: 'tienda-online/productos',
           resource_type: 'auto',

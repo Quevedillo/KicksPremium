@@ -2,7 +2,7 @@ import { atom } from 'nanostores';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
 
-const ADMIN_EMAIL = import.meta.env.PUBLIC_ADMIN_EMAIL || 'joseluisgq17@gmail.com';
+const ADMIN_EMAIL = import.meta.env.PUBLIC_ADMIN_EMAIL || '';
 
 export interface AuthStore {
   user: User | null;
@@ -23,60 +23,42 @@ export const authStore = atom<AuthStore>({
 let initPromise: Promise<void> | null = null;
 let authSubscription: { unsubscribe: () => void } | null = null;
 
-// Función simple para verificar admin
-async function checkIsAdmin(user: any, retries = 3): Promise<boolean> {
-  console.log('[checkIsAdmin] Starting check:', {
-    userId: user?.id,
-    userEmail: user?.email,
-    ADMIN_EMAIL,
-    emailMatch: user?.email === ADMIN_EMAIL,
-    emailLowerMatch: user?.email?.toLowerCase() === ADMIN_EMAIL?.toLowerCase()
-  });
-  
-  // Primero: verificar por email (fallback rápido)
-  if (user?.email === ADMIN_EMAIL) {
-    console.log('[checkIsAdmin] ✅ Admin confirmed by exact email match');
+/** Claves de localStorage que gestiona el módulo auth */
+const AUTH_STORAGE_KEYS = ['auth_user', 'is_admin', 'sb-auth-token'] as const;
+
+/**
+ * Verifica si un usuario es admin.
+ * Acepta un objeto User completo (con .id y .email).
+ */
+async function checkIsAdmin(user: User | null, retries = 3): Promise<boolean> {
+  if (!user?.id) return false;
+
+  // Verificación rápida por email
+  if (ADMIN_EMAIL && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
     return true;
   }
-  
-  // Case-insensitive check
-  if (user?.email?.toLowerCase() === ADMIN_EMAIL?.toLowerCase()) {
-    console.log('[checkIsAdmin] ✅ Admin confirmed by case-insensitive email match');
-    return true;
-  }
-  
-  // Segundo: verificar en BD (con reintentos)
+
+  // Verificar en BD con reintentos
   for (let i = 0; i < retries; i++) {
     try {
-      console.log(`[checkIsAdmin] Attempt ${i + 1}/${retries}`);
-      
-      const { data, error, status, statusText } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('is_admin')
         .eq('id', user.id)
         .maybeSingle();
 
-      console.log('[checkIsAdmin] Response:', { data, error, status, statusText });
-
       if (error) {
         if (error.message?.includes('AbortError') || error.code === 'ABORT_ERR') {
-          console.log(`[checkIsAdmin] AbortError, retrying...`);
           await new Promise(r => setTimeout(r, 200 * (i + 1)));
           continue;
         }
-        if (error.code === 'PGRST116') {
-          console.log('[checkIsAdmin] No profile found (PGRST116)');
-          return false;
-        }
-        console.warn('[checkIsAdmin] Error:', error);
+        if (error.code === 'PGRST116') return false;
+        console.warn('[Auth] checkIsAdmin error:', error.message);
         return false;
       }
 
-      const result = data?.is_admin === true;
-      console.log('[checkIsAdmin] Final result from BD:', result);
-      return result;
+      return data?.is_admin === true;
     } catch (err) {
-      console.warn('[checkIsAdmin] Exception on attempt', i + 1, ':', err);
       if (err instanceof Error && err.name === 'AbortError') {
         await new Promise(r => setTimeout(r, 200 * (i + 1)));
         continue;
@@ -84,7 +66,6 @@ async function checkIsAdmin(user: any, retries = 3): Promise<boolean> {
       return false;
     }
   }
-  console.log('[checkIsAdmin] ❌ All retries exhausted, returning false');
   return false;
 }
 
@@ -127,7 +108,7 @@ function clearAllCookies() {
   // Borrar todas las cookies de Supabase
   document.cookie.split(';').forEach(c => {
     const eqPos = c.indexOf('=');
-    const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+    const name = eqPos > -1 ? c.substring(0, eqPos).trim() : c.trim();
     if (name.includes('sb-') || name.includes('supabase')) {
       document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
     }
@@ -147,7 +128,6 @@ export async function initializeAuth(): Promise<void> {
       let userToCheck = null;
       
       if (stored.user) {
-        console.log('[Auth] User from storage:', stored.user.email);
         userToCheck = stored.user;
       }
 
@@ -162,7 +142,6 @@ export async function initializeAuth(): Promise<void> {
         
         const { data: sessionData } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         sessionUser = sessionData?.session?.user || null;
-        console.log('[Auth] Session user:', sessionUser?.email);
         
         if (sessionUser) {
           userToCheck = sessionUser;
@@ -175,9 +154,7 @@ export async function initializeAuth(): Promise<void> {
 
       // 3. Verificar admin status para el usuario actual
       if (userToCheck) {
-        console.log('[Auth] Checking admin status for:', userToCheck.email);
         const isAdmin = await checkIsAdmin(userToCheck);
-        console.log('[Auth] User is admin:', isAdmin);
         
         authStore.set({
           user: userToCheck,
@@ -203,8 +180,6 @@ export async function initializeAuth(): Promise<void> {
       // 4. Escuchar cambios de auth (SOLO para nuevos logins/logouts)
       try {
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('[Auth] State change:', event);
-          
           if (event === 'SIGNED_IN' && session?.user) {
             const isAdmin = await checkIsAdmin(session.user);
             
@@ -254,8 +229,6 @@ export async function initializeAuth(): Promise<void> {
 }
 
 export async function login(email: string, password: string) {
-  console.log('[Auth] Login attempt for:', email);
-  
   authStore.set({
     ...authStore.get(),
     isLoading: true,
@@ -289,7 +262,7 @@ export async function login(email: string, password: string) {
         });
     }
 
-    const isAdmin = await checkIsAdmin(data.user.id);
+    const isAdmin = await checkIsAdmin(data.user);
     
     authStore.set({
       user: data.user,
@@ -304,7 +277,6 @@ export async function login(email: string, password: string) {
     return { success: true, user: data.user, isAdmin };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error';
-    console.error('[Auth] Login error:', message);
     authStore.set({
       ...authStore.get(),
       isLoading: false,
@@ -366,7 +338,7 @@ export async function register(email: string, password: string, fullName: string
         });
     }
 
-    const isAdmin = await checkIsAdmin(signInData.user.id);
+    const isAdmin = await checkIsAdmin(signInData.user);
 
     authStore.set({
       user: signInData.user,
@@ -378,7 +350,7 @@ export async function register(email: string, password: string, fullName: string
     
     saveToStorage(signInData.user, isAdmin);
 
-    return { success: true, user: data.user };
+    return { success: true, user: signInData.user };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error';
     authStore.set({
@@ -391,8 +363,6 @@ export async function register(email: string, password: string, fullName: string
 }
 
 export async function logout() {
-  console.log('[Auth] Starting logout...');
-  
   // Limpiar subscription inmediatamente
   if (authSubscription) {
     authSubscription.unsubscribe();
@@ -408,10 +378,14 @@ export async function logout() {
     initialized: false,
   });
 
-  // Limpiar storage
-  localStorage.clear();
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.clear();
+  // Limpiar solo claves de auth (preservar carrito y otras preferencias)
+  AUTH_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+  // Limpiar también claves dinámicas de Supabase
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+      localStorage.removeItem(key);
+    }
   }
 
   // Limpiar TODAS las cookies
@@ -448,7 +422,7 @@ export async function refreshAdminStatus() {
   const state = authStore.get();
   if (!state.user) return;
 
-  const isAdmin = await checkIsAdmin(state.user.id);
+  const isAdmin = await checkIsAdmin(state.user);
   
   if (isAdmin !== state.isAdmin) {
     authStore.set({

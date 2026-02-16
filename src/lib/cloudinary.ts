@@ -1,21 +1,43 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-const cloudName = import.meta.env.PUBLIC_CLOUDINARY_CLOUD_NAME;
-const apiKey = import.meta.env.CLOUDINARY_API_KEY;
-const apiSecret = import.meta.env.CLOUDINARY_API_SECRET;
+let isConfigured = false;
 
-if (!cloudName || !apiKey || !apiSecret) {
-  throw new Error(
-    'Missing Cloudinary configuration. Please check your .env.local file.'
-  );
+/**
+ * Inicializa Cloudinary bajo demanda (lazy init).
+ * Evita crash al importar el módulo si faltan variables de entorno.
+ */
+function ensureConfigured(): void {
+  if (isConfigured) return;
+
+  const cloudName = import.meta.env.PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const apiKey = import.meta.env.CLOUDINARY_API_KEY;
+  const apiSecret = import.meta.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+      'Missing Cloudinary configuration. Please check your .env file for PUBLIC_CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.'
+    );
+  }
+
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+
+  isConfigured = true;
 }
 
-cloudinary.config({
-  cloud_name: cloudName,
-  api_key: apiKey,
-  api_secret: apiSecret,
-});
+/**
+ * Obtiene la instancia configurada de Cloudinary.
+ * Configura las credenciales en la primera llamada.
+ */
+export const getCloudinary = () => {
+  ensureConfigured();
+  return cloudinary;
+};
 
+// Export por compatibilidad con código existente que importe { cloudinary }
 export { cloudinary };
 
 /**

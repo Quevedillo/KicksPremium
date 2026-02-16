@@ -1,5 +1,5 @@
-import { atom } from 'nanostores';
-import type { CartItem, Product } from '../lib/supabase'; // Update this path based on where supabase.ts is located
+import { atom, computed } from 'nanostores';
+import type { CartItem, Product } from '@lib/types';
 
 export interface DiscountCode {
   code: string;
@@ -11,8 +11,8 @@ export interface DiscountCode {
 export interface CartStore {
   items: CartItem[];
   isOpen: boolean;
-  discountCode?: DiscountCode | null;
-  discountApplied?: boolean;
+  discountCode: DiscountCode | null;
+  discountApplied: boolean;
 }
 
 const initialState: CartStore = {
@@ -31,7 +31,7 @@ const getInitialCart = (): CartStore => {
   const stored = localStorage.getItem('kickspremium-cart');
   if (stored) {
     try {
-      return JSON.parse(stored);
+      return { ...initialState, ...JSON.parse(stored) };
     } catch {
       return initialState;
     }
@@ -48,33 +48,31 @@ cartStore.subscribe((value) => {
   }
 });
 
-// Actions
+// Actions - Todas con actualizaciones inmutables
 export const addToCart = (product: Product, quantity: number, size: string) => {
   const current = cartStore.get();
-  const existingItem = current.items.find(
+  const existingIndex = current.items.findIndex(
     (item) => item.product_id === product.id && item.size === size
   );
 
-  if (existingItem) {
-    existingItem.quantity += quantity;
+  let newItems: CartItem[];
+  if (existingIndex >= 0) {
+    newItems = current.items.map((item, i) =>
+      i === existingIndex ? { ...item, quantity: item.quantity + quantity } : item
+    );
   } else {
-    current.items.push({
-      product_id: product.id,
-      product,
-      quantity,
-      size,
-    });
+    newItems = [...current.items, { product_id: product.id, product, quantity, size }];
   }
 
-  cartStore.set({ ...current, items: current.items });
+  cartStore.set({ ...current, items: newItems });
 };
 
 export const removeFromCart = (productId: string, size: string) => {
   const current = cartStore.get();
-  current.items = current.items.filter(
+  const newItems = current.items.filter(
     (item) => !(item.product_id === productId && item.size === size)
   );
-  cartStore.set({ ...current, items: current.items });
+  cartStore.set({ ...current, items: newItems });
 };
 
 export const updateCartItemQuantity = (
@@ -82,19 +80,18 @@ export const updateCartItemQuantity = (
   size: string,
   quantity: number
 ) => {
-  const current = cartStore.get();
-  const item = current.items.find(
-    (item) => item.product_id === productId && item.size === size
-  );
-
-  if (item) {
-    if (quantity <= 0) {
-      removeFromCart(productId, size);
-    } else {
-      item.quantity = quantity;
-      cartStore.set({ ...current, items: current.items });
-    }
+  if (quantity <= 0) {
+    removeFromCart(productId, size);
+    return;
   }
+
+  const current = cartStore.get();
+  const newItems = current.items.map((item) =>
+    item.product_id === productId && item.size === size
+      ? { ...item, quantity }
+      : item
+  );
+  cartStore.set({ ...current, items: newItems });
 };
 
 export const applyDiscountCode = (discount: DiscountCode) => {
@@ -134,41 +131,42 @@ export const closeCart = () => {
   cartStore.set({ ...current, isOpen: false });
 };
 
-// Calculated values
-export const getCartSubtotal = (): number => {
-  const current = cartStore.get();
-  return current.items.reduce(
-    (total, item) => total + item.product.price * item.quantity,
-    0
-  );
-};
+// Valores computados reactivos - se actualizan automáticamente con el store
+export const cartSubtotal = computed(cartStore, (cart) =>
+  cart.items.reduce((total, item) => total + item.product.price * item.quantity, 0)
+);
 
-export const getDiscountAmount = (): number => {
-  const current = cartStore.get();
-  const subtotal = getCartSubtotal();
-  
-  if (!current.discountCode || !current.discountApplied) {
-    return 0;
-  }
+export const discountAmount = computed(cartStore, (cart) => {
+  const subtotal = cart.items.reduce((total, item) => total + item.product.price * item.quantity, 0);
+  if (!cart.discountCode || !cart.discountApplied) return 0;
 
-  const discount = current.discountCode;
-  
-  if (discount.discount_type === 'percentage') {
-    return Math.round((subtotal * discount.discount_value) / 100);
-  } else if (discount.discount_type === 'fixed') {
-    return discount.discount_value;
+  if (cart.discountCode.discount_type === 'percentage') {
+    return Math.round((subtotal * cart.discountCode.discount_value) / 100);
+  } else if (cart.discountCode.discount_type === 'fixed') {
+    return cart.discountCode.discount_value;
   }
-  
   return 0;
-};
+});
 
-export const getCartTotal = (): number => {
-  const subtotal = getCartSubtotal();
-  const discount = getDiscountAmount();
+export const cartTotal = computed(cartStore, (cart) => {
+  const subtotal = cart.items.reduce((total, item) => total + item.product.price * item.quantity, 0);
+  let discount = 0;
+  if (cart.discountCode && cart.discountApplied) {
+    if (cart.discountCode.discount_type === 'percentage') {
+      discount = Math.round((subtotal * cart.discountCode.discount_value) / 100);
+    } else if (cart.discountCode.discount_type === 'fixed') {
+      discount = cart.discountCode.discount_value;
+    }
+  }
   return Math.max(0, subtotal - discount);
-};
+});
 
-export const getCartItemCount = (): number => {
-  const current = cartStore.get();
-  return current.items.reduce((count, item) => count + item.quantity, 0);
-};
+export const cartItemCount = computed(cartStore, (cart) =>
+  cart.items.reduce((count, item) => count + item.quantity, 0)
+);
+
+// Funciones legacy para compatibilidad con código existente
+export const getCartSubtotal = (): number => cartSubtotal.get();
+export const getDiscountAmount = (): number => discountAmount.get();
+export const getCartTotal = (): number => cartTotal.get();
+export const getCartItemCount = (): number => cartItemCount.get();

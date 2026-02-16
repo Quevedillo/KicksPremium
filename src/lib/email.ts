@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 
+// URL base del sitio (configurable por entorno)
+const SITE_URL = import.meta.env.PUBLIC_SITE_URL || 'https://kickspremium.com';
+
 // Configuración SMTP de Gmail
 const SMTP_HOST = import.meta.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = parseInt(import.meta.env.SMTP_PORT || '587');
@@ -361,7 +364,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
           <strong>Próximos Pasos:</strong><br>
           Recibirás un email de seguimiento en breve con información del envío. Si tienes cualquier pregunta, no dudes en contactarnos.
         </p>
-        <a href="https://kickspremium.com/pedidos" class="button">Ver tu Pedido</a>
+        <a href="${SITE_URL}/pedidos" class="button">Ver tu Pedido</a>
       </div>
     </div>
 
@@ -537,12 +540,12 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
       </div>
 
       <div class="section" style="text-align: center;">
-        <a href="https://kickspremium.com" class="button">Usar mi código ahora</a>
+        <a href="${SITE_URL}" class="button">Usar mi código ahora</a>
       </div>
 
       <div class="section">
         <p style="color: #6b7280; font-size: 14px;">
-          Si no deseas recibir estos emails, puedes <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #000; text-decoration: underline;">darte de baja</a> en cualquier momento.
+          Si no deseas recibir estos emails, puedes <a href="${SITE_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="color: #000; text-decoration: underline;">darte de baja</a> en cualquier momento.
         </p>
       </div>
     </div>
@@ -551,7 +554,7 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
       <p style="margin: 0; margin-bottom: 8px;">Kicks Premium - Las mejores zapatillas exclusivas</p>
       <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
       <p style="margin-top: 8px; font-size: 11px;">
-        <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #9ca3af; text-decoration: underline;">Darse de baja del newsletter</a>
+        <a href="${SITE_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="color: #9ca3af; text-decoration: underline;">Darse de baja del newsletter</a>
       </p>
     </div>
   </div>
@@ -609,7 +612,7 @@ export async function sendNewProductEmail(
     }
 
     const formatPrice = (cents: number) => `€${(cents / 100).toFixed(2)}`;
-    const productUrl = `https://kickspremium.com/productos/${product.slug}`;
+    const productUrl = `${SITE_URL}/productos/${product.slug}`;
     const mainImage = product.images?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80';
 
     const htmlContent = `
@@ -779,7 +782,7 @@ export async function sendNewProductEmail(
       </p>
       <p style="margin: 0;">Las mejores zapatillas exclusivas</p>
       <p class="unsubscribe">
-        ¿No quieres recibir más emails? <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(subscriberEmail)}">Darse de baja</a>
+        ¿No quieres recibir más emails? <a href="${SITE_URL}/unsubscribe?email=${encodeURIComponent(subscriberEmail)}">Darse de baja</a>
       </p>
     </div>
   </div>
@@ -964,7 +967,7 @@ export async function sendOrderCancellationEmail(data: OrderCancellationData) {
       
       <p style="margin-top: 24px;">Si tienes alguna pregunta, no dudes en contactarnos.</p>
       
-      <a href="https://kickspremium.com/productos" class="button">Seguir comprando</a>
+      <a href="${SITE_URL}/productos" class="button">Seguir comprando</a>
     </div>
     <div class="footer">
       <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
@@ -1233,7 +1236,7 @@ export async function sendAbandonedCartEmail(email: string) {
       
       <p>No dejes escapar las zapatillas más exclusivas.</p>
       
-      <a href="https://kickspremium.com/carrito" class="button">Completar mi compra</a>
+      <a href="${SITE_URL}/carrito" class="button">Completar mi compra</a>
       
       <p style="margin-top: 32px; font-size: 14px; color: #6b7280;">
         Si tienes alguna pregunta sobre tu pedido, no dudes en contactarnos.
@@ -1242,7 +1245,7 @@ export async function sendAbandonedCartEmail(email: string) {
     <div class="footer">
       <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
       <p style="margin: 8px 0 0 0;">
-        <a href="https://kickspremium.com/unsubscribe?email=${encodeURIComponent(email)}" style="color: #6b7280;">Darse de baja</a>
+        <a href="${SITE_URL}/unsubscribe?email=${encodeURIComponent(email)}" style="color: #6b7280;">Darse de baja</a>
       </p>
     </div>
   </div>
