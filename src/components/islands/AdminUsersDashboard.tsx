@@ -157,6 +157,30 @@ export default function AdminUsersDashboard() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, fullName: string) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar a ${fullName}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        setUsers(users.filter(u => u.id !== userId));
+        alert('Usuario eliminado correctamente');
+      } else {
+        const data = await response.json();
+        alert(`Error al eliminar usuario: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al eliminar usuario');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -390,6 +414,15 @@ export default function AdminUsersDashboard() {
                                 strokeWidth="2"
                                 d={user.is_active ? 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' : 'M5 13l4 4L19 7'}
                               />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id, user.full_name || user.email)}
+                            className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar usuario"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
                         </div>
