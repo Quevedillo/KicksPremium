@@ -123,5 +123,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
+  // Evitar que el navegador cachee páginas que dependen de sesión
+  // para que el estado de auth siempre esté actualizado
+  if (!pathname.startsWith("/api/") && !pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/)) {
+    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+  }
+
   return response;
 });

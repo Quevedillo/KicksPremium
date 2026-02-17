@@ -92,9 +92,20 @@ export default function AuthForm() {
     }
 
     const result = await register(email, password, fullName);
-    setLoading(false);
 
     if (result.success) {
+      // Después de registro exitoso, llamar al API de login para guardar cookies de sesión
+      try {
+        await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch (err) {
+        console.warn('Error setting login cookies after register:', err);
+      }
+
+      setLoading(false);
       setSuccess('¡Registro exitoso! Redirigiendo...');
       setEmail('');
       setPassword('');
@@ -105,6 +116,7 @@ export default function AuthForm() {
         window.location.replace(redirectUrl);
       }, 500);
     } else {
+      setLoading(false);
       setError(result.error || 'Error al registrarse');
     }
   };

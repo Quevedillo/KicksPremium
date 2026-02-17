@@ -55,13 +55,27 @@ export const addToCart = (product: Product, quantity: number, size: string) => {
     (item) => item.product_id === product.id && item.size === size
   );
 
+  // Calcular stock máximo para esta talla
+  const maxStock = product.sizes_available?.[size]
+    ? parseInt(String(product.sizes_available[size])) || 0
+    : 0;
+
+  // Calcular cuántos ya hay en el carrito para este producto+talla
+  const currentInCart = existingIndex >= 0 ? current.items[existingIndex].quantity : 0;
+  
+  // Limitar la cantidad a no exceder el stock disponible
+  const maxCanAdd = Math.max(0, maxStock - currentInCart);
+  const actualQuantity = Math.min(quantity, maxCanAdd);
+
+  if (actualQuantity <= 0) return; // No añadir si ya se alcanzó el límite
+
   let newItems: CartItem[];
   if (existingIndex >= 0) {
     newItems = current.items.map((item, i) =>
-      i === existingIndex ? { ...item, quantity: item.quantity + quantity } : item
+      i === existingIndex ? { ...item, quantity: item.quantity + actualQuantity } : item
     );
   } else {
-    newItems = [...current.items, { product_id: product.id, product, quantity, size }];
+    newItems = [...current.items, { product_id: product.id, product, quantity: actualQuantity, size }];
   }
 
   cartStore.set({ ...current, items: newItems });
@@ -173,3 +187,10 @@ export const getCartSubtotal = (): number => cartSubtotal.get();
 export const getDiscountAmount = (): number => discountAmount.get();
 export const getCartTotal = (): number => cartTotal.get();
 export const getCartItemCount = (): number => cartItemCount.get();
+
+/** Obtener cuántos pares de un producto+talla ya hay en el carrito */
+export const getCartQuantityForSize = (productId: string, size: string): number => {
+  const cart = cartStore.get();
+  const item = cart.items.find(i => i.product_id === productId && i.size === size);
+  return item ? item.quantity : 0;
+};

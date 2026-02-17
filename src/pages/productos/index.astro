@@ -54,7 +54,7 @@ if (sortFilter === 'price-asc') {
 }
 
 if (brandFilter) {
-  productsQuery = productsQuery.eq('brand', brandFilter);
+  productsQuery = productsQuery.ilike('brand', brandFilter);
 }
 
 if (colorFilter) {

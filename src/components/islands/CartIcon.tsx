@@ -17,7 +17,7 @@ export default function CartIcon() {
   return (
     <button
       onClick={() => toggleCart()}
-      className="relative inline-flex items-center justify-center w-10 h-10 text-brand-navy hover:text-brand-charcoal transition-colors"
+      className="relative inline-flex items-center justify-center w-10 h-10 text-white hover:text-neutral-300 transition-colors"
       aria-label="Abrir carrito"
     >
       <svg

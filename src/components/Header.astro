@@ -56,6 +56,10 @@ const { title } = Astro.props;
 
       {/* Navigation Links */}
       <div class="hidden lg:flex items-center gap-5">
+        <a href="/" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-xs tracking-wide group relative">
+          Inicio
+          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
+        </a>
         <a href="/productos" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-xs tracking-wide group relative">
           Catálogo
           <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
@@ -66,14 +70,6 @@ const { title } = Astro.props;
         </a>
         <a href="/productos?brand=Adidas" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-xs tracking-wide group relative">
           Adidas
-          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
-        </a>
-        <a href="/productos?brand=Nike" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-xs tracking-wide group relative">
-          Nike Dunk
-          <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
-        </a>
-        <a href="/productos?brand=New Balance" class="text-neutral-300 hover:text-white transition-colors font-semibold uppercase text-xs tracking-wide group relative">
-          New Balance
           <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-brand-red group-hover:w-full transition-all duration-300"></span>
         </a>
         <a href="/productos?collection=limited" class="text-brand-red hover:text-brand-orange transition-colors font-bold uppercase text-xs tracking-wide group relative animate-pulse">

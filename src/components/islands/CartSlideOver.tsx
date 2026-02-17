@@ -12,6 +12,7 @@ import {
   type DiscountCode
 } from '@stores/cart';
 import { supabase } from '@lib/supabase';
+import { authStore } from '@stores/auth';
 
 export default function CartSlideOver() {
   const [cart, setCart] = useState(cartStore.get());
@@ -45,8 +46,20 @@ export default function CartSlideOver() {
       }
     };
     checkAuth();
+
+    // Escuchar cambios de auth para cerrar carrito al cerrar sesión
+    const unsubAuth = authStore.subscribe((state) => {
+      if (!state.user) {
+        setIsGuest(true);
+      } else {
+        setIsGuest(false);
+      }
+    });
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubAuth();
+    };
   }, []);
 
   const subtotal = getCartSubtotal();
