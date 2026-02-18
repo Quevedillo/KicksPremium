@@ -57,7 +57,7 @@ const categories = (allCategories || []).filter(cat =>
               Explorar Colección
             </a>
             <a
-              href="/categoria/limited-editions"
+              href="/productos?collection=limited"
               class="inline-block border-2 border-white text-white px-8 py-4 font-bold uppercase tracking-wide hover:bg-white hover:text-brand-black transition-all hover:scale-110"
             >
               Ediciones Limitadas
@@ -77,12 +77,12 @@ const categories = (allCategories || []).filter(cat =>
   <section class="bg-brand-gray py-6 border-y border-brand-black animate-fade-in-up">
     <div class="max-w-7xl mx-auto px-4">
       <div class="flex justify-center items-center gap-8 md:gap-16 text-neutral-500 font-bold uppercase tracking-widest text-sm flex-wrap">
-        <a href="/categoria/all-kicks" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Todos los Kicks</a>
-        <a href="/categoria/travis-scott" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Travis Scott</a>
-        <a href="/categoria/jordan-special" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan Special</a>
-        <a href="/categoria/exclusive-drops" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Exclusive Drops</a>
-        <a href="/categoria/limited-editions" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Limited Editions</a>
-        <a href="/categoria/new-releases" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">New Releases</a>
+        <a href="/productos" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Todos los Kicks</a>
+        <a href="/productos?brand=Nike" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Nike</a>
+        <a href="/productos?brand=Jordan" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan</a>
+        <a href="/productos?collection=limited" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Exclusive Drops</a>
+        <a href="/productos?collection=limited" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Limited Editions</a>
+        <a href="/productos?collection=new" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">New Releases</a>
       </div>
     </div>
   </section>

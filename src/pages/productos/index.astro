@@ -72,8 +72,11 @@ if (categoryFilter) {
 if (collectionFilter) {
   if (collectionFilter === 'limited') {
     productsQuery = productsQuery.eq('is_limited_edition', true);
-  } else if (collectionFilter === 'featured') {
-    productsQuery = productsQuery.eq('is_featured', true);
+  } else if (collectionFilter === 'new') {
+    // Mostrar productos recientemente agregados (el orden ya los pone al principio)
+    // No necesita filtro adicional, solo el orden por created_at
+  } else if (collectionFilter === 'restock') {
+    productsQuery = productsQuery.eq('release_type', 'restock');
   }
 }
 
@@ -122,7 +125,8 @@ const hasFilters = brandFilter || colorFilter || categoryFilter || collectionFil
 // Collections/editions options (mejores opciones que los estilos)
 const collections = [
   { value: 'limited', label: 'Ediciones Limitadas', icon: '⭐' },
-  { value: 'featured', label: 'Destacados', icon: '🔥' },
+  { value: 'new', label: 'Nuevos Lanzamientos', icon: '✨' },
+  { value: 'restock', label: 'Restocks', icon: '🔄' },
 ];
 
 // Price ranges in EUR
