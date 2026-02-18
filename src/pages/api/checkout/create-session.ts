@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@lib/supabase';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -29,6 +30,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // IMPORTANT: If guestEmail is explicitly provided, this is a guest checkout request.
     // Skip all auth detection - the client explicitly chose to checkout as guest.
     if (guestEmail && guestEmail.includes('@')) {
+      // Check if this email belongs to a registered user
+      const serviceClient = getSupabaseServiceClient();
+      const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find(
+        (u: any) => u.email?.toLowerCase() === guestEmail.toLowerCase()
+      );
+      
+      if (existingUser) {
+        // Email is registered - require password authentication
+        return new Response(
+          JSON.stringify({ 
+            error: 'email_registered',
+            message: 'Este email ya tiene una cuenta registrada. Introduce tu contraseña para continuar.'
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
       userId = null;
       userEmail = guestEmail;
       console.log('Guest checkout requested with email:', guestEmail);
@@ -119,8 +138,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // Get the origin from the request
     const origin = request.headers.get('origin') || 'http://localhost:4322';
 
-    // Create minimal cart items for metadata (Stripe has 500 char limit per value)
-    const minimalCartItems = items.map((item: {
+    // Create compact cart items for metadata (Stripe has 500 char limit per value)
+    // Only store essential fields; img/brand are fetched from DB later
+    const compactCartItems = items.map((item: {
       product_id: string;
       product: {
         id: string;
@@ -133,13 +153,29 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       size: string;
     }) => ({
       id: item.product_id || item.product.id,
-      name: item.product.name,
-      brand: item.product.brand || '',
-      price: item.product.price,
-      qty: item.quantity,
-      size: item.size,
-      img: item.product.images?.[0] || '',
+      n: item.product.name.substring(0, 40),
+      p: item.product.price,
+      q: item.quantity,
+      s: item.size,
     }));
+
+    // Build cart_items metadata with chunking if needed
+    const cartItemsJson = JSON.stringify(compactCartItems);
+    const cartMetadata: Record<string, string> = {};
+    if (cartItemsJson.length <= 500) {
+      cartMetadata.cart_items = cartItemsJson;
+    } else {
+      // Split into 490-char chunks across multiple metadata keys
+      const chunkSize = 490;
+      const chunks: string[] = [];
+      for (let i = 0; i < cartItemsJson.length; i += chunkSize) {
+        chunks.push(cartItemsJson.substring(i, i + chunkSize));
+      }
+      cartMetadata.cart_items_chunks = String(chunks.length);
+      chunks.forEach((chunk, i) => {
+        cartMetadata[`cart_items_${i}`] = chunk;
+      });
+    }
 
     // Handle discount code - create a Stripe coupon if discount is provided
     let stripeCouponId: string | undefined = undefined;
@@ -194,7 +230,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         user_id: userId || '',
         user_email: userEmail,
         guest_email: !userId ? userEmail : '',
-        cart_items: JSON.stringify(minimalCartItems),
+        ...cartMetadata,
         discount_code: discountCode || '',
         discount_amount: discountInfo ? String(discountInfo.discount_value) : '0',
       },

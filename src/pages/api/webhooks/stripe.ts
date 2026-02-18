@@ -45,7 +45,54 @@ export const POST: APIRoute = async ({ request }) => {
       const supabase = getSupabaseServiceClient();
 
       const userId = session.metadata?.user_id || null;
-      const cartItems = JSON.parse(session.metadata?.cart_items || '[]');
+      
+      // Parse cart items from metadata (supports chunked format)
+      let cartItemsRaw: string;
+      if (session.metadata?.cart_items) {
+        cartItemsRaw = session.metadata.cart_items;
+      } else if (session.metadata?.cart_items_chunks) {
+        const chunkCount = parseInt(session.metadata.cart_items_chunks);
+        cartItemsRaw = '';
+        for (let i = 0; i < chunkCount; i++) {
+          cartItemsRaw += session.metadata[`cart_items_${i}`] || '';
+        }
+      } else {
+        cartItemsRaw = '[]';
+      }
+      const rawCartItems = JSON.parse(cartItemsRaw);
+      
+      // Enrich compact cart items with full product data from DB
+      const cartItems = [];
+      for (const item of rawCartItems) {
+        const productId = item.id;
+        let name = item.n || item.name || 'Producto';
+        let brand = item.brand || '';
+        let img = item.img || '';
+        const price = item.p ?? item.price ?? 0;
+        const qty = item.q ?? item.qty ?? 1;
+        const size = item.s ?? item.size ?? '';
+        
+        // Fetch full product data if compact format (missing img/brand)
+        if (!img || !brand) {
+          try {
+            const { data: product } = await supabase
+              .from('products')
+              .select('name, brand, images')
+              .eq('id', productId)
+              .single();
+            if (product) {
+              name = product.name || name;
+              brand = product.brand || brand;
+              img = product.images?.[0] || img;
+            }
+          } catch (e) {
+            console.warn(`Could not fetch product ${productId} for enrichment`);
+          }
+        }
+        
+        cartItems.push({ id: productId, name, brand, price, qty, size, img });
+      }
+      
       const guestEmail = session.metadata?.guest_email || session.customer_email || null;
 
       // Calculate total from session - use amount_total if available, otherwise calculate from line items
@@ -304,7 +351,18 @@ export const POST: APIRoute = async ({ request }) => {
           stripe_payment_intent_id: paymentIntent.id,
           status: 'failed',
           total_amount: paymentIntent.amount || 0,
-          items: JSON.parse(paymentIntent.metadata?.cart_items || '[]'),
+          items: (() => {
+            try {
+              if (paymentIntent.metadata?.cart_items) return JSON.parse(paymentIntent.metadata.cart_items);
+              if (paymentIntent.metadata?.cart_items_chunks) {
+                const cnt = parseInt(paymentIntent.metadata.cart_items_chunks);
+                let raw = '';
+                for (let i = 0; i < cnt; i++) raw += paymentIntent.metadata[`cart_items_${i}`] || '';
+                return JSON.parse(raw);
+              }
+              return [];
+            } catch { return []; }
+          })(),
           billing_email: paymentIntent.metadata?.guest_email || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

@@ -1,24 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-
-// Helper: obtener cliente con service role
-const getServiceRoleClient = () => {
-  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing Supabase service role configuration');
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-};
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 
 // Helper: verificar autenticación y permisos de admin
 const verifyAdminAuth = async (
@@ -164,39 +145,56 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       });
     }
 
-    // Obtener cliente con service role para eliminar de auth.users
-    const adminClient = getServiceRoleClient();
+    // Use service role client for all delete operations (bypasses RLS)
+    const adminClient = getSupabaseServiceClient();
 
-    // Primero eliminar de user_profiles (que tiene cascadas configuradas)
-    const { error: profileError } = await supabase
+    // 1. Nullify user_id in orders to preserve order history
+    const { error: ordersError } = await adminClient
+      .from('orders')
+      .update({ user_id: null })
+      .eq('user_id', userId);
+
+    if (ordersError) {
+      console.warn('Warning nullifying orders user_id:', ordersError);
+      // Continue - orders might not exist
+    }
+
+    // 2. Delete discount_code_uses for this user
+    const { error: discountUsesError } = await adminClient
+      .from('discount_code_uses')
+      .delete()
+      .eq('user_id', userId);
+
+    if (discountUsesError) {
+      console.warn('Warning deleting discount_code_uses:', discountUsesError);
+    }
+
+    // 3. Delete from user_profiles using service role (bypasses RLS)
+    const { error: profileError } = await adminClient
       .from('user_profiles')
       .delete()
       .eq('id', userId);
 
     if (profileError) {
       console.error('Error deleting user_profiles:', profileError);
-      return new Response(JSON.stringify({ error: 'Error al eliminar perfil de usuario' }), {
+      return new Response(JSON.stringify({ error: 'Error al eliminar perfil de usuario: ' + profileError.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Luego eliminar de auth.users usando service role
+    // 4. Delete from auth.users using service role admin API
     const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
 
     if (authError) {
       console.error('Error deleting auth user:', authError);
-      // Si falla aquí pero se eliminó de profiles, seguir adelante
-      console.warn(`Usuario ${userId} eliminado de perfiles pero hubo error en auth`);
+      return new Response(JSON.stringify({ error: 'Error al eliminar usuario de autenticación: ' + authError.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Usuario eliminado correctamente' 
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.log(`✅ User ${userId} fully deleted from profiles and auth`);
   } catch (error) {
     console.error('Error en DELETE /api/admin/users/[id]:', error);
     return new Response(JSON.stringify({ error: 'Error interno del servidor' }), {

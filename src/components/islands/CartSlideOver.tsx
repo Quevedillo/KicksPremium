@@ -24,6 +24,9 @@ export default function CartSlideOver() {
   const [discountMessage, setDiscountMessage] = useState<string | null>(null);
   const [guestEmail, setGuestEmail] = useState('');
   const [isGuest, setIsGuest] = useState(false);
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [guestPassword, setGuestPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   
   useEffect(() => {
     // Mark component as mounted to prevent hydration mismatch
@@ -194,6 +197,14 @@ export default function CartSlideOver() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle registered email case - show password field
+        if (data.error === 'email_registered') {
+          setShowPasswordField(true);
+          setPasswordError(null);
+          setError(null);
+          setIsProcessing(false);
+          return;
+        }
         throw new Error(data.error || 'Error al procesar el pago');
       }
 
@@ -204,6 +215,65 @@ export default function CartSlideOver() {
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'Error al procesar el pago');
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle login for guest with existing account
+  const handleGuestLogin = async () => {
+    setIsProcessing(true);
+    setPasswordError(null);
+    setError(null);
+
+    try {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: guestEmail,
+        password: guestPassword,
+      });
+
+      if (signInError || !signInData.session) {
+        setPasswordError('Contraseña incorrecta. Esta cuenta ya existe con ese email.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Login successful - proceed with authenticated checkout
+      setIsGuest(false);
+      setShowPasswordField(false);
+      setGuestPassword('');
+      setPasswordError(null);
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${signInData.session.access_token}`,
+      };
+
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          items: cart.items,
+          discountCode: cart.discountCode?.code,
+          discountInfo: cart.discountCode ? {
+            discount_type: cart.discountCode.discount_type,
+            discount_value: cart.discountCode.discount_value,
+          } : null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al procesar el pago');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Login checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
       setIsProcessing(false);
     }
   };
@@ -429,13 +499,55 @@ export default function CartSlideOver() {
                   <input
                     type="email"
                     value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
+                    onChange={(e) => {
+                      setGuestEmail(e.target.value);
+                      // Reset password flow when email changes
+                      if (showPasswordField) {
+                        setShowPasswordField(false);
+                        setGuestPassword('');
+                        setPasswordError(null);
+                      }
+                    }}
                     placeholder="tu@email.com"
                     className="w-full px-3 py-2 bg-brand-gray text-white placeholder-neutral-500 border border-neutral-600 focus:border-brand-red focus:outline-none"
                   />
-                  <p className="text-xs text-neutral-500">
-                    Si te registras con este email en el futuro, podrás ver todos tus pedidos.
-                  </p>
+                  
+                  {/* Password field for registered emails */}
+                  {showPasswordField && (
+                    <div className="space-y-2 mt-2 p-3 bg-yellow-900/30 border border-yellow-600/50 rounded">
+                      <p className="text-sm text-yellow-300">
+                        ⚠️ Este email ya tiene una cuenta registrada. Introduce tu contraseña para continuar.
+                      </p>
+                      <input
+                        type="password"
+                        value={guestPassword}
+                        onChange={(e) => setGuestPassword(e.target.value)}
+                        placeholder="Tu contraseña"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && guestPassword) {
+                            handleGuestLogin();
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-brand-gray text-white placeholder-neutral-500 border border-neutral-600 focus:border-brand-red focus:outline-none"
+                      />
+                      {passwordError && (
+                        <p className="text-xs text-red-400">{passwordError}</p>
+                      )}
+                      <button
+                        onClick={handleGuestLogin}
+                        disabled={isProcessing || !guestPassword}
+                        className="w-full py-2 bg-yellow-600 text-white font-bold uppercase text-sm hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isProcessing ? 'Verificando...' : 'Iniciar sesión y pagar'}
+                      </button>
+                    </div>
+                  )}
+                  
+                  {!showPasswordField && (
+                    <p className="text-xs text-neutral-500">
+                      Si te registras con este email en el futuro, podrás ver todos tus pedidos.
+                    </p>
+                  )}
                 </div>
               )}
 
