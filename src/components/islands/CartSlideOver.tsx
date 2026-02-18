@@ -156,7 +156,8 @@ export default function CartSlideOver() {
 
     try {
       let accessToken: string | null = null;
-      const useGuestCheckout = hasGuestEmail || (!session && hasGuestEmail);
+      const useGuestCheckout = hasGuestEmail || !session;
+      
       if (session) {
         accessToken = session.access_token;
       } else if (!hasGuestEmail) {
@@ -164,8 +165,6 @@ export default function CartSlideOver() {
         setIsProcessing(false);
         return;
       }
-
-      const useGuestCheckout = hasGuestEmail || !session;
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
