@@ -130,23 +130,28 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Send emails
     console.log(`\n📧 Sending emails...`);
-    try {
-      // Transform cart items to match OrderItem interface
-      const orderItems = cartItems.map((item: any) => ({
-        name: item.name,
-        quantity: item.qty || 1,
-        image: item.img,
-        size: item.size,
-      }));
+    // Transform cart items to match OrderItem interface (with price!)
+    const orderItems = cartItems.map((item: any) => ({
+      id: item.id || '',
+      name: item.name,
+      price: item.price || 0,
+      quantity: item.qty || item.quantity || 1,
+      image: item.img || '',
+      size: item.size,
+    }));
 
+    const subtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const tax = totalAmount - subtotal;
+
+    try {
       // Send order confirmation email
       await sendOrderConfirmationEmail({
         orderId: order.id,
         email: billingEmail,
         customerName: shippingName || 'Customer',
         items: orderItems,
-        subtotal: Math.floor(totalAmount * 0.9), // Approximate subtotal
-        tax: Math.floor(totalAmount * 0.1), // Approximate tax
+        subtotal,
+        tax: Math.max(0, tax),
         total: totalAmount,
         shippingAddress: shippingAddress,
         stripeSessionId: sessionId,
@@ -157,22 +162,14 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     try {
-      // Transform cart items to match OrderItem interface
-      const orderItems = cartItems.map((item: any) => ({
-        name: item.name,
-        quantity: item.qty || 1,
-        image: item.img,
-        size: item.size,
-      }));
-
       // Send admin notification
       await sendAdminOrderNotification({
         orderId: order.id,
         email: billingEmail,
         customerName: shippingName || 'Customer',
         items: orderItems,
-        subtotal: Math.floor(totalAmount * 0.9),
-        tax: Math.floor(totalAmount * 0.1),
+        subtotal,
+        tax: Math.max(0, tax),
         total: totalAmount,
         shippingAddress: shippingAddress,
         stripeSessionId: sessionId,

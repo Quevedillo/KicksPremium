@@ -325,6 +325,7 @@ const canReturn = (status: string) => status === 'delivered';
                     type="button"
                     class="download-invoice-btn px-6 py-2 border-2 border-brand-orange text-brand-orange font-bold uppercase text-sm hover:bg-brand-orange hover:text-black transition-colors rounded"
                     data-order-id={order.id}
+                    data-guest-email={isGuestLookup ? guestEmailParam : undefined}
                   >
                     📄 Descargar Factura
                   </button>
@@ -427,21 +428,26 @@ const canReturn = (status: string) => status === 'delivered';
   document.querySelectorAll('.download-invoice-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const orderId = btn.getAttribute('data-order-id');
+      const guestEmail = btn.getAttribute('data-guest-email');
       try {
-        const response = await fetch(`/api/orders/download-invoice?id=${orderId}`);
+        let fetchUrl = `/api/orders/download-invoice?id=${orderId}`;
+        if (guestEmail) {
+          fetchUrl += `&email=${encodeURIComponent(guestEmail)}`;
+        }
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
           throw new Error('Error al descargar la factura');
         }
 
         // Crear blob y descargar
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        const blobUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = blobUrl;
         a.download = `Factura_${orderId?.slice(0, 8) || 'factura'}.pdf`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(blobUrl);
         document.body.removeChild(a);
       } catch (error) {
         alert(error instanceof Error ? error.message : 'Error al descargar la factura');

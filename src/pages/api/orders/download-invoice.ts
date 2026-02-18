@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 import { generateInvoicePDF, generateInvoiceFilename } from '@lib/invoice';
 
 export const GET: APIRoute = async ({ request, params }) => {
@@ -7,6 +7,7 @@ export const GET: APIRoute = async ({ request, params }) => {
     // Obtener acceso token de cookies
     const authHeader = request.headers.get('cookie');
     let userId = null;
+    let userEmail = null;
 
     if (authHeader) {
       const accessToken = authHeader.match(/sb-access-token=([^;]+)/)?.[1];
@@ -18,30 +19,52 @@ export const GET: APIRoute = async ({ request, params }) => {
           refresh_token: refreshToken,
         });
         userId = sessionData?.user?.id || null;
+        userEmail = sessionData?.user?.email || null;
       }
     }
 
-    if (!userId) {
-      return new Response('Unauthorized', { status: 401 });
-    }
+    // Obtener ID del pedido y email de guest (para acceso sin sesión)
+    const url = new URL(request.url);
+    const orderId = url.searchParams.get('id');
+    const guestEmail = url.searchParams.get('email');
 
-    // Obtener ID del pedido
-    const orderId = new URL(request.url).searchParams.get('id');
     if (!orderId) {
       return new Response('Order ID required', { status: 400 });
     }
 
-    // Obtener pedido de la base de datos
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .eq('user_id', userId)
-      .single();
+    let order: any = null;
 
-    if (error || !order) {
-      console.error('Error fetching order:', error);
-      return new Response('Order not found', { status: 404 });
+    if (userId) {
+      // Usuario autenticado: buscar por user_id o billing_email
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .or(`user_id.eq.${userId},billing_email.eq.${userEmail}`)
+        .single();
+
+      if (error || !data) {
+        console.error('Error fetching order:', error);
+        return new Response('Order not found', { status: 404 });
+      }
+      order = data;
+    } else if (guestEmail && guestEmail.includes('@')) {
+      // Guest: buscar por billing_email usando service client (bypass RLS)
+      const serviceClient = getSupabaseServiceClient();
+      const { data, error } = await serviceClient
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .eq('billing_email', guestEmail)
+        .single();
+
+      if (error || !data) {
+        console.error('Error fetching guest order:', error);
+        return new Response('Order not found', { status: 404 });
+      }
+      order = data;
+    } else {
+      return new Response('Unauthorized', { status: 401 });
     }
 
     // Preparar datos para factura
@@ -60,9 +83,10 @@ export const GET: APIRoute = async ({ request, params }) => {
         quantity: item.quantity || item.qty || 1,
         price: item.price || 0,
         size: item.size,
+        image: item.img || item.image || item.product?.images?.[0] || '',
       })),
       subtotal: items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || item.qty || 1), 0),
-      tax: 0, // Se calcula del total
+      tax: Math.max(0, (order.total_amount || 0) - items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || item.qty || 1), 0)),
       discount: order.discount_amount || 0,
       total: order.total_amount || 0,
       orderStatus: order.status === 'completed' ? 'Completado' : order.status === 'pending' ? 'Pendiente' : order.status === 'paid' ? 'Pagado' : order.status,

@@ -140,19 +140,28 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
     }
 
     // Formato de moneda
-    const formatPrice = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+    const formatPrice = (cents: number) => {
+      const val = Number(cents);
+      if (isNaN(val)) return '€0.00';
+      return `€${(val / 100).toFixed(2)}`;
+    };
 
     // HTML del email
     const itemsHtml = order.items
       .map(
         (item) => `
         <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 16px; text-align: left;">
-            <div style="font-weight: 500; color: #1f2937;">${item.name}</div>
-            <div style="font-size: 14px; color: #6b7280;">Cantidad: ${item.quantity}</div>
+          <td style="padding: 16px; text-align: left; width: 80px; vertical-align: top;">
+            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;" />` : `<div style="width: 70px; height: 70px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px;">👟</div>`}
           </td>
-          <td style="padding: 16px; text-align: right;">
-            <div style="font-weight: 500; color: #1f2937;">${formatPrice(item.price)}</div>
+          <td style="padding: 16px; text-align: left; vertical-align: top;">
+            <div style="font-weight: 600; color: #1f2937; font-size: 15px;">${item.name}</div>
+            ${item.size ? `<div style="font-size: 13px; color: #6b7280; margin-top: 4px;">Talla: ${item.size}</div>` : ''}
+            <div style="font-size: 13px; color: #6b7280; margin-top: 2px;">Cantidad: ${item.quantity}</div>
+          </td>
+          <td style="padding: 16px; text-align: right; vertical-align: top;">
+            <div style="font-weight: 600; color: #1f2937; font-size: 15px;">${formatPrice(item.price * item.quantity)}</div>
+            ${item.quantity > 1 ? `<div style="font-size: 12px; color: #9ca3af;">${formatPrice(item.price)} c/u</div>` : ''}
           </td>
         </tr>
       `
@@ -313,9 +322,10 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 
       <div class="section">
         <div class="section-title">Artículos</div>
-        <table class="items-table">
+        <table class="items-table" style="width: 100%;">
           <thead>
             <tr style="background-color: white; border-bottom: 2px solid #e5e7eb;">
+              <th style="padding: 12px; text-align: left; font-weight: 600; color: #1f2937; width: 80px;"></th>
               <th style="padding: 12px; text-align: left; font-weight: 600; color: #1f2937;">Producto</th>
               <th style="padding: 12px; text-align: right; font-weight: 600; color: #1f2937;">Precio</th>
             </tr>
@@ -1099,15 +1109,25 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
       return { success: false, error: 'Email service not configured' };
     }
 
-    const formatPrice = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+    const formatPrice = (cents: number) => {
+      const val = Number(cents);
+      if (isNaN(val)) return '€0.00';
+      return `€${(val / 100).toFixed(2)}`;
+    };
 
     const itemsHtml = order.items
       .map(
         (item) => `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.price)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; width: 60px; vertical-align: top;">
+            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;" />` : `<div style="width: 50px; height: 50px; background: #f3f4f6; border-radius: 6px; text-align: center; line-height: 50px; font-size: 22px;">👟</div>`}
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb;">
+            <div style="font-weight: 500;">${item.name}</div>
+            ${item.size ? `<div style="font-size: 12px; color: #6b7280;">Talla: ${item.size}</div>` : ''}
+          </td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatPrice(item.price)}</td>
         </tr>
       `
       )
@@ -1148,6 +1168,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
     <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background: #f3f4f6;">
+          <th style="padding: 8px; text-align: left; width: 60px;"></th>
           <th style="padding: 8px; text-align: left;">Producto</th>
           <th style="padding: 8px; text-align: center;">Cant.</th>
           <th style="padding: 8px; text-align: right;">Precio</th>
