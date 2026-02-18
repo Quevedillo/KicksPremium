@@ -23,7 +23,7 @@ export default function CartSlideOver() {
   const [applyingDiscount, setApplyingDiscount] = useState(false);
   const [discountMessage, setDiscountMessage] = useState<string | null>(null);
   const [guestEmail, setGuestEmail] = useState('');
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(true); // Default to true to show email field immediately
   const [showPasswordField, setShowPasswordField] = useState(false);
   const [guestPassword, setGuestPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -41,8 +41,8 @@ export default function CartSlideOver() {
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setIsGuest(true);
+        if (session) {
+          setIsGuest(false);
         }
       } catch {
         setIsGuest(true);
@@ -139,39 +139,33 @@ export default function CartSlideOver() {
   };
 
   const handleCheckout = async () => {
-    setIsProcessing(true);
     setError(null);
+    
+    // Check session first
+    const { data: { session } } = await supabase.auth.getSession();
+    const hasGuestEmail = guestEmail && guestEmail.includes('@');
+    
+    // If no session and no guest email, show email field and return
+    if (!session && !hasGuestEmail) {
+      setIsGuest(true);
+      setError(null);
+      return;
+    }
+
+    setIsProcessing(true);
 
     try {
-      // If guest email field is filled, always use guest checkout
-      // This handles stale sessions where cookies persist but user wants guest checkout
-      const hasGuestEmail = guestEmail && guestEmail.includes('@');
-      
       let accessToken: string | null = null;
-      let useGuestCheckout = isGuest || hasGuestEmail;
+      const useGuestCheckout = hasGuestEmail || !session;
       
-      if (!hasGuestEmail) {
-        // Only try auth if no guest email was provided
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (session) {
-          accessToken = session.access_token;
-          useGuestCheckout = false;
-        } else {
-          useGuestCheckout = true;
-          setIsGuest(true);
-        }
+      if (session) {
+        accessToken = session.access_token;
+      } else if (!hasGuestEmail) {
+        setError('Por favor, introduce un email válido para recibir la confirmación de tu pedido.');
+        setIsProcessing(false);
+        return;
       }
-
-      // Validate guest email if doing guest checkout
-      if (useGuestCheckout) {
-        if (!guestEmail || !guestEmail.includes('@')) {
-          setError('Por favor, introduce un email válido para recibir la confirmación de tu pedido.');
-          setIsProcessing(false);
-          return;
-        }
-      }
-
+      
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
