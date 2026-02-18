@@ -68,6 +68,11 @@ const { data: relatedProducts } = await supabase
               Limited Edition
             </div>
           )}
+          {product.discount_type && product.discount_value && product.discount_value > 0 && (
+            <div class={`absolute ${product.is_limited_edition ? 'top-16' : 'top-6'} left-6 bg-green-600 text-white text-sm font-bold px-3 py-1 z-10 uppercase`}>
+              {product.discount_type === 'percentage' ? `-${product.discount_value}%` : `-€${product.discount_value}`} OFERTA
+            </div>
+          )}
           <ProductGallery
             images={product.images || []}
             productName={product.name}
@@ -217,7 +222,17 @@ const { data: relatedProducts } = await supabase
                 <h3 class="text-white text-sm font-bold group-hover:text-brand-red transition-colors line-clamp-1">
                   {related.name}
                 </h3>
-                <span class="text-white font-bold">€{(related.price / 100).toFixed(0)}</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-white font-bold">€{(related.price / 100).toFixed(0)}</span>
+                  {related.original_price && related.original_price > related.price && (
+                    <>
+                      <span class="text-neutral-500 text-xs line-through">€{(related.original_price / 100).toFixed(0)}</span>
+                      <span class="bg-green-600 text-white text-xs font-bold px-1">
+                        -{Math.round((1 - related.price / related.original_price) * 100)}%
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </a>
           ))}

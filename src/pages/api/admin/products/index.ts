@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabase, getSupabaseServiceClient } from '@lib/supabase';
-import { sendNewProductToAllSubscribers } from '@lib/email';
+import { sendNewProductToAllSubscribers, sendNewOfferToAllSubscribers } from '@lib/email';
 
 // GET - List all products
 export const GET: APIRoute = async ({ cookies, url }) => {
@@ -131,12 +131,33 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const name = body.name?.toString().trim();
     const description = body.description?.toString().trim();
     const categoryId = body.category_id?.toString().trim();
-    const price = Math.round((parseFloat(body.price ?? 0) * 100)); // Convertir EUR a centimos
+    const basePriceEur = parseFloat(body.price ?? 0);
     const cost_price = Math.round((parseFloat(body.cost_price ?? 0) * 100)); // Convertir EUR a centimos
     let stock = parseInt(body.stock ?? 0);
     const images = Array.isArray(body.images) ? body.images : [];
     const brand = body.brand?.toString().trim() || null;
     const color = body.color?.toString().trim() || null;
+    
+    // Campos de colección
+    const is_limited_edition = body.is_limited_edition === true || body.is_limited_edition === 'true';
+    const release_type = ['standard', 'restock', 'limited'].includes(body.release_type) ? body.release_type : 'standard';
+    
+    // Campos de descuento
+    const discount_type = ['percentage', 'fixed'].includes(body.discount_type) ? body.discount_type : null;
+    const discount_value = discount_type ? parseFloat(body.discount_value ?? 0) : null;
+    
+    // Calcular precio final con descuento
+    let finalPriceCents = Math.round(basePriceEur * 100);
+    let original_price: number | null = null;
+    
+    if (discount_type && discount_value && discount_value > 0) {
+      original_price = finalPriceCents; // Guardar precio original
+      if (discount_type === 'percentage') {
+        finalPriceCents = Math.round(finalPriceCents * (1 - discount_value / 100));
+      } else if (discount_type === 'fixed') {
+        finalPriceCents = Math.max(0, finalPriceCents - Math.round(discount_value * 100));
+      }
+    }
     
     // Procesar sizes_available
     let sizes_available: Record<string, number> = {};
@@ -156,11 +177,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       stock = Object.values(sizes_available).reduce((sum: number, qty: number) => sum + qty, 0);
     }
 
-    if (!name || !description || !categoryId || isNaN(price) || price < 0 || isNaN(cost_price) || cost_price < 0 || isNaN(stock) || stock < 0) {
-      console.error('Validación fallida:', { name, description, categoryId, price, cost_price, stock });
+    if (!name || !description || !categoryId || isNaN(finalPriceCents) || finalPriceCents < 0 || isNaN(cost_price) || cost_price < 0 || isNaN(stock) || stock < 0) {
+      console.error('Validación fallida:', { name, description, categoryId, price: finalPriceCents, cost_price, stock });
       return new Response(JSON.stringify({ 
         error: 'Faltan campos requeridos o son inválidos',
-        details: { name: !!name, description: !!description, categoryId: !!categoryId, price, cost_price, stock }
+        details: { name: !!name, description: !!description, categoryId: !!categoryId, price: finalPriceCents, cost_price, stock }
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +244,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         slug: finalSlug,
         description,
         category_id: categoryId,
-        price,
+        price: finalPriceCents,
+        original_price: original_price,
         cost_price,
         stock,
         sizes_available: Object.keys(sizes_available).length > 0 ? sizes_available : null,
@@ -231,6 +253,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         brand,
         sku,
         color,
+        is_limited_edition,
+        release_type,
+        discount_type,
+        discount_value,
       })
       .select(`
         *,
@@ -264,24 +290,41 @@ export const POST: APIRoute = async ({ request, cookies }) => {
           slug: product.slug,
           description: product.description || '',
           price: product.price,
+          originalPrice: product.original_price || null,
           images: product.images || [],
           brand: product.brand,
           category: product.categories?.name || null,
           isLimitedEdition: product.is_limited_edition,
+          discountType: product.discount_type || null,
+          discountValue: product.discount_value || null,
         };
 
-        // Enviar emails de forma asíncrona (no bloqueamos la respuesta)
-        sendNewProductToAllSubscribers(subscribers, productData)
-          .then((result) => {
-            console.log(`✅ Newsletter enviado para producto ${product.slug}:`, result);
-          })
-          .catch((emailError) => {
-            console.error(`❌ Error enviando newsletter para ${product.slug}:`, emailError);
-          });
+        // Si tiene descuento, enviar email de oferta; si no, email de nuevo producto
+        const hasDiscount = product.discount_type && product.discount_value && product.discount_value > 0;
+        
+        if (hasDiscount) {
+          sendNewOfferToAllSubscribers(subscribers, productData)
+            .then((result) => {
+              console.log(`✅ Newsletter OFERTA enviado para ${product.slug}:`, result);
+            })
+            .catch((emailError) => {
+              console.error(`❌ Error enviando newsletter oferta para ${product.slug}:`, emailError);
+            });
+        } else {
+          sendNewProductToAllSubscribers(subscribers, productData)
+            .then((result) => {
+              console.log(`✅ Newsletter enviado para producto ${product.slug}:`, result);
+            })
+            .catch((emailError) => {
+              console.error(`❌ Error enviando newsletter para ${product.slug}:`, emailError);
+            });
+        }
 
         newsletterResult = {
           scheduledFor: subscribers.length,
-          message: 'Notificación programada para enviar a los suscriptores',
+          message: hasDiscount 
+            ? 'Notificación de OFERTA programada para enviar a los suscriptores'
+            : 'Notificación programada para enviar a los suscriptores',
         };
       } else {
         newsletterResult = {

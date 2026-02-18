@@ -600,11 +600,14 @@ interface ProductNewsletterData {
   name: string;
   slug: string;
   description: string;
-  price: number; // en centimos
+  price: number; // en centimos (precio final con descuento)
+  originalPrice?: number | null; // precio original en centimos (antes de descuento)
   images: string[];
   brand?: string | null;
   category?: string | null;
   isLimitedEdition?: boolean;
+  discountType?: 'percentage' | 'fixed' | null;
+  discountValue?: number | null;
 }
 
 /**
@@ -860,6 +863,270 @@ export async function sendNewProductToAllSubscribers(
 
   console.log(
     `Newsletter enviado: ${results.sent} enviados, ${results.failed} fallidos de ${subscribers.length} suscriptores`
+  );
+
+  return results;
+}
+
+/**
+ * Enviar email de nueva oferta a un suscriptor del newsletter
+ */
+export async function sendNewOfferEmail(
+  subscriberEmail: string,
+  product: ProductNewsletterData
+) {
+  try {
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn(`⚠️ Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
+      throw new Error('Email service not configured');
+    }
+
+    const formatPrice = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+    const productUrl = `${SITE_URL}/productos/${product.slug}`;
+    const mainImage = product.images?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80';
+    
+    // Calcular texto de descuento
+    let discountText = '';
+    if (product.discountType === 'percentage' && product.discountValue) {
+      discountText = `-${product.discountValue}%`;
+    } else if (product.discountType === 'fixed' && product.discountValue) {
+      discountText = `-€${product.discountValue}`;
+    }
+
+    const originalPriceText = product.originalPrice ? formatPrice(product.originalPrice) : '';
+    const finalPriceText = formatPrice(product.price);
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: white;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .header .badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .product-image {
+      width: 100%;
+      max-height: 350px;
+      object-fit: cover;
+    }
+    .content {
+      padding: 30px 20px;
+    }
+    .product-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 8px 0;
+    }
+    .product-brand {
+      font-size: 14px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .product-description {
+      color: #4b5563;
+      font-size: 15px;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .price-section {
+      background-color: #f0fdf4;
+      border: 2px solid #bbf7d0;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .original-price {
+      font-size: 18px;
+      color: #9ca3af;
+      text-decoration: line-through;
+      margin-right: 12px;
+    }
+    .sale-price {
+      font-size: 36px;
+      font-weight: 700;
+      color: #16a34a;
+    }
+    .discount-badge {
+      display: inline-block;
+      background-color: #16a34a;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    .button {
+      display: block;
+      background-color: #16a34a;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      text-align: center;
+    }
+    .button:hover {
+      background-color: #15803d;
+    }
+    .footer {
+      background-color: #1f2937;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .footer a {
+      color: #9ca3af;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏷️ ¡NUEVA OFERTA!</h1>
+      <span class="badge">${discountText} de descuento</span>
+    </div>
+
+    <img src="${mainImage}" alt="${product.name}" class="product-image" />
+
+    <div class="content">
+      ${product.brand ? `<div class="product-brand">${product.brand}</div>` : ''}
+      
+      <h2 class="product-name">${product.name}</h2>
+      
+      <p class="product-description">${product.description}</p>
+      
+      <div class="price-section">
+        ${originalPriceText ? `<span class="original-price">${originalPriceText}</span>` : ''}
+        <span class="sale-price">${finalPriceText}</span>
+        <br/>
+        <span class="discount-badge">¡Ahorra ${discountText}!</span>
+      </div>
+      
+      <a href="${productUrl}" class="button">
+        🛒 Comprar Ahora con Descuento →
+      </a>
+      
+      <p style="text-align: center; color: #6b7280; font-size: 13px; margin-top: 16px;">
+        ¡Aprovecha antes de que se agoten! ⏰
+      </p>
+    </div>
+
+    <div class="footer">
+      <p style="margin: 0; margin-bottom: 8px;">
+        <strong style="color: white;">KICKS</strong><span style="color: #ef4444;">PREMIUM</span>
+      </p>
+      <p style="margin: 0;">Las mejores zapatillas exclusivas</p>
+      <p style="margin-top: 12px; font-size: 11px; color: #6b7280;">
+        ¿No quieres recibir más emails? <a href="${SITE_URL}/unsubscribe?email=${encodeURIComponent(subscriberEmail)}">Darse de baja</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await sendEmailWithSMTP({
+      to: subscriberEmail,
+      subject: `🏷️ ¡Oferta! ${product.name} ${discountText}`,
+      html: htmlContent,
+    });
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send email');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`Error sending offer email to ${subscriberEmail}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Enviar notificación de nueva oferta a todos los suscriptores del newsletter
+ */
+export async function sendNewOfferToAllSubscribers(
+  subscribers: { email: string }[],
+  product: ProductNewsletterData
+): Promise<{ sent: number; failed: number; errors: string[] }> {
+  const results = {
+    sent: 0,
+    failed: 0,
+    errors: [] as string[],
+  };
+
+  const BATCH_SIZE = 10;
+  const DELAY_BETWEEN_BATCHES = 1000;
+
+  for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
+    const batch = subscribers.slice(i, i + BATCH_SIZE);
+    
+    const batchPromises = batch.map(async (subscriber) => {
+      try {
+        await sendNewOfferEmail(subscriber.email, product);
+        results.sent++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push(
+          `${subscriber.email}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+    });
+
+    await Promise.all(batchPromises);
+
+    if (i + BATCH_SIZE < subscribers.length) {
+      await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+    }
+  }
+
+  console.log(
+    `Newsletter OFERTA enviado: ${results.sent} enviados, ${results.failed} fallidos de ${subscribers.length} suscriptores`
   );
 
   return results;

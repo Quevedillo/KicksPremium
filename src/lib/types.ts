@@ -36,6 +36,10 @@ export interface Product {
   sizes_available?: Record<string, number>; // { "36": 5, "37": 3, ... }
   tags?: string[];
 
+  // Descuentos
+  discount_type?: 'percentage' | 'fixed' | null;
+  discount_value?: number | null;
+
   created_at: string;
   updated_at: string;
 }

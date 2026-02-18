@@ -16,15 +16,37 @@ const products = (rawProducts || []).filter(p => {
   return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
 }).slice(0, 6);
 
-const { data: allCategories } = await supabase
-  .from('categories')
-  .select('*')
-  .order('display_order');
-
-// Mostrar solo las importantes: Todos los Kicks, Travis Scott, Exclusive Drops
-const categories = (allCategories || []).filter(cat => 
-  ['all-kicks', 'travis-scott', 'exclusive-drops'].includes(cat.slug)
-);
+// Colecciones principales (hardcoded, no dependen de categorías)
+const collections = [
+  { 
+    name: 'Ediciones Limitadas', 
+    slug: 'limited', 
+    description: 'Piezas ultra raras y exclusivas', 
+    icon: '⚡',
+    href: '/productos?collection=limited'
+  },
+  { 
+    name: 'Nuevos Lanzamientos', 
+    slug: 'new', 
+    description: 'Últimos drops y novedades', 
+    icon: '✨',
+    href: '/productos?collection=new'
+  },
+  { 
+    name: 'Restocks', 
+    slug: 'restock', 
+    description: 'De vuelta en stock', 
+    icon: '🔄',
+    href: '/productos?collection=restock'
+  },
+  { 
+    name: 'Ofertas', 
+    slug: 'offers', 
+    description: 'Descuentos exclusivos', 
+    icon: '🏷️',
+    href: '/productos?collection=offers'
+  },
+];
 ---
 
 <PublicLayout title="KicksPremium - Sneakers Exclusivos y Limitados" description="Sneakers únicos, colaboraciones especiales y ediciones limitadas. Travis Scott, Jordan, Adidas y más.">
@@ -80,9 +102,9 @@ const categories = (allCategories || []).filter(cat =>
         <a href="/productos" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Todos los Kicks</a>
         <a href="/productos?brand=Nike" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Nike</a>
         <a href="/productos?brand=Jordan" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Jordan</a>
-        <a href="/productos?collection=limited" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Exclusive Drops</a>
-        <a href="/productos?collection=limited" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Limited Editions</a>
-        <a href="/productos?collection=new" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">New Releases</a>
+        <a href="/productos?collection=limited" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Ediciones Limitadas</a>
+        <a href="/productos?collection=new" class="hover:text-white hover:text-brand-red transition-all duration-300 cursor-pointer hover:scale-110">Nuevos Lanzamientos</a>
+        <a href="/productos?collection=offers" class="text-brand-red hover:text-brand-orange transition-all duration-300 cursor-pointer hover:scale-110">Ofertas 🏷️</a>
       </div>
     </div>
   </section>
@@ -103,22 +125,22 @@ const categories = (allCategories || []).filter(cat =>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {categories?.map((cat, idx) => (
+        {collections?.map((col, idx) => (
           <a
-            href={`/categoria/${cat.slug}`}
+            href={col.href}
             class={`group relative bg-brand-gray overflow-hidden aspect-square hover:scale-[1.05] transition-all animate-fade-in-up`}
             style={`animation-delay: ${idx * 100}ms`}
           >
             <div class="absolute inset-0 bg-gradient-to-t from-brand-black/90 via-brand-black/20 to-transparent z-10"></div>
             <div class="absolute inset-0 flex items-center justify-center text-6xl md:text-8xl opacity-30 group-hover:opacity-50 group-hover:scale-110 transition-all">
-              {cat.icon}
+              {col.icon}
             </div>
             <div class="absolute bottom-0 left-0 right-0 p-4 z-20">
               <h3 class="text-xl md:text-2xl font-display font-bold text-white uppercase tracking-wide group-hover:text-brand-red transition-colors">
-                {cat.name}
+                {col.name}
               </h3>
               <p class="text-neutral-400 text-sm mt-1 hidden md:block">
-                {cat.description?.split(':')[0]}
+                {col.description}
               </p>
             </div>
           </a>

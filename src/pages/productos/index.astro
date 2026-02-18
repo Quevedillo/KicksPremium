@@ -77,6 +77,9 @@ if (collectionFilter) {
     // No necesita filtro adicional, solo el orden por created_at
   } else if (collectionFilter === 'restock') {
     productsQuery = productsQuery.eq('release_type', 'restock');
+  } else if (collectionFilter === 'offers') {
+    productsQuery = productsQuery.not('discount_type', 'is', null);
+    productsQuery = productsQuery.gt('discount_value', 0);
   }
 }
 
@@ -127,6 +130,7 @@ const collections = [
   { value: 'limited', label: 'Ediciones Limitadas', icon: '⭐' },
   { value: 'new', label: 'Nuevos Lanzamientos', icon: '✨' },
   { value: 'restock', label: 'Restocks', icon: '🔄' },
+  { value: 'offers', label: 'Ofertas', icon: '🏷️' },
 ];
 
 // Price ranges in EUR
@@ -480,6 +484,11 @@ function buildUrl(params: Record<string, string | null>) {
                 {product.is_limited_edition && (
                   <div class="absolute top-3 left-3 bg-brand-red text-white text-xs font-bold px-2 py-1 z-10 uppercase rounded">
                     Limited
+                  </div>
+                )}
+                {product.discount_type && product.discount_value && product.discount_value > 0 && (
+                  <div class="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-2 py-1 z-10 uppercase rounded" style={product.is_limited_edition ? 'top: 2.5rem' : ''}>
+                    {product.discount_type === 'percentage' ? `-${product.discount_value}%` : `-€${product.discount_value}`}
                   </div>
                 )}
                 {product.stock <= 5 && product.stock > 0 && (

@@ -227,6 +227,105 @@ const { data: categories } = await supabase
         </div>
       </div>
 
+      {/* Colección / Tipo de Lanzamiento Card */}
+      <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+          <h2 class="font-semibold text-brand-black">Colección y Tipo de Lanzamiento</h2>
+        </div>
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Edición Limitada */}
+            <div>
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="is_limited_edition"
+                  name="is_limited_edition"
+                  class="w-5 h-5 rounded border-neutral-300 text-brand-red focus:ring-brand-red"
+                />
+                <div>
+                  <span class="text-sm font-medium text-neutral-700">Edición Limitada</span>
+                  <p class="text-xs text-neutral-500">Marca este producto como edición limitada (aparecerá en la colección "Ediciones Limitadas")</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Tipo de Lanzamiento */}
+            <div>
+              <label for="release_type" class="block text-sm font-medium text-neutral-700 mb-2">
+                Tipo de Lanzamiento
+              </label>
+              <select
+                id="release_type"
+                name="release_type"
+                class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
+              >
+                <option value="standard">Estándar</option>
+                <option value="restock">Restock (aparecerá en la colección "Restocks")</option>
+                <option value="limited">Lanzamiento Limitado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Descuento / Oferta Card */}
+      <div class="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div class="p-6 border-b border-neutral-200 bg-neutral-50">
+          <h2 class="font-semibold text-brand-black">🏷️ Descuento / Oferta</h2>
+          <p class="text-sm text-neutral-500 mt-1">Si activas un descuento, el producto aparecerá en la colección "Ofertas" y se notificará a los suscriptores del newsletter.</p>
+        </div>
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tipo de Descuento */}
+            <div>
+              <label for="discount_type" class="block text-sm font-medium text-neutral-700 mb-2">
+                Tipo de Descuento
+              </label>
+              <select
+                id="discount_type"
+                name="discount_type"
+                class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
+              >
+                <option value="">Sin descuento</option>
+                <option value="percentage">Porcentaje (%)</option>
+                <option value="fixed">Cantidad fija (€)</option>
+              </select>
+            </div>
+
+            {/* Valor del Descuento */}
+            <div>
+              <label for="discount_value" class="block text-sm font-medium text-neutral-700 mb-2">
+                Valor del Descuento
+              </label>
+              <div class="relative">
+                <input
+                  type="number"
+                  id="discount_value"
+                  name="discount_value"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-4 py-3 border border-neutral-300 rounded-lg bg-white text-brand-black placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-black focus:border-transparent transition-all"
+                  placeholder="0"
+                  disabled
+                />
+                <span id="discount_suffix" class="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 font-medium"></span>
+              </div>
+              <p class="text-xs text-neutral-500 mt-1">Ej: 20 para 20% o 30 para €30 de descuento</p>
+            </div>
+          </div>
+
+          {/* Preview del precio con descuento */}
+          <div id="discount-preview" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg hidden">
+            <p class="text-sm font-medium text-green-800">
+              <span class="line-through text-neutral-400" id="preview-original"></span>
+              → <span class="text-green-700 font-bold text-lg" id="preview-final"></span>
+              <span class="ml-2 bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded" id="preview-savings"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Actions */}
       <div class="flex items-center justify-end gap-4 pt-4">
         <a
@@ -259,6 +358,16 @@ const { data: categories } = await supabase
   const stockInput = document.getElementById('stock') as HTMLInputElement;
   const sizesInput = document.querySelector('input[name="sizes_available"]') as HTMLInputElement;
   
+  // Discount elements
+  const discountTypeSelect = document.getElementById('discount_type') as HTMLSelectElement;
+  const discountValueInput = document.getElementById('discount_value') as HTMLInputElement;
+  const discountSuffix = document.getElementById('discount_suffix') as HTMLElement;
+  const discountPreview = document.getElementById('discount-preview') as HTMLElement;
+  const previewOriginal = document.getElementById('preview-original') as HTMLElement;
+  const previewFinal = document.getElementById('preview-final') as HTMLElement;
+  const previewSavings = document.getElementById('preview-savings') as HTMLElement;
+  const priceInput = document.getElementById('price') as HTMLInputElement;
+  
   nameInput?.addEventListener('input', () => {
     const slug = nameInput.value
       .toLowerCase()
@@ -268,6 +377,52 @@ const { data: categories } = await supabase
       .replace(/^-+|-+$/g, '');
     slugInput.value = slug;
   });
+
+  // Discount type change handler
+  discountTypeSelect?.addEventListener('change', () => {
+    const type = discountTypeSelect.value;
+    if (type) {
+      discountValueInput.disabled = false;
+      discountSuffix.textContent = type === 'percentage' ? '%' : '€';
+    } else {
+      discountValueInput.disabled = true;
+      discountValueInput.value = '';
+      discountSuffix.textContent = '';
+      discountPreview.classList.add('hidden');
+    }
+    updateDiscountPreview();
+  });
+
+  // Discount value and price change handler
+  discountValueInput?.addEventListener('input', updateDiscountPreview);
+  priceInput?.addEventListener('input', updateDiscountPreview);
+
+  function updateDiscountPreview() {
+    const type = discountTypeSelect?.value;
+    const value = parseFloat(discountValueInput?.value || '0');
+    const price = parseFloat(priceInput?.value || '0');
+
+    if (!type || !value || !price || value <= 0 || price <= 0) {
+      discountPreview?.classList.add('hidden');
+      return;
+    }
+
+    let finalPrice = price;
+    let savingsText = '';
+
+    if (type === 'percentage') {
+      finalPrice = price * (1 - value / 100);
+      savingsText = `-${value}%`;
+    } else if (type === 'fixed') {
+      finalPrice = Math.max(0, price - value);
+      savingsText = `-€${value.toFixed(0)}`;
+    }
+
+    if (previewOriginal) previewOriginal.textContent = `€${price.toFixed(2)}`;
+    if (previewFinal) previewFinal.textContent = `€${finalPrice.toFixed(2)}`;
+    if (previewSavings) previewSavings.textContent = savingsText;
+    discountPreview?.classList.remove('hidden');
+  }
 
   // Actualizar stock en el componente SizeSelector
   stockInput?.addEventListener('change', () => {
@@ -344,6 +499,10 @@ const { data: categories } = await supabase
         sizes_available = {};
       }
       
+      // Discount fields
+      const discountType = formData.get('discount_type')?.toString() || '';
+      const discountVal = parseFloat(formData.get('discount_value')?.toString() || '0');
+      
       const productData = {
         name: name,
         slug: slug,
@@ -357,6 +516,10 @@ const { data: categories } = await supabase
         sku: formData.get('sku')?.toString().trim() || null,
         brand: formData.get('brand')?.toString().trim() || null,
         color: formData.get('color')?.toString().trim() || null,
+        is_limited_edition: (document.getElementById('is_limited_edition') as HTMLInputElement)?.checked || false,
+        release_type: formData.get('release_type')?.toString() || 'standard',
+        discount_type: discountType || null,
+        discount_value: discountType && discountVal > 0 ? discountVal : null,
       };
       
       console.log('Enviando producto:', productData);

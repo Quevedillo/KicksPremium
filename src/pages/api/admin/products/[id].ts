@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabase, getSupabaseServiceClient } from '@lib/supabase';
+import { sendNewOfferToAllSubscribers } from '@lib/email';
 
 // GET single product
 export const GET: APIRoute = async ({ params }) => {
@@ -85,7 +86,6 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       name,
       slug,
       description,
-      price,
       category_id,
       brand,
       color,
@@ -94,7 +94,15 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     } = body;
     let { sku, stock, sizes_available } = body;
 
-    if (!name || !slug || price === undefined || isNaN(price) || price < 0) {
+    // Campos de colección
+    const is_limited_edition = body.is_limited_edition === true || body.is_limited_edition === 'true';
+    const release_type = ['standard', 'restock', 'limited'].includes(body.release_type) ? body.release_type : 'standard';
+    
+    // Campos de descuento
+    const discount_type = ['percentage', 'fixed'].includes(body.discount_type) ? body.discount_type : null;
+    const discount_value = discount_type ? parseFloat(body.discount_value ?? 0) : null;
+
+    if (!name || !slug || body.price === undefined || isNaN(parseFloat(body.price)) || parseFloat(body.price) < 0) {
       return new Response(
         JSON.stringify({ error: 'Campos requeridos inválidos: name, slug, price (>=0)' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -102,8 +110,20 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     }
 
     // Convertir EUR a centimos
-    const priceInCents = Math.round(parseFloat(price) * 100);
+    const basePriceEur = parseFloat(body.price);
+    let priceInCents = Math.round(basePriceEur * 100);
+    let original_price: number | null = null;
     const costPriceInCents = cost_price ? Math.round(parseFloat(cost_price) * 100) : null;
+
+    // Calcular precio final con descuento
+    if (discount_type && discount_value && discount_value > 0) {
+      original_price = priceInCents; // Guardar precio original
+      if (discount_type === 'percentage') {
+        priceInCents = Math.round(priceInCents * (1 - discount_value / 100));
+      } else if (discount_type === 'fixed') {
+        priceInCents = Math.max(0, priceInCents - Math.round(discount_value * 100));
+      }
+    }
 
     // Procesar sizes_available y calcular stock
     let processedSizes: Record<string, number> = {};
@@ -153,6 +173,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         slug,
         description,
         price: priceInCents,
+        original_price: original_price,
         cost_price: costPriceInCents,
         stock: stock,
         sizes_available: Object.keys(processedSizes).length > 0 ? processedSizes : {},
@@ -161,10 +182,14 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         sku: sku || null,
         color: color || null,
         images: Array.isArray(images) ? images : [],
+        is_limited_edition,
+        release_type,
+        discount_type,
+        discount_value,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select();
+      .select('*, categories(name)');
 
     if (error) {
       console.error('[API] Error updating product:', error);
@@ -184,8 +209,50 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       );
     }
 
+    // Si se añadió o modificó un descuento, enviar newsletter de oferta
+    let newsletterResult = null;
+    if (discount_type && discount_value && discount_value > 0) {
+      try {
+        const { data: subscribers, error: subscribersError } = await supabase
+          .from('newsletter_subscribers')
+          .select('email')
+          .eq('verified', true);
+
+        if (!subscribersError && subscribers && subscribers.length > 0) {
+          const productData = {
+            name: updatedProduct.name,
+            slug: updatedProduct.slug,
+            description: updatedProduct.description || '',
+            price: updatedProduct.price,
+            originalPrice: updatedProduct.original_price || null,
+            images: updatedProduct.images || [],
+            brand: updatedProduct.brand,
+            category: updatedProduct.categories?.name || null,
+            isLimitedEdition: updatedProduct.is_limited_edition,
+            discountType: discount_type,
+            discountValue: discount_value,
+          };
+
+          sendNewOfferToAllSubscribers(subscribers, productData)
+            .then((result) => {
+              console.log(`✅ Newsletter OFERTA enviado para ${updatedProduct.slug}:`, result);
+            })
+            .catch((emailError) => {
+              console.error(`❌ Error enviando newsletter oferta para ${updatedProduct.slug}:`, emailError);
+            });
+
+          newsletterResult = {
+            scheduledFor: subscribers.length,
+            message: 'Notificación de oferta programada',
+          };
+        }
+      } catch (newsletterError) {
+        console.error('Error processing offer newsletter:', newsletterError);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, product: updatedProduct }),
+      JSON.stringify({ success: true, product: updatedProduct, newsletter: newsletterResult }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {

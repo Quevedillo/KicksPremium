@@ -1044,10 +1044,7 @@ INSERT INTO categories (name, slug, description, icon, display_order) VALUES
 ('Travis Scott', 'travis-scott', 'Colaboraciones exclusivas de Travis Scott con Jordan y Nike', '🔥', 2),
 ('Jordan Special', 'jordan-special', 'Air Jordans de ediciones especiales y limitadas', '🏀', 3),
 ('Exclusive Drops', 'exclusive-drops', 'Lanzamientos exclusivos y ediciones limitadas', '💎', 4),
-('Limited Editions', 'limited-editions', 'Piezas ultra raras y one-of-a-kind', '⚡', 5),
-('New Releases', 'new-releases', 'Últimos lanzamientos y novedades en stock', '✨', 6),
-('Retro Classics', 'retro-classics', 'Modelos icónicos de los 80s y 90s', '🕰️', 7),
-('Sale', 'sale', 'Descuentos especiales y ofertas limitadas', '🏷️', 8)
+('Retro Classics', 'retro-classics', 'Modelos icónicos de los 80s y 90s', '🕰️', 5)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
