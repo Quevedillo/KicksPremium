@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 // URL base del sitio (configurable por entorno)
-const SITE_URL = import.meta.env.PUBLIC_SITE_URL || 'https://kickspremium.com';
+const SITE_URL = import.meta.env.PUBLIC_SITE_URL || 'https://kickspremium.victoriafp.online';
 
 // Configuración SMTP de Gmail
 const SMTP_HOST = import.meta.env.SMTP_HOST || 'smtp.gmail.com';
@@ -1453,7 +1453,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
     </div>
     
     <div style="margin-top: 20px; text-align: center;">
-      <a href="${import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321'}/admin/pedidos/${order.orderId}" 
+      <a href="${import.meta.env.PUBLIC_SITE_URL || 'https://kickspremium.victoriafp.online'}/admin/pedidos/${order.orderId}" 
          style="display: inline-block; background: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
         Ver Pedido en Admin
       </a>
@@ -1552,5 +1552,230 @@ export async function sendAbandonedCartEmail(email: string) {
   } catch (error) {
     console.error('Error sending abandoned cart email:', error);
     return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+// ============================================================================
+// EMAILS DE CANCELACIÓN CON FACTURA PDF
+// ============================================================================
+
+interface CancellationWithInvoiceData {
+  orderId: string;
+  email: string;
+  customerName: string;
+  reason: string;
+  refundAmount: number;
+  items: any[];
+  total: number;
+  invoicePDF: Buffer;
+}
+
+/**
+ * Enviar email de cancelación con factura PDF adjunta y detalle de reembolso
+ */
+export async function sendCancellationWithInvoiceEmail(data: CancellationWithInvoiceData) {
+  try {
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const formatPrice = (cents: number) => {
+      const val = Number(cents);
+      if (isNaN(val)) return '€0.00';
+      return `€${(val / 100).toFixed(2)}`;
+    };
+
+    const orderRef = data.orderId.substring(0, 8).toUpperCase();
+
+    const itemsHtml = data.items.map((item: any) => {
+      const name = item.name || item.n || 'Producto';
+      const qty = item.qty || item.q || item.quantity || 1;
+      const price = item.price ?? item.p ?? 0;
+      const img = item.img || item.image || '';
+      const size = item.size || item.s || '';
+      return `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 12px; width: 60px;">
+            ${img ? `<img src="${img}" alt="${name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;" />` : '<div style="width:50px;height:50px;background:#f3f4f6;border-radius:6px;"></div>'}
+          </td>
+          <td style="padding: 12px;">
+            <div style="font-weight: 600; color: #6b7280; text-decoration: line-through;">${name}</div>
+            ${size ? `<div style="font-size: 12px; color: #9ca3af;">Talla: ${size}</div>` : ''}
+          </td>
+          <td style="padding: 12px; text-align: right; color: #6b7280; text-decoration: line-through;">
+            ${formatPrice(price * qty)}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f9fafb; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .content { padding: 30px 20px; }
+    .refund-box { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center; }
+    .refund-amount { font-size: 32px; font-weight: 800; color: #059669; margin: 8px 0; }
+    .info-box { background-color: #f9fafb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    .button { display: inline-block; background-color: #000; color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 20px; }
+    .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Pedido Cancelado</h1>
+      <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">Tu pedido #${orderRef} ha sido cancelado</p>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${data.customerName}</strong>,</p>
+      <p>Confirmamos que tu pedido ha sido cancelado correctamente.</p>
+
+      <div class="refund-box">
+        <p style="margin: 0; font-size: 14px; color: #065f46; font-weight: 600;">💰 REEMBOLSO PROCESADO</p>
+        <p class="refund-amount">${formatPrice(data.refundAmount)}</p>
+        <p style="margin: 0; font-size: 13px; color: #047857;">Se devolverá a tu método de pago original en 5-10 días hábiles</p>
+      </div>
+
+      <div class="info-box">
+        <p style="margin: 0;"><strong>Número de pedido:</strong> #${orderRef}</p>
+        <p style="margin: 8px 0 0;"><strong>Motivo:</strong> ${data.reason}</p>
+        <p style="margin: 8px 0 0;"><strong>Fecha de cancelación:</strong> ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+      </div>
+
+      <h3 style="color: #374151; margin-top: 24px; font-size: 14px;">Productos cancelados:</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${itemsHtml}
+      </table>
+
+      <p style="font-size: 13px; color: #6b7280; margin-top: 20px;">
+        📎 Adjuntamos la factura de cancelación en PDF para tus registros.
+      </p>
+
+      <div style="text-align: center;">
+        <a href="${SITE_URL}/productos" class="button">Seguir Comprando</a>
+      </div>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} Kicks Premium. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await sendEmailWithSMTP({
+      to: data.email,
+      subject: `❌ Pedido #${orderRef} cancelado - Reembolso de ${formatPrice(data.refundAmount)}`,
+      html: htmlContent,
+      attachments: [{
+        filename: `Cancelacion_${orderRef}.pdf`,
+        content: data.invoicePDF,
+        contentType: 'application/pdf',
+      }],
+    });
+
+    console.log('✅ Cancellation email with invoice sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending cancellation email with invoice:', error);
+    throw error;
+  }
+}
+
+interface AdminCancellationRequestData {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  reason: string;
+  total: number;
+}
+
+/**
+ * Notificar al admin de una solicitud de cancelación de pedido enviado
+ */
+export async function sendAdminCancellationRequestEmail(data: AdminCancellationRequestData) {
+  try {
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.warn('⚠️ Credenciales SMTP no configuradas.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const formatPrice = (cents: number) => `€${(Number(cents) / 100).toFixed(2)}`;
+    const orderRef = data.orderId.substring(0, 8).toUpperCase();
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f9fafb; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .content { padding: 30px 20px; }
+    .alert-box { background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .button { display: inline-block; background-color: #000; color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 16px; }
+    .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚠️ Solicitud de Cancelación</h1>
+      <p style="margin: 8px 0 0; opacity: 0.9;">Pedido enviado - requiere aprobación</p>
+    </div>
+    <div class="content">
+      <p>Un cliente ha solicitado la cancelación de un pedido que ya fue enviado.</p>
+      
+      <div class="alert-box">
+        <p style="margin: 0; font-weight: bold; color: #92400e;">⏳ ACCIÓN REQUERIDA</p>
+        <p style="margin: 8px 0 0; color: #78350f;">Este pedido está marcado como "Procesando" y espera tu confirmación para completar la cancelación y el reembolso.</p>
+      </div>
+
+      <table style="width: 100%; margin: 20px 0;">
+        <tr><td style="padding: 8px 0; color: #6b7280; width: 140px;"><strong>Pedido:</strong></td><td style="padding: 8px 0; font-weight: 600;">#${orderRef}</td></tr>
+        <tr><td style="padding: 8px 0; color: #6b7280;"><strong>Cliente:</strong></td><td style="padding: 8px 0;">${data.customerName}</td></tr>
+        <tr><td style="padding: 8px 0; color: #6b7280;"><strong>Email:</strong></td><td style="padding: 8px 0;">${data.customerEmail}</td></tr>
+        <tr><td style="padding: 8px 0; color: #6b7280;"><strong>Total:</strong></td><td style="padding: 8px 0; font-weight: 700; font-size: 18px; color: #dc2626;">${formatPrice(data.total)}</td></tr>
+        <tr><td style="padding: 8px 0; color: #6b7280;"><strong>Motivo:</strong></td><td style="padding: 8px 0;">${data.reason}</td></tr>
+      </table>
+
+      <p style="font-size: 13px; color: #6b7280;">
+        Para aprobar la cancelación, ve al panel de administración y cambia el estado del pedido a "Cancelado". 
+        El reembolso se procesará automáticamente y el cliente recibirá un email de confirmación.
+      </p>
+
+      <div style="text-align: center;">
+        <a href="${SITE_URL}/admin/pedidos/${data.orderId}" class="button">Ver Pedido en Admin</a>
+      </div>
+    </div>
+    <div class="footer">
+      <p style="margin: 0;">Panel de Administración - Kicks Premium</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const result = await sendEmailWithSMTP({
+      to: ADMIN_EMAIL,
+      subject: `⚠️ [CANCELACIÓN] Pedido #${orderRef} - ${data.customerName} solicita cancelar (enviado)`,
+      html: htmlContent,
+    });
+
+    console.log('✅ Admin cancellation request email sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending admin cancellation request:', error);
+    throw error;
   }
 }

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getSupabaseServiceClient } from '@lib/supabase';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
+import { enrichOrderItems } from '@lib/utils';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -40,19 +41,24 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Create order in Supabase
+    // Enrich cart items from DB (Stripe metadata uses compact format {id, n, p, q, s})
+    // This fetches full product name, brand, and image for each item
+    const enrichedItems = await enrichOrderItems(supabase, cartItems);
+    console.log(`✅ Items enriched: ${enrichedItems.map(i => i.name).join(', ')}`);
+
+    // Create order in Supabase with enriched items
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         user_id: userId,
         stripe_session_id: sessionId,
         total_amount: totalAmount,
-        status: 'completed',
+        status: 'paid',
         shipping_name: shippingName,
         shipping_address: shippingAddress ? JSON.stringify(shippingAddress) : null,
         shipping_phone: shippingPhone,
         billing_email: billingEmail,
-        items: cartItems,
+        items: enrichedItems,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -71,10 +77,10 @@ export const POST: APIRoute = async ({ request }) => {
     console.log(`✅ Order created: ${order.id}`);
 
     // Decrement stock for each item
-    console.log(`\n📦 Starting stock decrement for ${cartItems.length} items...`);
+    console.log(`\n📦 Starting stock decrement for ${enrichedItems.length} items...`);
     let stockErrors = [];
 
-    for (const item of cartItems) {
+    for (const item of enrichedItems) {
       try {
         const productId = item.id;
         const quantity = item.qty || 1;
@@ -130,8 +136,8 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Send emails
     console.log(`\n📧 Sending emails...`);
-    // Transform cart items to match OrderItem interface (with price!)
-    const orderItems = cartItems.map((item: any) => ({
+    // Transform enriched items to match OrderItem interface
+    const orderItems = enrichedItems.map((item: any) => ({
       id: item.id || '',
       name: item.name,
       price: item.price || 0,

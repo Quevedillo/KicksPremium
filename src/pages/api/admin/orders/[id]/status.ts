@@ -1,6 +1,9 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 import { stripe } from '@lib/stripe';
+import { sendCancellationWithInvoiceEmail } from '@lib/email';
+import { generateCancellationInvoicePDF } from '@lib/invoice';
+import { enrichOrderItems } from '@lib/utils';
 
 export const POST: APIRoute = async ({ params, request, cookies }) => {
   try {
@@ -53,17 +56,20 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     const body = await request.json();
     const { status, reason } = body;
 
-    const validStatuses = ['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled'];
+    // Estados válidos: paid, shipped, cancelled, processing
+    const validStatuses = ['paid', 'processing', 'shipped', 'cancelled'];
     
     if (!status || !validStatuses.includes(status)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid status' }),
+        JSON.stringify({ error: `Estado inválido. Estados válidos: ${validStatuses.join(', ')}` }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    const serviceClient = getSupabaseServiceClient();
+
     // Obtener el pedido actual para verificar estado y datos de Stripe
-    const { data: currentOrder, error: fetchError } = await supabase
+    const { data: currentOrder, error: fetchError } = await serviceClient
       .from('orders')
       .select('*')
       .eq('id', id)
@@ -76,11 +82,12 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       );
     }
 
-    // Si se está cancelando, procesar reembolso automáticamente
+    // Si se está cancelando, procesar reembolso automáticamente + email + factura
     let refundResult = null;
     if (status === 'cancelled' && currentOrder.status !== 'cancelled') {
       const paymentIntentId = currentOrder.stripe_payment_intent_id;
 
+      // 1. Procesar reembolso en Stripe
       if (paymentIntentId && typeof paymentIntentId === 'string') {
         try {
           const refund = await stripe.refunds.create({
@@ -95,7 +102,6 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
           console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
         } catch (refundError: any) {
           console.error('⚠️ Error procesando reembolso:', refundError.message);
-          // Si el reembolso falla (ej: ya reembolsado), seguir con la cancelación
           refundResult = {
             error: refundError.message,
             status: 'failed',
@@ -103,10 +109,13 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         }
       }
 
-      // Restaurar stock de los items del pedido cancelado
-      const items = typeof currentOrder.items === 'string'
+      // 2. Restaurar stock de los items del pedido cancelado
+      const rawItems = typeof currentOrder.items === 'string'
         ? JSON.parse(currentOrder.items)
         : (currentOrder.items || []);
+
+      // Enrich items from DB (may be in compact format)
+      const items = await enrichOrderItems(serviceClient, rawItems);
 
       for (const item of items) {
         const productId = item.id || item.product_id;
@@ -115,7 +124,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
         if (productId && size) {
           try {
-            const { data: product } = await supabase
+            const { data: product } = await serviceClient
               .from('products')
               .select('sizes_available, stock')
               .eq('id', productId)
@@ -128,7 +137,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
                 (sum: number, qty: any) => sum + (parseInt(String(qty)) || 0), 0
               );
 
-              await supabase
+              await serviceClient
                 .from('products')
                 .update({ sizes_available: sizesAvailable, stock: newStock })
                 .eq('id', productId);
@@ -140,16 +149,67 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
           }
         }
       }
+
+      // 3. Generar factura de cancelación y enviar email al cliente
+      const customerEmail = currentOrder.billing_email;
+      if (customerEmail) {
+        try {
+          const subtotal = items.reduce((sum: number, item: any) => sum + (item.price ?? item.p ?? 0) * (item.qty || item.quantity || 1), 0);
+          const tax = Math.max(0, (currentOrder.total_amount || 0) - subtotal);
+          const cancelReason = reason || currentOrder.cancelled_reason || 'Cancelado por administrador';
+
+          const cancellationPDF = await generateCancellationInvoicePDF({
+            invoiceNumber: `CAN-${currentOrder.stripe_session_id?.slice(-8).toUpperCase() || currentOrder.id.slice(0, 8).toUpperCase()}`,
+            date: new Date().toLocaleDateString('es-ES'),
+            customerName: currentOrder.shipping_name || 'Cliente',
+            customerEmail: customerEmail,
+            customerPhone: currentOrder.shipping_phone,
+            shippingAddress: currentOrder.shipping_address ? (typeof currentOrder.shipping_address === 'string' ? JSON.parse(currentOrder.shipping_address) : currentOrder.shipping_address) : undefined,
+            items: items.map((item: any) => ({
+              name: item.name || item.n || 'Producto',
+              quantity: item.qty || item.quantity || 1,
+              price: item.price ?? item.p ?? 0,
+              size: item.size || item.s || '',
+              image: item.img || item.image || '',
+            })),
+            subtotal,
+            tax,
+            total: currentOrder.total_amount || 0,
+            cancellationReason: cancelReason,
+            refundAmount: refundResult?.amount || currentOrder.total_amount || 0,
+            refundStatus: refundResult?.status || 'pending',
+            originalOrderDate: new Date(currentOrder.created_at).toLocaleDateString('es-ES'),
+          });
+
+          await sendCancellationWithInvoiceEmail({
+            orderId: currentOrder.id,
+            email: customerEmail,
+            customerName: currentOrder.shipping_name || 'Cliente',
+            reason: cancelReason,
+            refundAmount: refundResult?.amount || currentOrder.total_amount || 0,
+            items: items,
+            total: currentOrder.total_amount || 0,
+            invoicePDF: cancellationPDF,
+          });
+
+          console.log(`✅ Email de cancelación con factura enviado a ${customerEmail}`);
+        } catch (emailError) {
+          console.error('⚠️ Error enviando email de cancelación:', emailError);
+        }
+      }
     }
 
     // Preparar datos de actualización
     const updateData: any = { status, updated_at: new Date().toISOString() };
     if (status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
-      updateData.cancelled_reason = reason || 'Cancelado por administrador';
+      updateData.cancelled_reason = reason || currentOrder.cancelled_reason || 'Cancelado por administrador';
+    }
+    if (status === 'shipped') {
+      updateData.shipped_at = new Date().toISOString();
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from('orders')
       .update(updateData)
       .eq('id', id)

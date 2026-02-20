@@ -57,11 +57,10 @@ const formatDate = (date: string) => {
 // Estado a badge
 const getStatusBadge = (status: string) => {
   const badges: Record<string, { color: string; label: string; bgColor: string }> = {
-    pending: { color: 'text-yellow-800', bgColor: 'bg-yellow-100', label: 'Pendiente' },
-    paid: { color: 'text-green-800', bgColor: 'bg-green-100', label: 'Pagado' },
-    processing: { color: 'text-blue-800', bgColor: 'bg-blue-100', label: 'Procesando' },
+    paid: { color: 'text-blue-800', bgColor: 'bg-blue-100', label: 'Pagado' },
+    completed: { color: 'text-blue-800', bgColor: 'bg-blue-100', label: 'Pagado' }, // legacy
+    processing: { color: 'text-orange-800', bgColor: 'bg-orange-100', label: 'Procesando' },
     shipped: { color: 'text-purple-800', bgColor: 'bg-purple-100', label: 'Enviado' },
-    completed: { color: 'text-green-800', bgColor: 'bg-green-100', label: 'Completado' },
     cancelled: { color: 'text-red-800', bgColor: 'bg-red-100', label: 'Cancelado' },
   };
   return badges[status] || { color: 'text-neutral-800', bgColor: 'bg-neutral-100', label: status };
@@ -70,11 +69,9 @@ const getStatusBadge = (status: string) => {
 const badge = getStatusBadge(order.status);
 
 const statusOptions = [
-  { value: 'pending', label: 'Pendiente' },
   { value: 'paid', label: 'Pagado' },
   { value: 'processing', label: 'Procesando' },
   { value: 'shipped', label: 'Enviado' },
-  { value: 'completed', label: 'Completado' },
   { value: 'cancelled', label: 'Cancelado' },
 ];
 ---
@@ -107,6 +104,12 @@ const statusOptions = [
           <p class="text-neutral-500">
             Creado el {formatDate(order.created_at)}
           </p>
+          {order.status === 'processing' && order.cancelled_reason && (
+            <div class="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <p class="text-sm text-amber-800 font-medium">⚠️ Solicitud de cancelación pendiente</p>
+              <p class="text-xs text-amber-600 mt-1">Motivo: {order.cancelled_reason}</p>
+            </div>
+          )}
         </div>
         
         <div class="flex flex-wrap items-center gap-3">
@@ -167,22 +170,30 @@ const statusOptions = [
         
         <div class="divide-y divide-neutral-100">
           {items.length > 0 ? items.map((item: any) => {
-            const itemQty = item.quantity || item.qty || 1;
-            const itemPrice = item.price || 0;
+            const itemQty = item.quantity || item.qty || item.q || 1;
+            const itemPrice = item.price ?? item.p ?? 0;
             const itemImage = item.image || item.img || null;
+            const itemName = item.name || item.n || 'Producto';
+            const itemBrand = item.brand || '';
+            const itemSize = item.size || item.s || '';
             return (
               <div class="p-4 flex items-center gap-4">
-                {itemImage && (
+                {itemImage ? (
                   <img
                     src={itemImage}
-                    alt={item.name}
+                    alt={itemName}
                     class="w-16 h-16 object-cover rounded-lg bg-neutral-100"
                   />
+                ) : (
+                  <div class="w-16 h-16 bg-neutral-100 rounded-lg flex items-center justify-center text-2xl">👟</div>
                 )}
                 <div class="flex-1 min-w-0">
-                  <p class="font-semibold text-brand-black truncate">{item.name}</p>
-                  {item.size && (
-                    <p class="text-sm text-neutral-500">Talla: {item.size}</p>
+                  {itemBrand && (
+                    <p class="text-xs font-bold text-brand-red uppercase">{itemBrand}</p>
+                  )}
+                  <p class="font-semibold text-brand-black truncate">{itemName}</p>
+                  {itemSize && (
+                    <p class="text-sm text-neutral-500">Talla: {itemSize}</p>
                   )}
                   <p class="text-sm text-neutral-500">
                     Cantidad: {itemQty}
@@ -317,7 +328,15 @@ const statusOptions = [
     e.preventDefault();
     
     const formData = new FormData(form);
-    const status = formData.get('status');
+    const status = formData.get('status') as string;
+    let reason = '';
+    
+    // If cancelling, ask for a reason
+    if (status === 'cancelled') {
+      const confirmed = confirm('¿Estás seguro de que quieres cancelar este pedido? Se procesará el reembolso automáticamente y se enviará un email al cliente.');
+      if (!confirmed) return;
+      reason = prompt('Motivo de la cancelación (opcional):') || 'Cancelado por administrador';
+    }
     
     try {
       const response = await fetch(form.action, {
@@ -325,7 +344,7 @@ const statusOptions = [
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, reason }),
       });
       
       const data = await response.json();

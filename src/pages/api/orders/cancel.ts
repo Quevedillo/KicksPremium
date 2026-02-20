@@ -1,6 +1,45 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '@lib/supabase';
-import { sendOrderCancellationEmail } from '@lib/email';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
+import { stripe } from '@lib/stripe';
+import { sendCancellationWithInvoiceEmail, sendAdminCancellationRequestEmail } from '@lib/email';
+import { generateCancellationInvoicePDF } from '@lib/invoice';
+import { enrichOrderItems } from '@lib/utils';
+
+// Helper: restaurar stock de los items de un pedido
+async function restoreOrderStock(serviceClient: any, items: any[]) {
+  for (const item of items) {
+    const productId = item.id || item.product_id;
+    const quantity = item.qty || item.quantity || 1;
+    const size = item.size;
+
+    if (productId && size) {
+      try {
+        const { data: product } = await serviceClient
+          .from('products')
+          .select('sizes_available, stock')
+          .eq('id', productId)
+          .single();
+
+        if (product) {
+          const sizesAvailable = product.sizes_available || {};
+          sizesAvailable[size] = (parseInt(sizesAvailable[size]) || 0) + quantity;
+          const newStock = Object.values(sizesAvailable).reduce(
+            (sum: number, qty: any) => sum + (parseInt(String(qty)) || 0), 0
+          );
+
+          await serviceClient
+            .from('products')
+            .update({ sizes_available: sizesAvailable, stock: newStock })
+            .eq('id', productId);
+
+          console.log(`✅ Stock restaurado: ${productId} talla ${size} +${quantity}`);
+        }
+      } catch (stockError) {
+        console.error(`⚠️ Error restaurando stock de ${productId}:`, stockError);
+      }
+    }
+  }
+}
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -38,59 +77,187 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     const userId = sessionData.user.id;
+    const userEmail = sessionData.user.email || '';
+    const serviceClient = getSupabaseServiceClient();
 
-    // Llamar a la función atómica de cancelación
-    const { data, error } = await supabase.rpc('cancel_order_atomic', {
-      p_order_id: orderId,
-      p_user_id: userId,
-      p_reason: reason || 'Cancelado por el cliente',
-    });
-
-    if (error) {
-      console.error('Error cancelling order:', error);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Error al cancelar el pedido' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verificar resultado de la función
-    if (!data?.success) {
-      return new Response(
-        JSON.stringify({ success: false, error: data?.error || 'No se pudo cancelar el pedido' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Obtener detalles del pedido para el email
-    const { data: order } = await supabase
+    // Obtener el pedido actual
+    const { data: order, error: fetchError } = await serviceClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
+      .eq('user_id', userId)
       .single();
 
-    // Enviar email de confirmación de cancelación
-    if (order && sessionData.user.email) {
-      try {
-        await sendOrderCancellationEmail({
-          orderId: order.id,
-          email: sessionData.user.email,
-          customerName: order.customer_name || 'Cliente',
-          reason: reason || 'Cancelado a petición del cliente',
-        });
-      } catch (emailError) {
-        console.error('Error sending cancellation email:', emailError);
-        // No fallar si el email falla
-      }
+    if (fetchError || !order) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Pedido no encontrado' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
+    const cancelReason = reason || 'Cancelado por el cliente';
+    const rawItems = typeof order.items === 'string' ? JSON.parse(order.items) : (Array.isArray(order.items) ? order.items : []);
+
+    // Enrich items from DB (may be in compact format without name/brand/image)
+    const items = await enrichOrderItems(serviceClient, rawItems);
+
+    // ========================================
+    // CASO 1: Pedido PAGADO (o 'completed' legacy) → Cancelación directa + reembolso
+    // ========================================
+    if (order.status === 'paid' || order.status === 'completed') {
+      // 1. Restaurar stock directamente (sin depender de RPC)
+      await restoreOrderStock(serviceClient, items);
+
+      // 2. Marcar pedido como cancelado
+      const { error: updateError } = await serviceClient
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancelled_reason: cancelReason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) {
+        console.error('Error actualizando pedido:', updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Error al cancelar el pedido' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 3. Procesar reembolso en Stripe
+      let refundResult: any = null;
+      const paymentIntentId = order.stripe_payment_intent_id;
+
+      if (paymentIntentId && typeof paymentIntentId === 'string') {
+        try {
+          const refund = await stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            reason: 'requested_by_customer',
+          });
+          refundResult = {
+            refundId: refund.id,
+            amount: refund.amount,
+            status: refund.status,
+          };
+          console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
+        } catch (refundError: any) {
+          console.error('⚠️ Error procesando reembolso:', refundError.message);
+          refundResult = { error: refundError.message, status: 'failed' };
+        }
+      }
+
+      // 4. Generar factura de cancelación PDF y enviar email
+      try {
+        const subtotal = items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.qty || item.quantity || 1), 0);
+        const tax = Math.max(0, (order.total_amount || 0) - subtotal);
+
+        const cancellationPDF = await generateCancellationInvoicePDF({
+          invoiceNumber: `CAN-${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
+          date: new Date().toLocaleDateString('es-ES'),
+          customerName: order.shipping_name || 'Cliente',
+          customerEmail: userEmail || order.billing_email || '',
+          customerPhone: order.shipping_phone,
+          shippingAddress: order.shipping_address ? (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address) : undefined,
+          items: items.map((item: any) => ({
+            name: item.name || 'Producto',
+            quantity: item.qty || item.quantity || 1,
+            price: item.price || 0,
+            size: item.size,
+            image: item.img || item.image || '',
+          })),
+          subtotal,
+          tax,
+          total: order.total_amount || 0,
+          cancellationReason: cancelReason,
+          refundAmount: refundResult?.amount || order.total_amount || 0,
+          refundStatus: refundResult?.status || 'pending',
+          originalOrderDate: new Date(order.created_at).toLocaleDateString('es-ES'),
+        });
+
+        await sendCancellationWithInvoiceEmail({
+          orderId: order.id,
+          email: userEmail || order.billing_email || '',
+          customerName: order.shipping_name || 'Cliente',
+          reason: cancelReason,
+          refundAmount: refundResult?.amount || order.total_amount || 0,
+          items: items,
+          total: order.total_amount || 0,
+          invoicePDF: cancellationPDF,
+        });
+      } catch (emailError) {
+        console.error('Error enviando email de cancelación:', emailError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'cancelled',
+          message: 'Pedido cancelado. El reembolso se ha procesado.',
+          refund: refundResult,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========================================
+    // CASO 2: Pedido ENVIADO → Solicitud de cancelación (pendiente admin)
+    // ========================================
+    if (order.status === 'shipped') {
+      // Marcar como processing (pendiente admin), NO restaurar stock aún
+      const { error: updateError } = await serviceClient
+        .from('orders')
+        .update({
+          status: 'processing',
+          cancelled_reason: cancelReason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      if (updateError) {
+        console.error('Error actualizando pedido:', updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Error al solicitar la cancelación' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Notificar al admin
+      try {
+        await sendAdminCancellationRequestEmail({
+          orderId: order.id,
+          customerName: order.shipping_name || 'Cliente',
+          customerEmail: userEmail || order.billing_email || '',
+          reason: cancelReason,
+          total: order.total_amount || 0,
+        });
+      } catch (emailError) {
+        console.error('Error enviando notificación al admin:', emailError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'pending_admin',
+          message: 'Tu solicitud de cancelación ha sido enviada. Un administrador la revisará.',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========================================
+    // Otros estados: no se puede cancelar
+    // ========================================
     return new Response(
       JSON.stringify({
-        success: true,
-        message: 'Pedido cancelado correctamente. Se ha restaurado el stock.',
+        success: false,
+        error: `No se puede cancelar un pedido con estado "${order.status}". Solo se pueden cancelar pedidos pagados o enviados.`,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
     console.error('Error in order cancellation:', error);
     return new Response(

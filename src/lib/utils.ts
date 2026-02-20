@@ -88,3 +88,72 @@ export const delay = (ms: number): Promise<void> => {
 export const deepClone = <T>(obj: T): T => {
   return structuredClone(obj);
 };
+
+/**
+ * Normaliza un item de pedido desde formato compacto (Stripe metadata) o completo.
+ * Formato compacto: {id, n, p, q, s}
+ * Formato completo: {id, name, brand, price, qty/quantity, size, img/image}
+ * @returns Item normalizado con campos estándar
+ */
+export function normalizeOrderItem(item: any): {
+  id: string;
+  name: string;
+  brand: string;
+  price: number;
+  qty: number;
+  size: string;
+  img: string;
+} {
+  return {
+    id: item.id || item.product_id || '',
+    name: item.name || item.n || 'Producto',
+    brand: item.brand || '',
+    price: item.price ?? item.p ?? 0,
+    qty: item.qty || item.q || item.quantity || 1,
+    size: item.size || item.s || '',
+    img: item.img || item.image || item.product?.images?.[0] || '',
+  };
+}
+
+/**
+ * Enriquece items de pedido buscando datos completos del producto en la BD.
+ * Necesario porque Stripe metadata guarda formato compacto sin nombre completo, marca ni imagen.
+ * @param supabaseClient Cliente Supabase (service client recomendado)
+ * @param items Array de items (compactos o completos)
+ * @returns Items enriquecidos con nombre, marca, imagen y precio real del producto
+ */
+export async function enrichOrderItems(supabaseClient: any, items: any[]): Promise<any[]> {
+  const enriched = [];
+  for (const item of items) {
+    const normalized = normalizeOrderItem(item);
+
+    // Si ya tiene nombre real (no truncado ni genérico) e imagen, no necesita enriquecer
+    if (normalized.name !== 'Producto' && normalized.name.length > 5 && normalized.img) {
+      enriched.push(normalized);
+      continue;
+    }
+
+    // Buscar producto en la BD para obtener datos completos
+    if (normalized.id) {
+      try {
+        const { data: product } = await supabaseClient
+          .from('products')
+          .select('name, brand, images, price')
+          .eq('id', normalized.id)
+          .single();
+
+        if (product) {
+          normalized.name = product.name || normalized.name;
+          normalized.brand = product.brand || normalized.brand;
+          normalized.img = product.images?.[0] || normalized.img;
+          // Usar el precio del item (ya pagado), no el precio actual del producto
+        }
+      } catch (e) {
+        console.warn(`No se pudo enriquecer producto ${normalized.id}`);
+      }
+    }
+
+    enriched.push(normalized);
+  }
+  return enriched;
+}

@@ -443,3 +443,260 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 export function generateInvoiceFilename(invoiceNumber: string): string {
   return `Factura_${invoiceNumber}.pdf`;
 }
+
+// ============================================================================
+// FACTURA DE CANCELACIÓN
+// ============================================================================
+
+export interface CancellationInvoiceData {
+  invoiceNumber: string;
+  date: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  shippingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state?: string;
+    postal_code: string;
+    country: string;
+  };
+  items: InvoiceItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  cancellationReason: string;
+  refundAmount: number;
+  refundStatus: string;
+  originalOrderDate: string;
+}
+
+/**
+ * Generar factura de cancelación/reembolso PDF
+ */
+export function generateCancellationInvoicePDF(data: CancellationInvoiceData): Promise<Buffer> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Pre-fetch product images
+      const imageBuffers: (Buffer | null)[] = [];
+      for (const item of data.items) {
+        if (item.image) {
+          const buf = await fetchImageBuffer(item.image);
+          imageBuffers.push(buf);
+        } else {
+          imageBuffers.push(null);
+        }
+      }
+
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 40,
+        bufferPages: true,
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageWidth = 595.28;
+      const marginLeft = 40;
+      const marginRight = 40;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+
+      // ===== HEADER BAR (Rojo para cancelación) =====
+      doc.rect(0, 0, pageWidth, 80).fill(COLORS.redDark);
+
+      // Logo text
+      doc
+        .fontSize(22)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.white)
+        .text('KICKS', marginLeft, 25, { continued: true })
+        .fillColor('#ffcccc')
+        .text('PREMIUM', { continued: false });
+
+      doc
+        .fontSize(9)
+        .fillColor('#ff9999')
+        .text('FACTURA DE CANCELACIÓN', marginLeft, 52);
+
+      // Número de factura
+      doc
+        .fontSize(10)
+        .fillColor(COLORS.white)
+        .text('CANCELACIÓN', pageWidth - marginRight - 150, 22, { width: 150, align: 'right' })
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text(`#${data.invoiceNumber}`, pageWidth - marginRight - 150, 37, { width: 150, align: 'right' });
+
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .fillColor('#ff9999')
+        .text(data.date, pageWidth - marginRight - 150, 56, { width: 150, align: 'right' });
+
+      // ===== ESTADO: CANCELADO =====
+      const statusY = 95;
+      doc.roundedRect(marginLeft, statusY, 140, 24, 4).fill(COLORS.red);
+      doc
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.white)
+        .text('PEDIDO CANCELADO', marginLeft + 10, statusY + 7, { width: 120, align: 'center' });
+
+      // Reembolso badge
+      const refundStatusText = data.refundStatus === 'succeeded' ? 'REEMBOLSO COMPLETADO' : 'REEMBOLSO EN PROCESO';
+      const refundColor = data.refundStatus === 'succeeded' ? COLORS.green : COLORS.orange;
+      doc.roundedRect(marginLeft + 150, statusY, 160, 24, 4).fill(refundColor);
+      doc
+        .fontSize(9)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.white)
+        .text(refundStatusText, marginLeft + 160, statusY + 7, { width: 140, align: 'center' });
+
+      // ===== INFO CLIENTE =====
+      const infoY = 135;
+      doc.roundedRect(marginLeft, infoY, contentWidth / 2 - 10, 90, 6).fill(COLORS.bgAccent);
+
+      doc
+        .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.lightGray)
+        .text('CLIENTE', marginLeft + 15, infoY + 12);
+      doc
+        .fontSize(11).font('Helvetica-Bold').fillColor(COLORS.black)
+        .text(data.customerName, marginLeft + 15, infoY + 28, { width: contentWidth / 2 - 40 });
+      doc
+        .fontSize(9).font('Helvetica').fillColor(COLORS.mediumGray)
+        .text(data.customerEmail, marginLeft + 15, infoY + 45, { width: contentWidth / 2 - 40 });
+      if (data.customerPhone) {
+        doc.text(data.customerPhone, marginLeft + 15, infoY + 60, { width: contentWidth / 2 - 40 });
+      }
+
+      // Caja info cancelación
+      const cancelX = marginLeft + contentWidth / 2 + 10;
+      doc.roundedRect(cancelX, infoY, contentWidth / 2 - 10, 90, 6).fill('#fef2f2');
+
+      doc
+        .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.red)
+        .text('MOTIVO DE CANCELACIÓN', cancelX + 15, infoY + 12);
+      doc
+        .fontSize(9).font('Helvetica').fillColor(COLORS.mediumGray)
+        .text(data.cancellationReason, cancelX + 15, infoY + 28, { width: contentWidth / 2 - 40 });
+      doc
+        .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.lightGray)
+        .text('PEDIDO ORIGINAL', cancelX + 15, infoY + 58);
+      doc
+        .fontSize(9).font('Helvetica').fillColor(COLORS.mediumGray)
+        .text(data.originalOrderDate, cancelX + 15, infoY + 72, { width: contentWidth / 2 - 40 });
+
+      // ===== TABLA DE PRODUCTOS =====
+      const tableTop = 245;
+      doc.rect(marginLeft, tableTop, contentWidth, 28).fill(COLORS.darkGray);
+
+      const col2X = marginLeft + 12;
+      const col3X = pageWidth - marginRight - 160;
+      const col4X = pageWidth - marginRight - 100;
+      const col5X = pageWidth - marginRight - 10;
+
+      doc
+        .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.white)
+        .text('PRODUCTO', col2X, tableTop + 9)
+        .text('CANT.', col3X, tableTop + 9, { width: 50, align: 'center' })
+        .text('PRECIO', col4X, tableTop + 9, { width: 55, align: 'right' })
+        .text('TOTAL', col5X - 55, tableTop + 9, { width: 55, align: 'right' });
+
+      let itemY = tableTop + 35;
+      data.items.forEach((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        const rowHeight = 45;
+        const isEven = index % 2 === 0;
+
+        if (isEven) {
+          doc.rect(marginLeft, itemY - 5, contentWidth, rowHeight).fill('#fafafa');
+        }
+
+        // Tachado visual en nombre
+        doc
+          .fontSize(10).font('Helvetica-Bold').fillColor(COLORS.lightGray)
+          .text(item.name, col2X, itemY + 5, { width: col3X - col2X - 10, height: 28 });
+
+        if (item.size) {
+          doc.fontSize(8).font('Helvetica').fillColor(COLORS.lightGray)
+            .text(`Talla: ${item.size}`, col2X, itemY + 22);
+        }
+
+        doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
+          .text(item.quantity.toString(), col3X, itemY + 12, { width: 50, align: 'center' })
+          .text(formatEUR(item.price), col4X, itemY + 12, { width: 55, align: 'right' });
+
+        doc.font('Helvetica-Bold').fillColor(COLORS.lightGray)
+          .text(formatEUR(itemTotal), col5X - 55, itemY + 12, { width: 55, align: 'right' });
+
+        itemY += rowHeight;
+      });
+
+      // Separador
+      doc.moveTo(marginLeft, itemY + 5)
+        .lineTo(pageWidth - marginRight, itemY + 5)
+        .strokeColor(COLORS.borderGray).lineWidth(1).stroke();
+
+      // ===== RESUMEN DE REEMBOLSO =====
+      const summaryX = pageWidth - marginRight - 200;
+      let summaryY = itemY + 18;
+
+      doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
+        .text('Subtotal original:', summaryX, summaryY, { width: 120, align: 'right' })
+        .text(formatEUR(data.subtotal), summaryX + 125, summaryY, { width: 75, align: 'right' });
+      summaryY += 20;
+
+      doc.text('Impuestos (IVA):', summaryX, summaryY, { width: 120, align: 'right' })
+        .text(formatEUR(data.tax), summaryX + 125, summaryY, { width: 75, align: 'right' });
+      summaryY += 25;
+
+      // Total tachado
+      doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
+        .text('Total original:', summaryX, summaryY, { width: 120, align: 'right' })
+        .text(formatEUR(data.total), summaryX + 125, summaryY, { width: 75, align: 'right' });
+      summaryY += 30;
+
+      // REEMBOLSO DESTACADO
+      doc.roundedRect(summaryX, summaryY, 200, 36, 6).fill(COLORS.green);
+      doc
+        .fontSize(11).font('Helvetica-Bold').fillColor(COLORS.white)
+        .text('REEMBOLSO:', summaryX + 15, summaryY + 10, { width: 80 });
+      doc
+        .fontSize(16).fillColor(COLORS.white)
+        .text(formatEUR(data.refundAmount), summaryX + 90, summaryY + 7, { width: 95, align: 'right' });
+
+      // ===== PIE DE PÁGINA =====
+      const footerY = 720;
+      doc.moveTo(marginLeft, footerY)
+        .lineTo(pageWidth - marginRight, footerY)
+        .strokeColor(COLORS.borderGray).lineWidth(0.5).stroke();
+
+      doc.fontSize(8).font('Helvetica').fillColor(COLORS.lightGray)
+        .text('Este documento acredita la cancelación de tu pedido y el reembolso correspondiente.',
+          marginLeft, footerY + 12, { width: contentWidth, align: 'center' });
+      doc.text('El reembolso se reflejará en tu método de pago original en 5-10 días hábiles.',
+        marginLeft, footerY + 24, { width: contentWidth, align: 'center' });
+      doc.fontSize(7).fillColor('#b0b0b0')
+        .text(`Documento generado el ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`,
+          marginLeft, footerY + 42, { width: contentWidth, align: 'center' });
+
+      // Barra inferior
+      doc.rect(0, 800, pageWidth, 22).fill(COLORS.redDark);
+      doc.fontSize(7).font('Helvetica-Bold').fillColor('#ff9999')
+        .text('KICKS', marginLeft, 804, { continued: true })
+        .fillColor('#ffcccc')
+        .text('PREMIUM', { continued: true })
+        .fillColor('#ff9999')
+        .font('Helvetica')
+        .text('  •  Factura de Cancelación  •  kickspremium.com', { continued: false });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}

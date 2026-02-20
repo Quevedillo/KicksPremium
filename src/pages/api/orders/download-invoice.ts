@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 import { generateInvoicePDF, generateInvoiceFilename } from '@lib/invoice';
+import { enrichOrderItems } from '@lib/utils';
 
 export const GET: APIRoute = async ({ request, params }) => {
   try {
@@ -71,6 +72,21 @@ export const GET: APIRoute = async ({ request, params }) => {
     const items = Array.isArray(order.items) ? order.items : [];
     const shippingAddress = order.shipping_address ? (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address) : undefined;
 
+    // Enrich items from DB (in case stored in compact format without name/brand/image)
+    const serviceClient = getSupabaseServiceClient();
+    const enrichedItems = await enrichOrderItems(serviceClient, items);
+
+    // Normalizar items para la factura
+    const normalizedItems = enrichedItems.map((item: any) => ({
+      name: item.name || item.n || 'Producto',
+      quantity: item.quantity || item.qty || item.q || 1,
+      price: item.price ?? item.p ?? 0,
+      size: item.size || item.s || '',
+      image: item.img || item.image || item.product?.images?.[0] || '',
+    }));
+
+    const subtotal = normalizedItems.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0);
+
     const invoiceData = {
       invoiceNumber: `${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
       date: new Date(order.created_at).toLocaleDateString('es-ES'),
@@ -78,18 +94,12 @@ export const GET: APIRoute = async ({ request, params }) => {
       customerEmail: order.billing_email || '',
       customerPhone: order.shipping_phone,
       shippingAddress,
-      items: items.map((item: any) => ({
-        name: item.product?.name || item.name || 'Producto',
-        quantity: item.quantity || item.qty || 1,
-        price: item.price || 0,
-        size: item.size,
-        image: item.img || item.image || item.product?.images?.[0] || '',
-      })),
-      subtotal: items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || item.qty || 1), 0),
-      tax: Math.max(0, (order.total_amount || 0) - items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || item.qty || 1), 0)),
+      items: normalizedItems,
+      subtotal,
+      tax: Math.max(0, (order.total_amount || 0) - subtotal),
       discount: order.discount_amount || 0,
       total: order.total_amount || 0,
-      orderStatus: order.status === 'completed' ? 'Completado' : order.status === 'pending' ? 'Pendiente' : order.status === 'paid' ? 'Pagado' : order.status,
+      orderStatus: (order.status === 'paid' || order.status === 'completed') ? 'Pagado' : order.status === 'shipped' ? 'Enviado' : order.status === 'cancelled' ? 'Cancelado' : order.status === 'processing' ? 'Procesando' : order.status,
     };
 
     // Generar PDF

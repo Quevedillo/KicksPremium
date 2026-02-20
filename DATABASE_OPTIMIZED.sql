@@ -752,10 +752,15 @@ $$;
 
 -- FUNCIÓN: Cancelar pedido (transacción atómica)
 -- Soporta pedidos de usuarios autenticados Y guest checkout
+-- FLUJO DE ESTADOS:
+--   paid       → cliente cancela → cancelled (reembolso inmediato)
+--   shipped    → cliente solicita → processing (pendiente admin)
+--   processing → admin confirma  → cancelled (reembolso + email)
 CREATE OR REPLACE FUNCTION cancel_order_atomic(
   p_order_id UUID,
   p_user_id UUID DEFAULT NULL,
-  p_reason TEXT DEFAULT 'Cancelado por el cliente'
+  p_reason TEXT DEFAULT 'Cancelado por el cliente',
+  p_is_admin BOOLEAN DEFAULT FALSE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -786,8 +791,34 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Pedido no encontrado');
   END IF;
   
-  IF v_order.status NOT IN ('pending', 'paid', 'processing', 'completed') THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Este pedido no se puede cancelar. Estado actual: ' || v_order.status);
+  -- CLIENTE: solo puede cancelar directamente si estado es 'paid'
+  -- Si está en 'shipped', se marca como 'processing' (pendiente admin)
+  IF NOT p_is_admin THEN
+    IF v_order.status = 'paid' THEN
+      -- Cancelación directa: restaurar stock y marcar como cancelado
+      NULL; -- Continuar con la cancelación abajo
+    ELSIF v_order.status = 'shipped' THEN
+      -- Solo marcar como procesando, el admin debe aprobar
+      UPDATE orders
+      SET status = 'processing',
+          cancelled_reason = p_reason,
+          updated_at = NOW()
+      WHERE id = p_order_id;
+      
+      RETURN jsonb_build_object(
+        'success', true,
+        'action', 'pending_admin',
+        'message', 'Solicitud de cancelación enviada. Un administrador la revisará.',
+        'order_id', p_order_id
+      );
+    ELSE
+      RETURN jsonb_build_object('success', false, 'error', 'Este pedido no se puede cancelar. Estado actual: ' || v_order.status);
+    END IF;
+  ELSE
+    -- ADMIN: puede cancelar pedidos en paid, shipped o processing
+    IF v_order.status NOT IN ('paid', 'shipped', 'processing') THEN
+      RETURN jsonb_build_object('success', false, 'error', 'Este pedido no se puede cancelar. Estado actual: ' || v_order.status);
+    END IF;
   END IF;
   
   -- Restaurar stock de cada item
@@ -821,7 +852,7 @@ BEGIN
     END IF;
   END LOOP;
   
-  -- Actualizar estado del pedido
+  -- Actualizar estado del pedido a cancelado
   UPDATE orders
   SET status = 'cancelled',
       cancelled_at = NOW(),
@@ -831,8 +862,10 @@ BEGIN
   
   RETURN jsonb_build_object(
     'success', true,
+    'action', 'cancelled',
     'message', 'Pedido cancelado correctamente',
-    'order_id', p_order_id
+    'order_id', p_order_id,
+    'needs_refund', true
   );
   
 EXCEPTION
@@ -873,7 +906,7 @@ BEGIN
   IF v_discount.code IN ('WELCOME10', 'PRIMERA_COMPRA') AND p_user_id IS NOT NULL THEN
     SELECT COUNT(*) INTO v_user_orders
     FROM orders
-    WHERE user_id = p_user_id AND status IN ('completed', 'pending', 'processing', 'shipped');
+    WHERE user_id = p_user_id AND status IN ('paid', 'completed', 'processing', 'shipped');
     
     IF v_user_orders > 0 THEN
       RETURN jsonb_build_object('valid', false, 'error', 'Este código solo es válido para tu primera compra');

@@ -150,7 +150,7 @@ export const POST: APIRoute = async ({ request }) => {
           stripe_session_id: session.id,
           stripe_payment_intent_id: session.payment_intent,
           total_amount: total,
-          status: 'completed',
+          status: 'paid',
           shipping_name: (session as any).shipping?.name || null,
           shipping_address: JSON.stringify((session as any).shipping?.address) || null,
           shipping_phone: session.customer_details?.phone || null,
@@ -289,7 +289,7 @@ export const POST: APIRoute = async ({ request }) => {
                 subtotal,
                 tax,
                 total,
-                orderStatus: 'Completado',
+                orderStatus: 'Pagado',
               });
               console.log(`✅ Invoice PDF generated for order ${order.id}`);
             } catch (pdfError) {
@@ -349,7 +349,7 @@ export const POST: APIRoute = async ({ request }) => {
         .insert({
           user_id: failedUserId || null,
           stripe_payment_intent_id: paymentIntent.id,
-          status: 'failed',
+          status: 'processing',
           total_amount: paymentIntent.amount || 0,
           items: (() => {
             try {

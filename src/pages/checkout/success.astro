@@ -24,7 +24,7 @@ if (sessionId) {
       
       // Call backend endpoint to handle order creation, stock update, and emails
       try {
-        const response = await fetch('http://localhost:4321/api/checkout/process-success', {
+        const response = await fetch(`${Astro.url.origin}/api/checkout/process-success`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

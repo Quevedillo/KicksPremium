@@ -255,11 +255,11 @@ function generateUserDataPDF(data: UserDataPDFInput): Promise<Buffer> {
       y += 45;
 
       const totalSpent = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0) / 100;
-      const completedOrders = orders.filter(o => ['completed', 'delivered'].includes(o.status)).length;
+      const completedOrders = orders.filter(o => ['paid', 'completed', 'shipped'].includes(o.status)).length;
 
       addField('Total gastado:', `${totalSpent.toFixed(2)} EUR`);
       addField('Pedidos completados:', `${completedOrders}`);
-      addField('Pedidos pendientes:', `${orders.filter(o => o.status === 'pending').length}`);
+      addField('Pedidos en proceso:', `${orders.filter(o => o.status === 'processing').length}`);
       addField('Pedidos cancelados:', `${orders.filter(o => o.status === 'cancelled').length}`);
 
       // ========== FOOTER ==========

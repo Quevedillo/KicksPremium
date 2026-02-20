@@ -86,23 +86,30 @@ const formatDate = (dateString: string) => {
 
 const getStatusBadge = (status: string) => {
   const statusConfig: Record<string, { color: string; label: string }> = {
-    completed: { color: 'bg-green-500/20 text-green-400 border-green-500', label: 'Completado' },
-    pending: { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500', label: 'Pendiente' },
     paid: { color: 'bg-blue-500/20 text-blue-400 border-blue-500', label: 'Pagado' },
+    completed: { color: 'bg-blue-500/20 text-blue-400 border-blue-500', label: 'Pagado' }, // legacy
     processing: { color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500', label: 'Procesando' },
     shipped: { color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500', label: 'Enviado' },
-    delivered: { color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500', label: 'Entregado' },
-    failed: { color: 'bg-red-500/20 text-red-400 border-red-500', label: 'Fallido' },
     cancelled: { color: 'bg-gray-500/20 text-gray-400 border-gray-500', label: 'Cancelado' },
-    refunded: { color: 'bg-purple-500/20 text-purple-400 border-purple-500', label: 'Reembolsado' },
   };
   
-  return statusConfig[status] || statusConfig.pending;
+  return statusConfig[status] || { color: 'bg-neutral-500/20 text-neutral-400 border-neutral-500', label: status };
+};
+
+// Helper para parsear items (puede ser array, string JSON, o vacío)
+const parseItems = (items: any): any[] => {
+  if (Array.isArray(items)) return items;
+  if (typeof items === 'string') {
+    try { return JSON.parse(items); } catch { return []; }
+  }
+  return [];
 };
 
 // Determinar qué acciones están disponibles para cada pedido
-const canCancel = (status: string) => ['pending', 'paid', 'processing'].includes(status);
-const canReturn = (status: string) => status === 'delivered';
+// Solo se puede cancelar si está pagado (o 'completed' legacy) o enviado
+const canCancel = (status: string) => ['paid', 'completed', 'shipped'].includes(status);
+// Verificar si un pedido tiene cancelación pendiente (procesando + tiene motivo de cancelación)
+const hasPendingCancellation = (order: any) => order.status === 'processing' && order.cancelled_reason;
 ---
 
 <PublicLayout title="Mis Pedidos" description="Historial de pedidos">
@@ -208,7 +215,7 @@ const canReturn = (status: string) => status === 'delivered';
           )}
           {userOrders.map((order: any) => {
             const statusConfig = getStatusBadge(order.status);
-            const items = Array.isArray(order.items) ? order.items : [];
+            const items = parseItems(order.items);
             
             return (
               <div class="bg-brand-dark border border-brand-gray rounded-lg overflow-hidden" data-order-id={order.id}>
@@ -226,9 +233,9 @@ const canReturn = (status: string) => status === 'delivered';
                     <p class={`inline-block px-3 py-1 rounded border text-sm font-bold ${statusConfig.color}`}>
                       {statusConfig.label}
                     </p>
-                    {order.return_status && (
+                    {hasPendingCancellation(order) && (
                       <p class="inline-block ml-2 px-3 py-1 rounded border text-sm font-bold bg-amber-500/20 text-amber-400 border-amber-500">
-                        Devolución: {order.return_status === 'requested' ? 'Solicitada' : order.return_status === 'approved' ? 'Aprobada' : order.return_status === 'received' ? 'Recibida' : 'Reembolsada'}
+                        ⏳ Cancelación pendiente de aprobación
                       </p>
                     )}
                     <p class="text-white font-bold text-2xl mt-2">
@@ -244,11 +251,12 @@ const canReturn = (status: string) => status === 'delivered';
                     {items.length > 0 ? (
                       items.map((item: any, idx: number) => {
                         // Los items se guardan como: {id, name, brand, price, qty, size, img}
-                        const itemName = item.name || item.product?.name || 'Producto';
+                        const itemName = item.name || item.n || item.product?.name || 'Producto';
                         const itemBrand = item.brand || item.product?.brand || '';
-                        const itemImage = item.img || item.product?.images?.[0];
-                        const itemPrice = item.price || item.product?.price || 0;
-                        const itemQty = item.qty || item.quantity || 1;
+                        const itemImage = item.img || item.image || item.product?.images?.[0];
+                        const itemPrice = item.price ?? item.p ?? item.product?.price ?? 0;
+                        const itemQty = item.qty || item.q || item.quantity || 1;
+                        const itemSize = item.size || item.s || '';
                         
                         return (
                           <div class="flex items-center justify-between bg-brand-black p-4 rounded">
@@ -270,7 +278,7 @@ const canReturn = (status: string) => status === 'delivered';
                                   {itemName}
                                 </p>
                                 <p class="text-neutral-500 text-sm">
-                                  Talla: {item.size} | Cantidad: {itemQty}
+                                  Talla: {itemSize} | Cantidad: {itemQty}
                                 </p>
                               </div>
                             </div>
@@ -330,28 +338,22 @@ const canReturn = (status: string) => status === 'delivered';
                     📄 Descargar Factura
                   </button>
 
-                  {/* Cancel and Return buttons */}
-                  {(canCancel(order.status) || canReturn(order.status)) && !order.return_status && (
-                    <>
-                      {canCancel(order.status) && (
-                        <button
-                          type="button"
-                          class="cancel-order-btn px-6 py-2 border-2 border-red-500 text-red-500 font-bold uppercase text-sm hover:bg-red-500 hover:text-white transition-colors rounded"
-                          data-order-id={order.id}
-                        >
-                          Cancelar Pedido
-                        </button>
-                      )}
-                      {canReturn(order.status) && (
-                        <button
-                          type="button"
-                          class="return-order-btn px-6 py-2 border-2 border-amber-500 text-amber-500 font-bold uppercase text-sm hover:bg-amber-500 hover:text-white transition-colors rounded"
-                          data-order-id={order.id}
-                        >
-                          Solicitar Devolución
-                        </button>
-                      )}
-                    </>
+                  {/* Cancel button - different text based on status */}
+                  {canCancel(order.status) && (
+                    <button
+                      type="button"
+                      class="cancel-order-btn px-6 py-2 border-2 border-red-500 text-red-500 font-bold uppercase text-sm hover:bg-red-500 hover:text-white transition-colors rounded"
+                      data-order-id={order.id}
+                      data-order-status={order.status}
+                    >
+                      {(order.status === 'paid' || order.status === 'completed') ? '❌ Cancelar y Reembolsar' : '📋 Solicitar Cancelación'}
+                    </button>
+                  )}
+                  {/* Show pending message for processing orders with cancellation */}
+                  {hasPendingCancellation(order) && (
+                    <span class="px-6 py-2 text-amber-400 text-sm font-bold">
+                      ⏳ Tu solicitud de cancelación está siendo revisada
+                    </span>
                   )}
                 </div>
               </div>
@@ -455,13 +457,21 @@ const canReturn = (status: string) => status === 'delivered';
     });
   });
 
-  // Cancel order
+  // Cancel order - two paths: paid (immediate refund) and shipped (request to admin)
   document.querySelectorAll('.cancel-order-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const orderId = btn.getAttribute('data-order-id');
+      const orderStatus = btn.getAttribute('data-order-status');
+      const isPaid = orderStatus === 'paid' || orderStatus === 'completed';
+      
+      const title = isPaid ? '❌ Cancelar y Reembolsar' : '📋 Solicitar Cancelación';
+      const message = isPaid
+        ? 'Se cancelará tu pedido y se procesará el reembolso automáticamente. Recibirás un email de confirmación con la factura de cancelación.'
+        : 'Tu pedido ya ha sido enviado. Se enviará una solicitud de cancelación al equipo de administración para su aprobación.';
+      
       showModal(
-        '❌ Cancelar Pedido',
-        '¿Estás seguro de que quieres cancelar este pedido? Esta acción no se puede deshacer.',
+        title,
+        message,
         '<div class="bg-brand-black p-4 rounded"><label class="text-sm text-neutral-400 block mb-2">Motivo de la cancelación (opcional)</label><input type="text" id="cancel-reason" class="w-full bg-brand-gray border border-neutral-600 rounded px-3 py-2 text-white" placeholder="Ej: Cambié de opinión"></div>',
         async () => {
           const reason = (document.getElementById('cancel-reason') as HTMLInputElement)?.value || '';
@@ -473,37 +483,13 @@ const canReturn = (status: string) => status === 'delivered';
           const data = await response.json();
           if (!response.ok) {
             alert(data.error || 'Error al cancelar el pedido');
+            return;
           }
-        }
-      );
-    });
-  });
-
-  // Return order
-  document.querySelectorAll('.return-order-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const orderId = btn.getAttribute('data-order-id');
-      showModal(
-        '📦 Solicitar Devolución',
-        'Recibirás un email con las instrucciones para enviar el producto de vuelta.',
-        `<div class="bg-amber-500/10 border border-amber-500/30 p-4 rounded text-sm text-amber-200">
-          <p class="font-bold mb-2">Política de devoluciones:</p>
-          <ul class="list-disc list-inside space-y-1 text-amber-100/80">
-            <li>Los productos deben estar en su estado original</li>
-            <li>Tienes 30 días desde la entrega para solicitar la devolución</li>
-            <li>Los gastos de envío de la devolución corren por tu cuenta</li>
-            <li>El reembolso se procesará en 5-10 días hábiles</li>
-          </ul>
-        </div>`,
-        async () => {
-          const response = await fetch('/api/orders/return', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId }),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            alert(data.error || 'Error al solicitar la devolución');
+          // Show success message based on action taken
+          if (data.action === 'pending_admin') {
+            alert('✅ Solicitud de cancelación enviada. El equipo de administración la revisará pronto.');
+          } else {
+            alert('✅ Pedido cancelado. El reembolso se ha procesado y recibirás un email con la factura de cancelación.');
           }
         }
       );
