@@ -123,11 +123,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  // Headers específicos para XML/Sitemap
-  if (pathname.endsWith('.xml') || pathname.endsWith('.xsl')) {
-    response.headers.set("Content-Type", "application/xml; charset=utf-8");
-    response.headers.set("Cache-Control", "public, max-age=86400");
-  } else if (!pathname.startsWith("/api/") && !pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/)) {
+  // No sobreescribir headers en endpoints que ya los definen (sitemap, robots, api)
+  const isStaticAsset = pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?|xml|xsl|txt)$/);
+  if (!pathname.startsWith("/api/") && !isStaticAsset) {
     // Evitar que el navegador cachee páginas que dependen de sesión
     // para que el estado de auth siempre esté actualizado
     response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
