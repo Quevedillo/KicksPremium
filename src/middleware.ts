@@ -125,7 +125,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Evitar que el navegador cachee páginas que dependen de sesión
   // para que el estado de auth siempre esté actualizado
-  if (!pathname.startsWith("/api/") && !pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/)) {
+  if (!pathname.startsWith("/api/") && !pathname.match(/\.(js|css|png|jpg|jpeg|webp|svg|ico|xsl|woff2?)$/)) {
     response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
