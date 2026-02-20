@@ -87,6 +87,10 @@ export const GET: APIRoute = async ({ request, params }) => {
 
     const subtotal = normalizedItems.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0);
 
+    // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA desde el total.
+    const baseImponible = Math.round(subtotal / 1.21);
+    const iva = subtotal - baseImponible;
+
     const invoiceData = {
       invoiceNumber: `${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
       date: new Date(order.created_at).toLocaleDateString('es-ES'),
@@ -95,10 +99,10 @@ export const GET: APIRoute = async ({ request, params }) => {
       customerPhone: order.shipping_phone,
       shippingAddress,
       items: normalizedItems,
-      subtotal,
-      tax: Math.max(0, (order.total_amount || 0) - subtotal),
+      subtotal: baseImponible,
+      tax: iva,
       discount: order.discount_amount || 0,
-      total: order.total_amount || 0,
+      total: order.total_amount || subtotal,
       orderStatus: (order.status === 'paid' || order.status === 'completed') ? 'Pagado' : order.status === 'shipped' ? 'Enviado' : order.status === 'cancelled' ? 'Cancelado' : order.status === 'processing' ? 'Procesando' : order.status,
     };
 

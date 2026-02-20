@@ -1,6 +1,7 @@
 ---
 import PublicLayout from '@layouts/PublicLayout.astro';
-import { supabase } from '@lib/supabase';
+import { supabase, getSupabaseServiceClient } from '@lib/supabase';
+import { enrichOrderItems } from '@lib/utils';
 
 // Get access token from cookies (set by client-side auth)
 const accessToken = Astro.cookies.get('sb-access-token')?.value;
@@ -63,6 +64,18 @@ if (!userId && guestEmailParam && guestEmailParam.includes('@')) {
     fetchError = error.message;
   } else {
     userOrders = orders || [];
+  }
+}
+
+// Enriquecer items de todos los pedidos para obtener imágenes y datos completos
+if (userOrders.length > 0) {
+  const serviceClient = getSupabaseServiceClient();
+  for (let i = 0; i < userOrders.length; i++) {
+    const rawItems = Array.isArray(userOrders[i].items) ? userOrders[i].items :
+      typeof userOrders[i].items === 'string' ? (() => { try { return JSON.parse(userOrders[i].items); } catch { return []; } })() : [];
+    if (rawItems.length > 0) {
+      userOrders[i].items = await enrichOrderItems(serviceClient, rawItems);
+    }
   }
 }
 

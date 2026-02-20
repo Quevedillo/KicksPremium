@@ -155,7 +155,9 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       if (customerEmail) {
         try {
           const subtotal = items.reduce((sum: number, item: any) => sum + (item.price ?? item.p ?? 0) * (item.qty || item.quantity || 1), 0);
-          const tax = Math.max(0, (currentOrder.total_amount || 0) - subtotal);
+          // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA.
+          const baseImponible = Math.round(subtotal / 1.21);
+          const iva = subtotal - baseImponible;
           const cancelReason = reason || currentOrder.cancelled_reason || 'Cancelado por administrador';
 
           const cancellationPDF = await generateCancellationInvoicePDF({
@@ -172,9 +174,9 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
               size: item.size || item.s || '',
               image: item.img || item.image || '',
             })),
-            subtotal,
-            tax,
-            total: currentOrder.total_amount || 0,
+            subtotal: baseImponible,
+            tax: iva,
+            total: currentOrder.total_amount || subtotal,
             cancellationReason: cancelReason,
             refundAmount: refundResult?.amount || currentOrder.total_amount || 0,
             refundStatus: refundResult?.status || 'pending',

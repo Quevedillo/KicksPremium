@@ -152,7 +152,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       // 4. Generar factura de cancelación PDF y enviar email
       try {
         const subtotal = items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.qty || item.quantity || 1), 0);
-        const tax = Math.max(0, (order.total_amount || 0) - subtotal);
+        // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA.
+        const baseImponible = Math.round(subtotal / 1.21);
+        const iva = subtotal - baseImponible;
 
         const cancellationPDF = await generateCancellationInvoicePDF({
           invoiceNumber: `CAN-${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
@@ -168,9 +170,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             size: item.size,
             image: item.img || item.image || '',
           })),
-          subtotal,
-          tax,
-          total: order.total_amount || 0,
+          subtotal: baseImponible,
+          tax: iva,
+          total: order.total_amount || subtotal,
           cancellationReason: cancelReason,
           refundAmount: refundResult?.amount || order.total_amount || 0,
           refundStatus: refundResult?.status || 'pending',

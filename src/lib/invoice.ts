@@ -1,9 +1,12 @@
 import PDFDocument from 'pdfkit';
 
+// IVA rate for Spain
+const IVA_RATE = 0.21;
+
 export interface InvoiceItem {
   name: string;
   quantity: number;
-  price: number;
+  price: number; // Price in cents WITH IVA included
   size?: string;
   image?: string;
 }
@@ -23,8 +26,8 @@ export interface InvoiceData {
     country: string;
   };
   items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
+  subtotal: number;  // Will be recalculated as base imponible
+  tax: number;       // Will be recalculated as IVA
   discount?: number;
   total: number;
   orderStatus: string;
@@ -50,8 +53,26 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
  */
 function formatEUR(cents: number): string {
   const val = Number(cents);
-  if (isNaN(val)) return '€0.00';
-  return `€${(val / 100).toFixed(2)}`;
+  if (isNaN(val)) return '0,00 €';
+  return `${(val / 100).toFixed(2).replace('.', ',')} €`;
+}
+
+/**
+ * Calcular base imponible (precio sin IVA) desde precio con IVA incluido
+ * @param priceWithIVA Precio en céntimos con IVA incluido
+ * @returns Precio en céntimos sin IVA (base imponible)
+ */
+function getBasePrice(priceWithIVA: number): number {
+  return Math.round(priceWithIVA / (1 + IVA_RATE));
+}
+
+/**
+ * Calcular IVA desde precio con IVA incluido
+ * @param priceWithIVA Precio en céntimos con IVA incluido
+ * @returns Cantidad de IVA en céntimos
+ */
+function getIVAAmount(priceWithIVA: number): number {
+  return priceWithIVA - getBasePrice(priceWithIVA);
 }
 
 // Colores corporativos
@@ -71,8 +92,9 @@ const COLORS = {
 };
 
 /**
- * Generar factura PDF premium
- * Retorna un Buffer con el contenido del PDF
+ * Generar factura PDF premium con desglose IVA
+ * Los precios se almacenan CON IVA incluido.
+ * En la factura se muestra: precio base (sin IVA), IVA y total con IVA.
  */
 export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   return new Promise(async (resolve, reject) => {
@@ -145,7 +167,7 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       // ===== ESTADO DEL PEDIDO =====
       const statusY = 95;
       const statusText = data.orderStatus;
-      const statusColor = statusText === 'Completado' ? COLORS.green : statusText === 'Pendiente' ? COLORS.orange : COLORS.mediumGray;
+      const statusColor = statusText === 'Pagado' ? COLORS.green : statusText === 'Enviado' ? '#6366f1' : statusText === 'Pendiente' ? COLORS.orange : COLORS.mediumGray;
 
       doc
         .roundedRect(marginLeft, statusY, 120, 24, 4)
@@ -156,6 +178,16 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         .font('Helvetica-Bold')
         .fillColor(COLORS.white)
         .text(statusText.toUpperCase(), marginLeft + 10, statusY + 7, { width: 100, align: 'center' });
+
+      // ===== DATOS EMPRESA (emisor) =====
+      const companyY = 95;
+      doc
+        .fontSize(7)
+        .font('Helvetica')
+        .fillColor(COLORS.lightGray)
+        .text('Kicks Premium S.L.', pageWidth - marginRight - 180, companyY, { width: 180, align: 'right' })
+        .text('CIF: B12345678', pageWidth - marginRight - 180, companyY + 10, { width: 180, align: 'right' })
+        .text('info@kickspremium.com', pageWidth - marginRight - 180, companyY + 20, { width: 180, align: 'right' });
 
       // ===== INFO CLIENTE Y ENVÍO =====
       const infoY = 135;
@@ -169,7 +201,7 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         .fontSize(8)
         .font('Helvetica-Bold')
         .fillColor(COLORS.lightGray)
-        .text('CLIENTE', marginLeft + 15, infoY + 12);
+        .text('DATOS DEL CLIENTE', marginLeft + 15, infoY + 12);
 
       doc
         .fontSize(11)
@@ -234,27 +266,33 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         .rect(marginLeft, tableTop, contentWidth, 28)
         .fill(COLORS.darkGray);
 
-      const col1X = marginLeft + 12; // Imagen
-      const col2X = marginLeft + 72; // Producto
-      const col3X = pageWidth - marginRight - 160; // Cant.
-      const col4X = pageWidth - marginRight - 100; // Precio
-      const col5X = pageWidth - marginRight - 10; // Total
+      // Column positions - well-spaced to avoid overlap
+      const col1X = marginLeft + 8;        // Imagen (width: 45)
+      const col2X = marginLeft + 58;       // Producto (flexible)
+      const col3X = marginLeft + 280;      // Cant. (width: 40)
+      const col4X = marginLeft + 325;      // P.Unit sin IVA (width: 75)
+      const col5X = marginLeft + 410;      // Total sin IVA (width: 75)
 
       doc
-        .fontSize(8)
+        .fontSize(7)
         .font('Helvetica-Bold')
         .fillColor(COLORS.white)
         .text('', col1X, tableTop + 9)
         .text('PRODUCTO', col2X, tableTop + 9)
-        .text('CANT.', col3X, tableTop + 9, { width: 50, align: 'center' })
-        .text('PRECIO', col4X, tableTop + 9, { width: 55, align: 'right' })
-        .text('TOTAL', col5X - 55, tableTop + 9, { width: 55, align: 'right' });
+        .text('CANT.', col3X, tableTop + 9, { width: 40, align: 'center' })
+        .text('P.UNIT (sin IVA)', col4X, tableTop + 9, { width: 75, align: 'right' })
+        .text('TOTAL (sin IVA)', col5X, tableTop + 9, { width: 75, align: 'right' });
 
       // Items
       let itemY = tableTop + 35;
 
+      // Calculate IVA details per item
+      let totalBaseImponible = 0;
+
       data.items.forEach((item, index) => {
-        const itemTotal = item.price * item.quantity;
+        const unitBasePrice = getBasePrice(item.price);
+        const lineTotal = unitBasePrice * item.quantity;
+        totalBaseImponible += lineTotal;
         const rowHeight = 55;
         const isEven = index % 2 === 0;
 
@@ -275,20 +313,21 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
               fit: [42, 42],
             });
           } catch (e) {
-            // Placeholder si la imagen falla
             doc
               .roundedRect(col1X, itemY, 42, 42, 4)
               .fill(COLORS.bgAccent);
+            doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
           }
         } else {
           doc
             .roundedRect(col1X, itemY, 42, 42, 4)
             .fill(COLORS.bgAccent);
+          doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
         }
 
         // Nombre del producto
         doc
-          .fontSize(10)
+          .fontSize(9)
           .font('Helvetica-Bold')
           .fillColor(COLORS.black)
           .text(item.name, col2X, itemY + 5, { width: col3X - col2X - 10, height: 28 });
@@ -304,20 +343,21 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
         // Cantidad
         doc
-          .fontSize(10)
+          .fontSize(9)
           .font('Helvetica')
           .fillColor(COLORS.mediumGray)
-          .text(item.quantity.toString(), col3X, itemY + 12, { width: 50, align: 'center' });
+          .text(item.quantity.toString(), col3X, itemY + 14, { width: 40, align: 'center' });
 
-        // Precio unitario
+        // Precio unitario SIN IVA
         doc
-          .text(formatEUR(item.price), col4X, itemY + 12, { width: 55, align: 'right' });
+          .fontSize(9)
+          .text(formatEUR(unitBasePrice), col4X, itemY + 14, { width: 75, align: 'right' });
 
-        // Total de línea
+        // Total de línea SIN IVA
         doc
           .font('Helvetica-Bold')
           .fillColor(COLORS.black)
-          .text(formatEUR(itemTotal), col5X - 55, itemY + 12, { width: 55, align: 'right' });
+          .text(formatEUR(lineTotal), col5X, itemY + 14, { width: 75, align: 'right' });
 
         itemY += rowHeight;
       });
@@ -330,17 +370,31 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         .lineWidth(1)
         .stroke();
 
-      // ===== RESUMEN DE TOTALES =====
-      const summaryX = pageWidth - marginRight - 200;
+      // ===== RESUMEN DE TOTALES CON IVA =====
+      const totalIVA = Math.round(totalBaseImponible * IVA_RATE);
+      const totalFinal = totalBaseImponible + totalIVA;
+
+      const summaryX = pageWidth - marginRight - 240;
       let summaryY = itemY + 18;
 
-      // Subtotal
+      // Base Imponible
       doc
         .fontSize(10)
         .font('Helvetica')
         .fillColor(COLORS.mediumGray)
-        .text('Subtotal:', summaryX, summaryY, { width: 120, align: 'right' })
-        .text(formatEUR(data.subtotal), summaryX + 125, summaryY, { width: 75, align: 'right' });
+        .text('Base Imponible:', summaryX, summaryY, { width: 140, align: 'right' });
+      doc
+        .font('Helvetica')
+        .text(formatEUR(totalBaseImponible), summaryX + 150, summaryY, { width: 90, align: 'right' });
+
+      summaryY += 20;
+
+      // IVA
+      doc
+        .fillColor(COLORS.mediumGray)
+        .text(`IVA (${(IVA_RATE * 100).toFixed(0)}%):`, summaryX, summaryY, { width: 140, align: 'right' });
+      doc
+        .text(formatEUR(totalIVA), summaryX + 150, summaryY, { width: 90, align: 'right' });
 
       summaryY += 20;
 
@@ -348,37 +402,44 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       if (data.discount && data.discount > 0) {
         doc
           .fillColor(COLORS.green)
-          .text('Descuento:', summaryX, summaryY, { width: 120, align: 'right' })
-          .text(`-${formatEUR(data.discount)}`, summaryX + 125, summaryY, { width: 75, align: 'right' });
+          .text('Descuento:', summaryX, summaryY, { width: 140, align: 'right' });
+        doc
+          .text(`-${formatEUR(data.discount)}`, summaryX + 150, summaryY, { width: 90, align: 'right' });
         summaryY += 20;
       }
 
-      // IVA
-      doc
-        .fillColor(COLORS.mediumGray)
-        .text('Impuestos (IVA):', summaryX, summaryY, { width: 120, align: 'right' })
-        .text(formatEUR(data.tax), summaryX + 125, summaryY, { width: 75, align: 'right' });
-
-      summaryY += 25;
+      summaryY += 5;
 
       // ===== TOTAL DESTACADO =====
       doc
-        .roundedRect(summaryX, summaryY, 200, 36, 6)
+        .roundedRect(summaryX, summaryY, 240, 40, 6)
         .fill(COLORS.black);
 
       doc
-        .fontSize(11)
+        .fontSize(12)
         .font('Helvetica-Bold')
         .fillColor(COLORS.white)
-        .text('TOTAL:', summaryX + 15, summaryY + 10, { width: 80 });
+        .text('TOTAL (IVA incl.):', summaryX + 15, summaryY + 12, { width: 110 });
 
       doc
-        .fontSize(16)
+        .fontSize(18)
         .fillColor(COLORS.red)
-        .text(formatEUR(data.total), summaryX + 90, summaryY + 7, { width: 95, align: 'right' });
+        .text(formatEUR(totalFinal), summaryX + 130, summaryY + 8, { width: 95, align: 'right' });
+
+      // ===== NOTA FISCAL =====
+      const noteY = summaryY + 52;
+      doc
+        .fontSize(7)
+        .font('Helvetica')
+        .fillColor(COLORS.lightGray)
+        .text(
+          'Los precios mostrados en el catálogo incluyen IVA. Esta factura desglosa la base imponible y el IVA aplicado conforme a la legislación vigente.',
+          marginLeft, noteY,
+          { width: contentWidth, align: 'left' }
+        );
 
       // ===== PIE DE PÁGINA =====
-      const footerY = 750;
+      const footerY = 730;
 
       doc
         .moveTo(marginLeft, footerY)
@@ -399,7 +460,7 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
       doc
         .text(
-          'Para consultas sobre tu pedido, visita kickspremium.com o contacta con nuestro equipo de soporte.',
+          'Para consultas sobre tu pedido, visita kickspremium.victoriafp.online o contacta con nuestro equipo de soporte.',
           marginLeft, footerY + 24,
           { width: contentWidth, align: 'center' }
         );
@@ -415,19 +476,19 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
       // Barra inferior decorativa
       doc
-        .rect(0, 820, pageWidth, 22)
+        .rect(0, 800, pageWidth, 22)
         .fill(COLORS.black);
 
       doc
         .fontSize(7)
         .font('Helvetica-Bold')
         .fillColor('#999999')
-        .text('KICKS', marginLeft, 824, { continued: true })
+        .text('KICKS', marginLeft, 804, { continued: true })
         .fillColor(COLORS.red)
         .text('PREMIUM', { continued: true })
         .fillColor('#666666')
         .font('Helvetica')
-        .text('  •  kickspremium.com  •  Authentic Sneakers', { continued: false });
+        .text('  •  kickspremium.victoriafp.online  •  Authentic Sneakers', { continued: false });
 
       // Finalizar documento
       doc.end();
@@ -463,8 +524,8 @@ export interface CancellationInvoiceData {
     country: string;
   };
   items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
+  subtotal: number;  // Will be recalculated as base imponible
+  tax: number;       // Will be recalculated as IVA
   total: number;
   cancellationReason: string;
   refundAmount: number;
@@ -473,7 +534,7 @@ export interface CancellationInvoiceData {
 }
 
 /**
- * Generar factura de cancelación/reembolso PDF
+ * Generar factura de cancelación/reembolso PDF con desglose IVA
  */
 export function generateCancellationInvoicePDF(data: CancellationInvoiceData): Promise<Buffer> {
   return new Promise(async (resolve, reject) => {
@@ -562,7 +623,7 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
 
       doc
         .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.lightGray)
-        .text('CLIENTE', marginLeft + 15, infoY + 12);
+        .text('DATOS DEL CLIENTE', marginLeft + 15, infoY + 12);
       doc
         .fontSize(11).font('Helvetica-Bold').fillColor(COLORS.black)
         .text(data.customerName, marginLeft + 15, infoY + 28, { width: contentWidth / 2 - 40 });
@@ -594,31 +655,56 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
       const tableTop = 245;
       doc.rect(marginLeft, tableTop, contentWidth, 28).fill(COLORS.darkGray);
 
-      const col2X = marginLeft + 12;
-      const col3X = pageWidth - marginRight - 160;
-      const col4X = pageWidth - marginRight - 100;
-      const col5X = pageWidth - marginRight - 10;
+      // Column positions - well-spaced
+      const col1X = marginLeft + 8;
+      const col2X = marginLeft + 58;
+      const col3X = marginLeft + 280;
+      const col4X = marginLeft + 325;
+      const col5X = marginLeft + 410;
 
       doc
-        .fontSize(8).font('Helvetica-Bold').fillColor(COLORS.white)
+        .fontSize(7).font('Helvetica-Bold').fillColor(COLORS.white)
+        .text('', col1X, tableTop + 9)
         .text('PRODUCTO', col2X, tableTop + 9)
-        .text('CANT.', col3X, tableTop + 9, { width: 50, align: 'center' })
-        .text('PRECIO', col4X, tableTop + 9, { width: 55, align: 'right' })
-        .text('TOTAL', col5X - 55, tableTop + 9, { width: 55, align: 'right' });
+        .text('CANT.', col3X, tableTop + 9, { width: 40, align: 'center' })
+        .text('P.UNIT (sin IVA)', col4X, tableTop + 9, { width: 75, align: 'right' })
+        .text('TOTAL (sin IVA)', col5X, tableTop + 9, { width: 75, align: 'right' });
 
       let itemY = tableTop + 35;
+      let totalBaseImponible = 0;
+
       data.items.forEach((item, index) => {
-        const itemTotal = item.price * item.quantity;
-        const rowHeight = 45;
+        const unitBasePrice = getBasePrice(item.price);
+        const lineTotal = unitBasePrice * item.quantity;
+        totalBaseImponible += lineTotal;
+        const rowHeight = 55;
         const isEven = index % 2 === 0;
 
         if (isEven) {
           doc.rect(marginLeft, itemY - 5, contentWidth, rowHeight).fill('#fafafa');
         }
 
-        // Tachado visual en nombre
+        // Imagen del producto
+        const imgBuf = imageBuffers[index];
+        if (imgBuf) {
+          try {
+            doc.image(imgBuf, col1X, itemY, {
+              width: 42,
+              height: 42,
+              fit: [42, 42],
+            });
+          } catch (e) {
+            doc.roundedRect(col1X, itemY, 42, 42, 4).fill(COLORS.bgAccent);
+            doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+          }
+        } else {
+          doc.roundedRect(col1X, itemY, 42, 42, 4).fill(COLORS.bgAccent);
+          doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+        }
+
+        // Nombre (tachado visual usando color gris)
         doc
-          .fontSize(10).font('Helvetica-Bold').fillColor(COLORS.lightGray)
+          .fontSize(9).font('Helvetica-Bold').fillColor(COLORS.lightGray)
           .text(item.name, col2X, itemY + 5, { width: col3X - col2X - 10, height: 28 });
 
         if (item.size) {
@@ -626,12 +712,12 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
             .text(`Talla: ${item.size}`, col2X, itemY + 22);
         }
 
-        doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
-          .text(item.quantity.toString(), col3X, itemY + 12, { width: 50, align: 'center' })
-          .text(formatEUR(item.price), col4X, itemY + 12, { width: 55, align: 'right' });
+        doc.fontSize(9).font('Helvetica').fillColor(COLORS.lightGray)
+          .text(item.quantity.toString(), col3X, itemY + 14, { width: 40, align: 'center' })
+          .text(formatEUR(unitBasePrice), col4X, itemY + 14, { width: 75, align: 'right' });
 
         doc.font('Helvetica-Bold').fillColor(COLORS.lightGray)
-          .text(formatEUR(itemTotal), col5X - 55, itemY + 12, { width: 55, align: 'right' });
+          .text(formatEUR(lineTotal), col5X, itemY + 14, { width: 75, align: 'right' });
 
         itemY += rowHeight;
       });
@@ -641,33 +727,49 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
         .lineTo(pageWidth - marginRight, itemY + 5)
         .strokeColor(COLORS.borderGray).lineWidth(1).stroke();
 
-      // ===== RESUMEN DE REEMBOLSO =====
-      const summaryX = pageWidth - marginRight - 200;
+      // ===== RESUMEN DE REEMBOLSO CON IVA =====
+      const totalIVA = Math.round(totalBaseImponible * IVA_RATE);
+      const totalConIVA = totalBaseImponible + totalIVA;
+
+      const summaryX = pageWidth - marginRight - 240;
       let summaryY = itemY + 18;
 
+      // Base Imponible
       doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
-        .text('Subtotal original:', summaryX, summaryY, { width: 120, align: 'right' })
-        .text(formatEUR(data.subtotal), summaryX + 125, summaryY, { width: 75, align: 'right' });
+        .text('Base Imponible:', summaryX, summaryY, { width: 140, align: 'right' });
+      doc.text(formatEUR(totalBaseImponible), summaryX + 150, summaryY, { width: 90, align: 'right' });
       summaryY += 20;
 
-      doc.text('Impuestos (IVA):', summaryX, summaryY, { width: 120, align: 'right' })
-        .text(formatEUR(data.tax), summaryX + 125, summaryY, { width: 75, align: 'right' });
-      summaryY += 25;
+      // IVA
+      doc.text(`IVA (${(IVA_RATE * 100).toFixed(0)}%):`, summaryX, summaryY, { width: 140, align: 'right' });
+      doc.text(formatEUR(totalIVA), summaryX + 150, summaryY, { width: 90, align: 'right' });
+      summaryY += 20;
 
-      // Total tachado
-      doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
-        .text('Total original:', summaryX, summaryY, { width: 120, align: 'right' })
-        .text(formatEUR(data.total), summaryX + 125, summaryY, { width: 75, align: 'right' });
+      // Total original tachado
+      doc.text('Total original (IVA incl.):', summaryX, summaryY, { width: 140, align: 'right' });
+      doc.text(formatEUR(totalConIVA), summaryX + 150, summaryY, { width: 90, align: 'right' });
       summaryY += 30;
 
       // REEMBOLSO DESTACADO
-      doc.roundedRect(summaryX, summaryY, 200, 36, 6).fill(COLORS.green);
+      doc.roundedRect(summaryX, summaryY, 240, 40, 6).fill(COLORS.green);
       doc
-        .fontSize(11).font('Helvetica-Bold').fillColor(COLORS.white)
-        .text('REEMBOLSO:', summaryX + 15, summaryY + 10, { width: 80 });
+        .fontSize(12).font('Helvetica-Bold').fillColor(COLORS.white)
+        .text('REEMBOLSO:', summaryX + 15, summaryY + 12, { width: 110 });
       doc
-        .fontSize(16).fillColor(COLORS.white)
-        .text(formatEUR(data.refundAmount), summaryX + 90, summaryY + 7, { width: 95, align: 'right' });
+        .fontSize(18).fillColor(COLORS.white)
+        .text(formatEUR(data.refundAmount), summaryX + 130, summaryY + 8, { width: 95, align: 'right' });
+
+      // ===== NOTA FISCAL =====
+      const noteY = summaryY + 52;
+      doc
+        .fontSize(7)
+        .font('Helvetica')
+        .fillColor(COLORS.lightGray)
+        .text(
+          'Esta factura rectificativa acredita la cancelación del pedido y el reembolso correspondiente. Los importes incluyen el desglose de IVA conforme a la legislación vigente.',
+          marginLeft, noteY,
+          { width: contentWidth, align: 'left' }
+        );
 
       // ===== PIE DE PÁGINA =====
       const footerY = 720;
@@ -692,7 +794,7 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
         .text('PREMIUM', { continued: true })
         .fillColor('#ff9999')
         .font('Helvetica')
-        .text('  •  Factura de Cancelación  •  kickspremium.com', { continued: false });
+        .text('  •  Factura de Cancelación  •  kickspremium.victoriafp.online', { continued: false });
 
       doc.end();
     } catch (error) {
