@@ -5,7 +5,7 @@ import node from '@astrojs/node';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: process.env.SITE_URL || 'https://kickspremium.com',
+  site: process.env.SITE_URL || 'https://kickspremium.victoriafp.online',
   output: 'server',
   adapter: node({
     mode: 'standalone'
@@ -20,8 +20,6 @@ export default defineConfig({
       changefreq: 'weekly',
       priority: 0.7,
       lastmod: new Date(),
-      // Usar el mismo dominio configurado en site
-      baseUrl: process.env.SITE_URL || 'https://kickspremium.com',
       // Ser selectivo con las rutas
       filter: (page) => {
         // Excluir rutas admin, auth y checkout del sitemap
