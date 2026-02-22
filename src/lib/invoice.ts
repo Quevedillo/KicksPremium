@@ -506,7 +506,7 @@ export function generateInvoiceFilename(invoiceNumber: string): string {
 }
 
 // ============================================================================
-// FACTURA DE CANCELACIÓN
+// FACTURA RECTIFICATIVA
 // ============================================================================
 
 export interface CancellationInvoiceData {
@@ -534,7 +534,7 @@ export interface CancellationInvoiceData {
 }
 
 /**
- * Generar factura de cancelación/reembolso PDF con desglose IVA
+ * Generar factura rectificativa (cancelación/reembolso) PDF con desglose IVA
  */
 export function generateCancellationInvoicePDF(data: CancellationInvoiceData): Promise<Buffer> {
   return new Promise(async (resolve, reject) => {
@@ -581,7 +581,7 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
       doc
         .fontSize(9)
         .fillColor('#ff9999')
-        .text('FACTURA DE CANCELACIÓN', marginLeft, 52);
+        .text('FACTURA RECTIFICATIVA', marginLeft, 52);
 
       // Número de factura
       doc
@@ -712,12 +712,12 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
             .text(`Talla: ${item.size}`, col2X, itemY + 22);
         }
 
-        doc.fontSize(9).font('Helvetica').fillColor(COLORS.lightGray)
+        doc.fontSize(9).font('Helvetica').fillColor(COLORS.red)
           .text(item.quantity.toString(), col3X, itemY + 14, { width: 40, align: 'center' })
-          .text(formatEUR(unitBasePrice), col4X, itemY + 14, { width: 75, align: 'right' });
+          .text(`-${formatEUR(unitBasePrice)}`, col4X, itemY + 14, { width: 75, align: 'right' });
 
-        doc.font('Helvetica-Bold').fillColor(COLORS.lightGray)
-          .text(formatEUR(lineTotal), col5X, itemY + 14, { width: 75, align: 'right' });
+        doc.font('Helvetica-Bold').fillColor(COLORS.red)
+          .text(`-${formatEUR(lineTotal)}`, col5X, itemY + 14, { width: 75, align: 'right' });
 
         itemY += rowHeight;
       });
@@ -727,37 +727,37 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
         .lineTo(pageWidth - marginRight, itemY + 5)
         .strokeColor(COLORS.borderGray).lineWidth(1).stroke();
 
-      // ===== RESUMEN DE REEMBOLSO CON IVA =====
+      // ===== RESUMEN DE REEMBOLSO CON IVA (importes negativos - factura rectificativa) =====
       const totalIVA = Math.round(totalBaseImponible * IVA_RATE);
       const totalConIVA = totalBaseImponible + totalIVA;
 
       const summaryX = pageWidth - marginRight - 240;
       let summaryY = itemY + 18;
 
-      // Base Imponible
-      doc.fontSize(10).font('Helvetica').fillColor(COLORS.lightGray)
+      // Base Imponible (negativa)
+      doc.fontSize(10).font('Helvetica').fillColor(COLORS.red)
         .text('Base Imponible:', summaryX, summaryY, { width: 140, align: 'right' });
-      doc.text(formatEUR(totalBaseImponible), summaryX + 150, summaryY, { width: 90, align: 'right' });
+      doc.text(`-${formatEUR(totalBaseImponible)}`, summaryX + 150, summaryY, { width: 90, align: 'right' });
       summaryY += 20;
 
-      // IVA
+      // IVA (negativo)
       doc.text(`IVA (${(IVA_RATE * 100).toFixed(0)}%):`, summaryX, summaryY, { width: 140, align: 'right' });
-      doc.text(formatEUR(totalIVA), summaryX + 150, summaryY, { width: 90, align: 'right' });
+      doc.text(`-${formatEUR(totalIVA)}`, summaryX + 150, summaryY, { width: 90, align: 'right' });
       summaryY += 20;
 
-      // Total original tachado
-      doc.text('Total original (IVA incl.):', summaryX, summaryY, { width: 140, align: 'right' });
-      doc.text(formatEUR(totalConIVA), summaryX + 150, summaryY, { width: 90, align: 'right' });
+      // Total rectificado (negativo)
+      doc.font('Helvetica-Bold').text('Total rectificado (IVA incl.):', summaryX, summaryY, { width: 140, align: 'right' });
+      doc.text(`-${formatEUR(totalConIVA)}`, summaryX + 150, summaryY, { width: 90, align: 'right' });
       summaryY += 30;
 
-      // REEMBOLSO DESTACADO
-      doc.roundedRect(summaryX, summaryY, 240, 40, 6).fill(COLORS.green);
+      // REEMBOLSO DESTACADO (negativo, fondo rojo)
+      doc.roundedRect(summaryX, summaryY, 240, 40, 6).fill(COLORS.redDark);
       doc
         .fontSize(12).font('Helvetica-Bold').fillColor(COLORS.white)
         .text('REEMBOLSO:', summaryX + 15, summaryY + 12, { width: 110 });
       doc
         .fontSize(18).fillColor(COLORS.white)
-        .text(formatEUR(data.refundAmount), summaryX + 130, summaryY + 8, { width: 95, align: 'right' });
+        .text(`-${formatEUR(data.refundAmount)}`, summaryX + 130, summaryY + 8, { width: 95, align: 'right' });
 
       // ===== NOTA FISCAL =====
       const noteY = summaryY + 52;
@@ -794,7 +794,7 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
         .text('PREMIUM', { continued: true })
         .fillColor('#ff9999')
         .font('Helvetica')
-        .text('  •  Factura de Cancelación  •  kickspremium.victoriafp.online', { continued: false });
+        .text('  •  Factura Rectificativa  •  kickspremium.victoriafp.online', { continued: false });
 
       doc.end();
     } catch (error) {

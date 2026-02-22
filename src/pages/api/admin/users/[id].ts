@@ -195,6 +195,11 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     }
 
     console.log(`✅ User ${userId} fully deleted from profiles and auth`);
+
+    return new Response(JSON.stringify({ success: true, message: 'Usuario eliminado correctamente' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error en DELETE /api/admin/users/[id]:', error);
     return new Response(JSON.stringify({ error: 'Error interno del servidor' }), {

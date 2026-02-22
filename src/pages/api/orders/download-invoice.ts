@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabase, getSupabaseServiceClient } from '@lib/supabase';
 import { generateInvoicePDF, generateInvoiceFilename } from '@lib/invoice';
 import { enrichOrderItems } from '@lib/utils';
+import type { NormalizedOrderItem } from '@lib/types';
 
 export const GET: APIRoute = async ({ request, params }) => {
   try {
@@ -33,7 +34,8 @@ export const GET: APIRoute = async ({ request, params }) => {
       return new Response('Order ID required', { status: 400 });
     }
 
-    let order: any = null;
+    let order: Record<string, unknown> | null = null;
+    const serviceClient = getSupabaseServiceClient();
 
     if (userId) {
       // Usuario autenticado: buscar por user_id o billing_email
@@ -51,7 +53,6 @@ export const GET: APIRoute = async ({ request, params }) => {
       order = data;
     } else if (guestEmail && guestEmail.includes('@')) {
       // Guest: buscar por billing_email usando service client (bypass RLS)
-      const serviceClient = getSupabaseServiceClient();
       const { data, error } = await serviceClient
         .from('orders')
         .select('*')
@@ -73,26 +74,33 @@ export const GET: APIRoute = async ({ request, params }) => {
     const shippingAddress = order.shipping_address ? (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address) : undefined;
 
     // Enrich items from DB (in case stored in compact format without name/brand/image)
-    const serviceClient = getSupabaseServiceClient();
     const enrichedItems = await enrichOrderItems(serviceClient, items);
 
     // Normalizar items para la factura
-    const normalizedItems = enrichedItems.map((item: any) => ({
-      name: item.name || item.n || 'Producto',
-      quantity: item.quantity || item.qty || item.q || 1,
-      price: item.price ?? item.p ?? 0,
-      size: item.size || item.s || '',
-      image: item.img || item.image || item.product?.images?.[0] || '',
+    const normalizedItems = enrichedItems.map((item: NormalizedOrderItem) => ({
+      name: item.name || 'Producto',
+      quantity: item.qty || 1,
+      price: item.price ?? 0,
+      size: item.size || '',
+      image: item.img || '',
     }));
 
-    const subtotal = normalizedItems.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0);
+    const subtotal = normalizedItems.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price || 0) * (item.quantity || 1), 0);
 
     // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA desde el total.
     const baseImponible = Math.round(subtotal / 1.21);
     const iva = subtotal - baseImponible;
 
+    // Buscar número de factura secuencial en la tabla invoices
+    const { data: invoiceRecord } = await serviceClient
+      .from('invoices')
+      .select('invoice_number')
+      .eq('order_id', orderId)
+      .eq('type', 'standard')
+      .single();
+
     const invoiceData = {
-      invoiceNumber: `${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
+      invoiceNumber: invoiceRecord?.invoice_number || `${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
       date: new Date(order.created_at).toLocaleDateString('es-ES'),
       customerName: order.shipping_name || 'Cliente',
       customerEmail: order.billing_email || '',

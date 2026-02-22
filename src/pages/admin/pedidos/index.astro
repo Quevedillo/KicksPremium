@@ -72,7 +72,9 @@ const getStatusBadge = (status: string) => {
     completed: { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Pagado', icon: '✓' }, // legacy
     processing: { color: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Procesando', icon: '⚙️' },
     shipped: { color: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Enviado', icon: '📦' },
+    delivered: { color: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Entregado', icon: '✅' },
     cancelled: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Cancelado', icon: '❌' },
+    refunded: { color: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Reembolsado', icon: '💸' },
   };
   return badges[status] || { color: 'bg-neutral-100 text-neutral-800 border-neutral-200', label: status, icon: '?' };
 };
@@ -82,7 +84,9 @@ const statusOptions = [
   { value: 'paid', label: 'Pagados' },
   { value: 'processing', label: 'Procesando' },
   { value: 'shipped', label: 'Enviados' },
+  { value: 'delivered', label: 'Entregados' },
   { value: 'cancelled', label: 'Cancelados' },
+  { value: 'refunded', label: 'Reembolsados' },
 ];
 ---
 

@@ -4,6 +4,7 @@ import { stripe } from '@lib/stripe';
 import { sendCancellationWithInvoiceEmail } from '@lib/email';
 import { generateCancellationInvoicePDF } from '@lib/invoice';
 import { enrichOrderItems } from '@lib/utils';
+import type { NormalizedOrderItem } from '@lib/types';
 
 export const POST: APIRoute = async ({ params, request, cookies }) => {
   try {
@@ -56,8 +57,8 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     const body = await request.json();
     const { status, reason } = body;
 
-    // Estados válidos: paid, shipped, cancelled, processing
-    const validStatuses = ['paid', 'processing', 'shipped', 'cancelled'];
+    // Estados válidos: paid, processing, shipped, delivered, cancelled
+    const validStatuses = ['paid', 'processing', 'shipped', 'delivered', 'cancelled'];
     
     if (!status || !validStatuses.includes(status)) {
       return new Response(
@@ -100,16 +101,17 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
             status: refund.status,
           };
           console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
-        } catch (refundError: any) {
-          console.error('⚠️ Error procesando reembolso:', refundError.message);
+        } catch (refundError: unknown) {
+          const errMsg = refundError instanceof Error ? refundError.message : String(refundError);
+          console.error('⚠️ Error procesando reembolso:', errMsg);
           refundResult = {
-            error: refundError.message,
+            error: errMsg,
             status: 'failed',
           };
         }
       }
 
-      // 2. Restaurar stock de los items del pedido cancelado
+      // 2. Restaurar stock usando RPC atómico (add_size_stock)
       const rawItems = typeof currentOrder.items === 'string'
         ? JSON.parse(currentOrder.items)
         : (currentOrder.items || []);
@@ -118,31 +120,25 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       const items = await enrichOrderItems(serviceClient, rawItems);
 
       for (const item of items) {
-        const productId = item.id || item.product_id;
-        const quantity = item.qty || item.quantity || 1;
+        const productId = item.id;
+        const quantity = item.qty || 1;
         const size = item.size;
 
         if (productId && size) {
           try {
-            const { data: product } = await serviceClient
-              .from('products')
-              .select('sizes_available, stock')
-              .eq('id', productId)
-              .single();
+            const { data: rpcResult, error: rpcError } = await serviceClient
+              .rpc('add_size_stock', {
+                p_product_id: productId,
+                p_size: size,
+                p_quantity: quantity,
+              });
 
-            if (product) {
-              const sizesAvailable = product.sizes_available || {};
-              sizesAvailable[size] = (parseInt(sizesAvailable[size]) || 0) + quantity;
-              const newStock = Object.values(sizesAvailable).reduce(
-                (sum: number, qty: any) => sum + (parseInt(String(qty)) || 0), 0
-              );
-
-              await serviceClient
-                .from('products')
-                .update({ sizes_available: sizesAvailable, stock: newStock })
-                .eq('id', productId);
-
-              console.log(`✅ Stock restaurado: ${productId} talla ${size} +${quantity}`);
+            if (rpcError) {
+              console.error(`⚠️ RPC error restaurando stock de ${productId}:`, rpcError);
+            } else if (rpcResult && !rpcResult.success) {
+              console.error(`⚠️ Error restaurando stock: ${rpcResult.error}`);
+            } else {
+              console.log(`✅ Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
             }
           } catch (stockError) {
             console.error(`⚠️ Error restaurando stock de ${productId}:`, stockError);
@@ -150,29 +146,55 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         }
       }
 
-      // 3. Generar factura de cancelación y enviar email al cliente
+      // 3. Generar factura rectificativa y enviar email al cliente
       const customerEmail = currentOrder.billing_email;
       if (customerEmail) {
         try {
-          const subtotal = items.reduce((sum: number, item: any) => sum + (item.price ?? item.p ?? 0) * (item.qty || item.quantity || 1), 0);
+          const subtotal = items.reduce((sum: number, item: NormalizedOrderItem) => sum + (item.price ?? 0) * (item.qty || 1), 0);
           // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA.
           const baseImponible = Math.round(subtotal / 1.21);
           const iva = subtotal - baseImponible;
           const cancelReason = reason || currentOrder.cancelled_reason || 'Cancelado por administrador';
 
+          // Buscar factura original y crear rectificativa
+          const { data: originalInvoice } = await serviceClient
+            .from('invoices')
+            .select('id, invoice_number')
+            .eq('order_id', currentOrder.id)
+            .eq('type', 'standard')
+            .single();
+
+          let rectInvoiceNum = '';
+          try {
+            const { data: invNumData } = await serviceClient.rpc('generate_invoice_number', { invoice_type: 'rectificativa' });
+            rectInvoiceNum = invNumData || `R-${Date.now()}`;
+            await serviceClient.from('invoices').insert({
+              invoice_number: rectInvoiceNum,
+              order_id: currentOrder.id,
+              type: 'rectificativa',
+              original_invoice_id: originalInvoice?.id || null,
+              amount: -(refundResult?.amount || currentOrder.total_amount || 0),
+              customer_email: customerEmail,
+            });
+            console.log(`✅ Rectificativa invoice: ${rectInvoiceNum}`);
+          } catch (invErr) {
+            console.error('⚠️ Error creating rectificativa:', invErr);
+            rectInvoiceNum = `R-${currentOrder.id.slice(0, 8).toUpperCase()}`;
+          }
+
           const cancellationPDF = await generateCancellationInvoicePDF({
-            invoiceNumber: `CAN-${currentOrder.stripe_session_id?.slice(-8).toUpperCase() || currentOrder.id.slice(0, 8).toUpperCase()}`,
+            invoiceNumber: rectInvoiceNum,
             date: new Date().toLocaleDateString('es-ES'),
             customerName: currentOrder.shipping_name || 'Cliente',
             customerEmail: customerEmail,
             customerPhone: currentOrder.shipping_phone,
             shippingAddress: currentOrder.shipping_address ? (typeof currentOrder.shipping_address === 'string' ? JSON.parse(currentOrder.shipping_address) : currentOrder.shipping_address) : undefined,
-            items: items.map((item: any) => ({
-              name: item.name || item.n || 'Producto',
-              quantity: item.qty || item.quantity || 1,
-              price: item.price ?? item.p ?? 0,
-              size: item.size || item.s || '',
-              image: item.img || item.image || '',
+            items: items.map((item: NormalizedOrderItem) => ({
+              name: item.name || 'Producto',
+              quantity: item.qty || 1,
+              price: item.price ?? 0,
+              size: item.size || '',
+              image: item.img || '',
             })),
             subtotal: baseImponible,
             tax: iva,
@@ -202,13 +224,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     }
 
     // Preparar datos de actualización
-    const updateData: any = { status, updated_at: new Date().toISOString() };
+    const updateData: Record<string, string> = { status, updated_at: new Date().toISOString() };
     if (status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
       updateData.cancelled_reason = reason || currentOrder.cancelled_reason || 'Cancelado por administrador';
     }
     if (status === 'shipped') {
       updateData.shipped_at = new Date().toISOString();
+    }
+    if (status === 'delivered') {
+      updateData.delivered_at = new Date().toISOString();
     }
 
     const { data, error } = await serviceClient

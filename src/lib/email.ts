@@ -51,11 +51,12 @@ export async function sendEmailWithSMTP(options: {
   try {
     const toArray = Array.isArray(options.to) ? options.to : [options.to];
     
-    const mailOptions: any = {
+    const mailOptions = {
       from: `"Kicks Premium" <${options.from || FROM_EMAIL_CONFIG}>`,
       to: toArray.join(', '),
       subject: options.subject,
       html: options.html,
+      attachments: undefined as Array<{ filename: string; content: Buffer; contentType: string }> | undefined,
     };
 
     // Agregar adjuntos si existen
@@ -1138,7 +1139,7 @@ export async function sendNewOfferToAllSubscribers(
 export async function sendAdminNotification(
   subject: string,
   message: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
   try {
     // Validar que está configurado SMTP
@@ -1275,7 +1276,7 @@ interface ReturnRequestData {
   orderId: string;
   email: string;
   customerName: string;
-  items: any[];
+  items: Array<Record<string, unknown>>;
   returnAddress: {
     name: string;
     line1: string;
@@ -1565,7 +1566,7 @@ interface CancellationWithInvoiceData {
   customerName: string;
   reason: string;
   refundAmount: number;
-  items: any[];
+  items: Array<Record<string, unknown>>;
   total: number;
   invoicePDF: Buffer;
 }
@@ -1588,12 +1589,12 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
 
     const orderRef = data.orderId.substring(0, 8).toUpperCase();
 
-    const itemsHtml = data.items.map((item: any) => {
-      const name = item.name || item.n || 'Producto';
-      const qty = item.qty || item.q || item.quantity || 1;
-      const price = item.price ?? item.p ?? 0;
-      const img = item.img || item.image || '';
-      const size = item.size || item.s || '';
+    const itemsHtml = data.items.map((item: Record<string, unknown>) => {
+      const name = (item.name as string) || (item.n as string) || 'Producto';
+      const qty = (item.qty as number) || (item.q as number) || (item.quantity as number) || 1;
+      const price = (item.price as number) ?? (item.p as number) ?? 0;
+      const img = (item.img as string) || (item.image as string) || '';
+      const size = (item.size as string) || (item.s as string) || '';
       return `
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="padding: 12px; width: 60px;">

@@ -4,35 +4,31 @@ import { stripe } from '@lib/stripe';
 import { sendCancellationWithInvoiceEmail, sendAdminCancellationRequestEmail } from '@lib/email';
 import { generateCancellationInvoicePDF } from '@lib/invoice';
 import { enrichOrderItems } from '@lib/utils';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { NormalizedOrderItem } from '@lib/types';
 
-// Helper: restaurar stock de los items de un pedido
-async function restoreOrderStock(serviceClient: any, items: any[]) {
+// Helper: restaurar stock de los items de un pedido usando RPC atómico
+async function restoreOrderStock(serviceClient: SupabaseClient, items: NormalizedOrderItem[]) {
   for (const item of items) {
-    const productId = item.id || item.product_id;
-    const quantity = item.qty || item.quantity || 1;
+    const productId = item.id;
+    const quantity = item.qty || 1;
     const size = item.size;
 
     if (productId && size) {
       try {
-        const { data: product } = await serviceClient
-          .from('products')
-          .select('sizes_available, stock')
-          .eq('id', productId)
-          .single();
+        const { data: rpcResult, error: rpcError } = await serviceClient
+          .rpc('add_size_stock', {
+            p_product_id: productId,
+            p_size: size,
+            p_quantity: quantity,
+          });
 
-        if (product) {
-          const sizesAvailable = product.sizes_available || {};
-          sizesAvailable[size] = (parseInt(sizesAvailable[size]) || 0) + quantity;
-          const newStock = Object.values(sizesAvailable).reduce(
-            (sum: number, qty: any) => sum + (parseInt(String(qty)) || 0), 0
-          );
-
-          await serviceClient
-            .from('products')
-            .update({ sizes_available: sizesAvailable, stock: newStock })
-            .eq('id', productId);
-
-          console.log(`✅ Stock restaurado: ${productId} talla ${size} +${quantity}`);
+        if (rpcError) {
+          console.error(`⚠️ RPC error restaurando stock de ${productId}:`, rpcError);
+        } else if (rpcResult && !rpcResult.success) {
+          console.error(`⚠️ Error restaurando stock: ${rpcResult.error}`);
+        } else {
+          console.log(`✅ Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
         }
       } catch (stockError) {
         console.error(`⚠️ Error restaurando stock de ${productId}:`, stockError);
@@ -128,7 +124,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       }
 
       // 3. Procesar reembolso en Stripe
-      let refundResult: any = null;
+      let refundResult: { refundId?: string; amount?: number; status: string; error?: string } | null = null;
       const paymentIntentId = order.stripe_payment_intent_id;
 
       if (paymentIntentId && typeof paymentIntentId === 'string') {
@@ -143,32 +139,60 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             status: refund.status,
           };
           console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
-        } catch (refundError: any) {
-          console.error('⚠️ Error procesando reembolso:', refundError.message);
-          refundResult = { error: refundError.message, status: 'failed' };
+        } catch (refundError: unknown) {
+          const errMsg = refundError instanceof Error ? refundError.message : String(refundError);
+          console.error('⚠️ Error procesando reembolso:', errMsg);
+          refundResult = { error: errMsg, status: 'failed' };
         }
       }
 
-      // 4. Generar factura de cancelación PDF y enviar email
+      // 4. Generar factura rectificativa con numeración secuencial
       try {
-        const subtotal = items.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.qty || item.quantity || 1), 0);
+        const subtotal = items.reduce((sum: number, item: NormalizedOrderItem) => sum + (item.price || 0) * (item.qty || 1), 0);
         // IVA: los precios ya incluyen IVA. Calcular base imponible e IVA.
         const baseImponible = Math.round(subtotal / 1.21);
         const iva = subtotal - baseImponible;
 
+        // Buscar factura original para vincularla
+        const { data: originalInvoice } = await serviceClient
+          .from('invoices')
+          .select('id, invoice_number')
+          .eq('order_id', order.id)
+          .eq('type', 'standard')
+          .single();
+
+        // Generar número secuencial para rectificativa
+        let rectInvoiceNum = '';
+        try {
+          const { data: invNumData } = await serviceClient.rpc('generate_invoice_number', { invoice_type: 'rectificativa' });
+          rectInvoiceNum = invNumData || `R-${Date.now()}`;
+          await serviceClient.from('invoices').insert({
+            invoice_number: rectInvoiceNum,
+            order_id: order.id,
+            type: 'rectificativa',
+            original_invoice_id: originalInvoice?.id || null,
+            amount: -(refundResult?.amount || order.total_amount || 0),
+            customer_email: userEmail || order.billing_email || null,
+          });
+          console.log(`✅ Rectificativa invoice created: ${rectInvoiceNum} (ref: ${originalInvoice?.invoice_number || 'N/A'})`);
+        } catch (invErr) {
+          console.error('⚠️ Error creating rectificativa invoice:', invErr);
+          rectInvoiceNum = `R-${order.id.slice(0, 8).toUpperCase()}`;
+        }
+
         const cancellationPDF = await generateCancellationInvoicePDF({
-          invoiceNumber: `CAN-${order.stripe_session_id?.slice(-8).toUpperCase() || order.id.slice(0, 8).toUpperCase()}`,
+          invoiceNumber: rectInvoiceNum,
           date: new Date().toLocaleDateString('es-ES'),
           customerName: order.shipping_name || 'Cliente',
           customerEmail: userEmail || order.billing_email || '',
           customerPhone: order.shipping_phone,
           shippingAddress: order.shipping_address ? (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address) : undefined,
-          items: items.map((item: any) => ({
+          items: items.map((item: NormalizedOrderItem) => ({
             name: item.name || 'Producto',
-            quantity: item.qty || item.quantity || 1,
+            quantity: item.qty || 1,
             price: item.price || 0,
             size: item.size,
-            image: item.img || item.image || '',
+            image: item.img || '',
           })),
           subtotal: baseImponible,
           tax: iva,

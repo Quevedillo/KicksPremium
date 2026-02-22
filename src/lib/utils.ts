@@ -2,6 +2,9 @@
  * Utility functions for KicksPremium
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { NormalizedOrderItem } from './types';
+
 /** Formateador de precios para España (EUR) */
 const priceFormatter = new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -95,23 +98,18 @@ export const deepClone = <T>(obj: T): T => {
  * Formato completo: {id, name, brand, price, qty/quantity, size, img/image}
  * @returns Item normalizado con campos estándar
  */
-export function normalizeOrderItem(item: any): {
-  id: string;
-  name: string;
-  brand: string;
-  price: number;
-  qty: number;
-  size: string;
-  img: string;
-} {
+export function normalizeOrderItem(item: Record<string, unknown>): NormalizedOrderItem {
+  const asStr = (v: unknown): string => typeof v === 'string' ? v : '';
+  const asNum = (v: unknown): number => typeof v === 'number' ? v : 0;
+  const product = item.product as Record<string, unknown> | undefined;
   return {
-    id: item.id || item.product_id || '',
-    name: item.name || item.n || 'Producto',
-    brand: item.brand || '',
-    price: item.price ?? item.p ?? 0,
-    qty: item.qty || item.q || item.quantity || 1,
-    size: item.size || item.s || '',
-    img: item.img || item.image || item.product?.images?.[0] || '',
+    id: asStr(item.id) || asStr(item.product_id) || '',
+    name: asStr(item.name) || asStr(item.n) || 'Producto',
+    brand: asStr(item.brand) || '',
+    price: asNum(item.price) || asNum(item.p) || 0,
+    qty: asNum(item.qty) || asNum(item.q) || asNum(item.quantity) || 1,
+    size: asStr(item.size) || asStr(item.s) || '',
+    img: asStr(item.img) || asStr(item.image) || asStr(product?.images && Array.isArray(product.images) ? product.images[0] : '') || '',
   };
 }
 
@@ -122,8 +120,8 @@ export function normalizeOrderItem(item: any): {
  * @param items Array de items (compactos o completos)
  * @returns Items enriquecidos con nombre, marca, imagen y precio real del producto
  */
-export async function enrichOrderItems(supabaseClient: any, items: any[]): Promise<any[]> {
-  const enriched = [];
+export async function enrichOrderItems(supabaseClient: SupabaseClient, items: Record<string, unknown>[]): Promise<NormalizedOrderItem[]> {
+  const enriched: NormalizedOrderItem[] = [];
   for (const item of items) {
     const normalized = normalizeOrderItem(item);
 

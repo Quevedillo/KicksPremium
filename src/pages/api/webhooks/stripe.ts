@@ -3,6 +3,7 @@ import { stripe } from '@lib/stripe';
 import { getSupabaseServiceClient } from '@lib/supabase';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
 import { generateInvoicePDF } from '@lib/invoice';
+import type { NormalizedOrderItem } from '@lib/types';
 import Stripe from 'stripe';
 
 // Handle Stripe webhooks
@@ -119,7 +120,7 @@ export const POST: APIRoute = async ({ request }) => {
           // If still 0, calculate from cart items metadata
           if ((total === 0 || total === null) && cartItems.length > 0) {
             console.log(`Amount total is still 0, calculating from cart items...`);
-            total = cartItems.reduce((sum: number, item: any) => {
+            total = cartItems.reduce((sum: number, item: NormalizedOrderItem) => {
               const itemPrice = item.price < 100 ? item.price * 100 : item.price;
               return sum + (itemPrice * item.qty);
             }, 0);
@@ -130,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
           // Fall back to calculating from cart items
           if (cartItems.length > 0) {
             console.log(`Failed to fetch session, calculating from cart items...`);
-            total = cartItems.reduce((sum: number, item: any) => {
+            total = cartItems.reduce((sum: number, item: NormalizedOrderItem) => {
               const itemPrice = item.price < 100 ? item.price * 100 : item.price;
               return sum + (itemPrice * item.qty);
             }, 0);
@@ -151,8 +152,8 @@ export const POST: APIRoute = async ({ request }) => {
           stripe_payment_intent_id: session.payment_intent,
           total_amount: total,
           status: 'paid',
-          shipping_name: (session as any).shipping?.name || null,
-          shipping_address: JSON.stringify((session as any).shipping?.address) || null,
+          shipping_name: session.shipping_details?.name || null,
+          shipping_address: JSON.stringify(session.shipping_details?.address) || null,
           shipping_phone: session.customer_details?.phone || null,
           billing_email: guestEmail || session.customer_email || null,
           items: cartItems,
@@ -166,6 +167,24 @@ export const POST: APIRoute = async ({ request }) => {
         console.error('Error saving order to Supabase:', orderError);
       } else {
         console.log(`Order saved: ${order.id} (${userId ? 'user: ' + userId : 'guest: ' + guestEmail})`);
+
+        // Create invoice record with sequential numbering
+        let invoiceNum = '';
+        try {
+          const { data: invNumData } = await supabase.rpc('generate_invoice_number', { invoice_type: 'standard' });
+          invoiceNum = invNumData || `F-${Date.now()}`;
+          await supabase.from('invoices').insert({
+            invoice_number: invoiceNum,
+            order_id: order.id,
+            type: 'standard',
+            amount: total,
+            customer_email: guestEmail || session.customer_email || null,
+          });
+          console.log(`✅ Invoice record created: ${invoiceNum}`);
+        } catch (invErr) {
+          console.error('⚠️ Error creating invoice record:', invErr);
+          invoiceNum = session.id.slice(-8).toUpperCase();
+        }
 
         // Track discount code usage if a discount was applied
         const discountCode = session.metadata?.discount_code;
@@ -199,56 +218,37 @@ export const POST: APIRoute = async ({ request }) => {
           }
         }
 
-        // Decrement stock for each item in the order
+        // Decrement stock for each item using atomic RPC (prevents race conditions)
         try {
-          console.log(`Starting stock decrement for ${cartItems.length} items...`);
+          console.log(`Starting atomic stock decrement for ${cartItems.length} items...`);
           for (const item of cartItems) {
             const productId = item.id;
             const quantity = item.qty || 1;
             const size = item.size;
 
-            console.log(`\n  Processing item: ${productId} (qty: ${quantity}, size: ${size})`);
-
-            const { data: product, error: fetchError } = await supabase
-              .from('products')
-              .select('stock, sizes_available')
-              .eq('id', productId)
-              .single();
-
-            if (fetchError || !product) {
-              console.error(`    ERROR: Could not fetch product ${productId}:`, fetchError);
+            if (!productId || !size) {
+              console.warn(`  Skipping item without productId or size`);
               continue;
             }
 
-            console.log(`    Current stock: ${product.stock}, sizes_available:`, product.sizes_available);
+            console.log(`\n  Processing item: ${productId} (qty: ${quantity}, size: ${size})`);
 
-            let newSizesAvailable = product.sizes_available || {};
-            if (newSizesAvailable && typeof newSizesAvailable === 'object' && size) {
-              if (newSizesAvailable[size]) {
-                newSizesAvailable[size] = Math.max(0, (newSizesAvailable[size] || 0) - quantity);
-              }
-            }
+            const { data: rpcResult, error: rpcError } = await supabase
+              .rpc('reduce_size_stock', {
+                p_product_id: productId,
+                p_size: size,
+                p_quantity: quantity,
+              });
 
-            const newStock = Object.values(newSizesAvailable).reduce((sum: number, qty: any) => sum + (parseInt(qty) || 0), 0);
-
-            console.log(`    Size ${size}: Decremented by ${quantity}, new quantity: ${newSizesAvailable[size] || 0}`);
-            console.log(`    New total stock: ${product.stock} -> ${newStock}`);
-
-            const { error: updateError } = await supabase
-              .from('products')
-              .update({
-                stock: newStock,
-                sizes_available: newSizesAvailable,
-              })
-              .eq('id', productId);
-
-            if (updateError) {
-              console.error(`    ERROR updating stock for product ${productId}:`, updateError);
+            if (rpcError) {
+              console.error(`    RPC ERROR for product ${productId}:`, rpcError);
+            } else if (rpcResult && !rpcResult.success) {
+              console.warn(`    Stock insufficient for ${productId} size ${size}: ${rpcResult.error}`);
             } else {
-              console.log(`    SUCCESS: Stock updated: ${product.stock} -> ${newStock}`);
+              console.log(`    SUCCESS: Stock updated atomically for ${productId} size ${size}`);
             }
           }
-          console.log(`Stock decrement completed.\n`);
+          console.log(`Atomic stock decrement completed.\n`);
         } catch (error) {
           console.error('ERROR in stock decrement loop:', error);
         }
@@ -257,15 +257,15 @@ export const POST: APIRoute = async ({ request }) => {
         try {
           const emailRecipient = session.customer_email || guestEmail;
           if (order && emailRecipient) {
-            const customerName = (session as any).shipping?.name || 'Cliente';
+            const customerName = session.shipping_details?.name || 'Cliente';
             
             let shippingAddress = undefined;
-            if ((session as any).shipping?.address) {
-              shippingAddress = (session as any).shipping.address;
+            if (session.shipping_details?.address) {
+              shippingAddress = session.shipping_details.address;
             }
 
             const subtotal = cartItems.reduce(
-              (sum: number, item: any) => sum + (item.price || 0) * (item.qty || item.quantity || 1),
+              (sum: number, item: NormalizedOrderItem) => sum + (item.price || 0) * (item.qty || 1),
               0
             );
             const tax = total - subtotal;
@@ -273,18 +273,18 @@ export const POST: APIRoute = async ({ request }) => {
             let invoicePDF: Buffer | undefined = undefined;
             try {
               invoicePDF = await generateInvoicePDF({
-                invoiceNumber: session.id.slice(-8).toUpperCase(),
+                invoiceNumber: invoiceNum || session.id.slice(-8).toUpperCase(),
                 date: new Date().toLocaleDateString('es-ES'),
                 customerName,
                 customerEmail: emailRecipient,
-                customerPhone: (session.customer_details as any)?.phone,
+                customerPhone: session.customer_details?.phone,
                 shippingAddress,
-                items: cartItems.map((item: any) => ({
-                  name: item.product?.name || item.name || 'Producto',
-                  quantity: item.quantity || item.qty || 1,
+                items: cartItems.map((item: NormalizedOrderItem) => ({
+                  name: item.name || 'Producto',
+                  quantity: item.qty || 1,
                   price: item.price || 0,
                   size: item.size,
-                  image: item.img || item.image || '',
+                  image: item.img || '',
                 })),
                 subtotal,
                 tax,
@@ -300,12 +300,12 @@ export const POST: APIRoute = async ({ request }) => {
               orderId: order.id,
               email: emailRecipient,
               customerName,
-              items: cartItems.map((item: any) => ({
+              items: cartItems.map((item: NormalizedOrderItem) => ({
                 id: item.id || '',
-                name: item.product?.name || item.name || 'Producto',
+                name: item.name || 'Producto',
                 price: item.price || 0,
-                quantity: item.quantity || item.qty || 1,
-                image: item.img || item.image || '',
+                quantity: item.qty || 1,
+                image: item.img || '',
                 size: item.size,
               })),
               subtotal,

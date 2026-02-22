@@ -137,3 +137,31 @@ export interface NewsletterSubscriber {
   subscribed_at: string;
   unsubscribed_at?: string;
 }
+
+/**
+ * Item de pedido normalizado desde formato compacto (Stripe metadata) o completo.
+ * Utilizado como tipo canónico en todo el flujo de pedidos, facturas y emails.
+ */
+export interface NormalizedOrderItem {
+  id: string;
+  name: string;
+  brand: string;
+  price: number;
+  qty: number;
+  size: string;
+  img: string;
+}
+
+/**
+ * Resultado de operación RPC de stock (reduce_size_stock / add_size_stock)
+ */
+export interface StockRpcResult {
+  success: boolean;
+  error?: string;
+  size?: string;
+  previous_qty?: number;
+  new_qty?: number;
+  available?: number;
+  requested?: number;
+  sizes_available?: Record<string, number>;
+}

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { getSupabaseServiceClient } from '@lib/supabase';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '@lib/email';
 import { enrichOrderItems } from '@lib/utils';
+import type { NormalizedOrderItem } from '@lib/types';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -76,8 +77,8 @@ export const POST: APIRoute = async ({ request }) => {
 
     console.log(`✅ Order created: ${order.id}`);
 
-    // Decrement stock for each item
-    console.log(`\n📦 Starting stock decrement for ${enrichedItems.length} items...`);
+    // Decrement stock using atomic RPC (prevents race conditions)
+    console.log(`\n📦 Starting atomic stock decrement for ${enrichedItems.length} items...`);
     let stockErrors = [];
 
     for (const item of enrichedItems) {
@@ -86,47 +87,28 @@ export const POST: APIRoute = async ({ request }) => {
         const quantity = item.qty || 1;
         const size = item.size;
 
-        console.log(`  Processing: ${item.name} (ID: ${productId}, Qty: ${quantity}, Size: ${size})`);
-
-        // Get current product
-        const { data: product, error: fetchError } = await supabase
-          .from('products')
-          .select('stock, sizes_available')
-          .eq('id', productId)
-          .single();
-
-        if (fetchError || !product) {
-          console.error(`    ❌ Could not fetch product ${productId}`);
-          stockErrors.push(`Could not update stock for ${item.name}`);
+        if (!productId || !size) {
+          console.warn(`  Skipping item without productId or size: ${item.name}`);
           continue;
         }
 
-        // Decrement stock for specific size
-        let newSizesAvailable = { ...(product.sizes_available || {}) };
-        let newTotalStock = product.stock || 0;
+        console.log(`  Processing: ${item.name} (ID: ${productId}, Qty: ${quantity}, Size: ${size})`);
 
-        if (size && newSizesAvailable[size]) {
-          const oldQty = parseInt(newSizesAvailable[size]) || 0;
-          newSizesAvailable[size] = Math.max(0, oldQty - quantity);
-          newTotalStock = Math.max(0, newTotalStock - quantity);
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('reduce_size_stock', {
+            p_product_id: productId,
+            p_size: size,
+            p_quantity: quantity,
+          });
 
-          console.log(`    Size ${size}: ${oldQty} → ${newSizesAvailable[size]}`);
-        }
-
-        // Update product
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({
-            stock: newTotalStock,
-            sizes_available: newSizesAvailable,
-          })
-          .eq('id', productId);
-
-        if (updateError) {
-          console.error(`    ❌ Error updating stock:`, updateError);
-          stockErrors.push(`Could not update stock for ${item.name}`);
+        if (rpcError) {
+          console.error(`    ❌ RPC error:`, rpcError);
+          stockErrors.push(`RPC error for ${item.name}: ${rpcError.message}`);
+        } else if (rpcResult && !rpcResult.success) {
+          console.warn(`    ⚠️ Stock insufficient: ${rpcResult.error}`);
+          stockErrors.push(`Stock insufficient for ${item.name} size ${size}`);
         } else {
-          console.log(`    ✅ Stock updated: ${newTotalStock} total`);
+          console.log(`    ✅ Stock updated atomically`);
         }
       } catch (err) {
         console.error(`    ❌ Error processing item:`, err);
@@ -137,16 +119,16 @@ export const POST: APIRoute = async ({ request }) => {
     // Send emails
     console.log(`\n📧 Sending emails...`);
     // Transform enriched items to match OrderItem interface
-    const orderItems = enrichedItems.map((item: any) => ({
+    const orderItems = enrichedItems.map((item: NormalizedOrderItem) => ({
       id: item.id || '',
       name: item.name,
       price: item.price || 0,
-      quantity: item.qty || item.quantity || 1,
+      quantity: item.qty || 1,
       image: item.img || '',
       size: item.size,
     }));
 
-    const subtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const subtotal = orderItems.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
     const tax = totalAmount - subtotal;
 
     try {

@@ -16,6 +16,22 @@ const products = (rawProducts || []).filter(p => {
   return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
 }).slice(0, 6);
 
+// Fetch productos con descuento (Ofertas Flash): original_price > price
+const { data: rawFlashProducts } = await supabase
+  .from('products')
+  .select('*')
+  .eq('is_active', true)
+  .gt('stock', 0)
+  .not('original_price', 'is', null)
+  .order('created_at', { ascending: false })
+  .limit(12);
+
+const flashProducts = (rawFlashProducts || []).filter(p => {
+  if (!p.original_price || p.original_price <= p.price) return false;
+  if (!p.sizes_available || Object.keys(p.sizes_available).length === 0) return false;
+  return Object.values(p.sizes_available).some(qty => (parseInt(String(qty)) || 0) > 0);
+}).slice(0, 6);
+
 // Colecciones principales (hardcoded, no dependen de categorías)
 const collections = [
   { 
@@ -204,6 +220,80 @@ const collections = [
       </div>
     </div>
   </section>
+
+  {/* Ofertas Flash Section */}
+  {flashProducts.length > 0 && (
+    <section class="py-16 md:py-24 bg-brand-dark relative overflow-hidden">
+      {/* Animated background accent */}
+      <div class="absolute inset-0 opacity-5">
+        <div class="absolute inset-0" style="background-image: repeating-linear-gradient(-45deg, transparent, transparent 20px, rgba(239,68,68,.15) 20px, rgba(239,68,68,.15) 40px);"></div>
+      </div>
+
+      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-end mb-12">
+          <div>
+            <div class="inline-flex items-center gap-2 bg-brand-red/20 text-brand-red font-bold uppercase text-sm tracking-wider mb-3 px-3 py-1 rounded-full animate-pulse">
+              <span>⚡</span> Ofertas Flash
+            </div>
+            <h2 class="text-4xl md:text-5xl font-display font-bold text-white uppercase tracking-tight">
+              Descuentos <span class="text-brand-red">Exclusivos</span>
+            </h2>
+            <p class="text-neutral-500 mt-2">Precios reducidos por tiempo limitado</p>
+          </div>
+          <a href="/productos?collection=offers" class="text-brand-red font-bold uppercase text-sm hover:text-brand-orange transition-colors">
+            Ver todas →
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {flashProducts.map((product) => {
+            const discountPct = Math.round(((product.original_price - product.price) / product.original_price) * 100);
+            return (
+              <a href={`/productos/${product.slug}`} class="group bg-brand-gray overflow-hidden hover:scale-[1.02] transition-all relative">
+                {/* Discount Badge */}
+                <div class="absolute top-4 right-4 bg-brand-red text-white text-sm font-bold px-3 py-1 z-10 rounded-sm shadow-lg">
+                  -{discountPct}%
+                </div>
+                {product.is_limited_edition && (
+                  <div class="absolute top-4 left-4 bg-brand-orange text-white text-xs font-bold px-2 py-1 z-10 uppercase">
+                    Limited
+                  </div>
+                )}
+                {/* Image */}
+                <div class="aspect-square bg-brand-dark relative overflow-hidden">
+                  <img
+                    src={product.images?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop'}
+                    alt={product.name}
+                    class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                </div>
+                {/* Info */}
+                <div class="p-4">
+                  <div class="text-brand-red text-xs font-bold uppercase tracking-wider mb-1">
+                    {product.brand}
+                  </div>
+                  <h3 class="text-white font-bold text-lg group-hover:text-brand-red transition-colors line-clamp-1">
+                    {product.name}
+                  </h3>
+                  <div class="flex items-center gap-3 mt-2">
+                    <span class="text-brand-red font-bold text-xl">
+                      €{(product.price / 100).toFixed(0)}
+                    </span>
+                    <span class="text-neutral-500 line-through text-sm">
+                      €{(product.original_price / 100).toFixed(0)}
+                    </span>
+                    <span class="text-green-500 text-xs font-bold">
+                      Ahorras €{((product.original_price - product.price) / 100).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  )}
 
   {/* USPs Section */}
   <section class="bg-brand-red text-white py-12">

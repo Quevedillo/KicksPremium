@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { stripe } from '@lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@lib/supabase';
+import Stripe from 'stripe';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -34,7 +35,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       const serviceClient = getSupabaseServiceClient();
       const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
       const existingUser = existingUsers?.users?.find(
-        (u: any) => u.email?.toLowerCase() === guestEmail.toLowerCase()
+        (u) => u.email?.toLowerCase() === guestEmail.toLowerCase()
       );
       
       if (existingUser) {
@@ -102,6 +103,48 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     console.log('Checkout:', userId ? `User ${userId}` : `Guest ${userEmail}`);
+
+    // ===== VALIDACIÓN DE STOCK SERVER-SIDE =====
+    const serviceClient = getSupabaseServiceClient();
+    const stockErrors: string[] = [];
+
+    for (const item of items) {
+      const productId = item.product_id || item.product?.id;
+      const size = item.size;
+      const quantity = item.quantity || 1;
+
+      if (!productId || !size) continue;
+
+      const { data: product, error: fetchErr } = await serviceClient
+        .from('products')
+        .select('name, sizes_available')
+        .eq('id', productId)
+        .single();
+
+      if (fetchErr || !product) {
+        stockErrors.push(`Producto no encontrado: ${item.product?.name || productId}`);
+        continue;
+      }
+
+      const sizesAvailable = product.sizes_available as Record<string, number> | null;
+      const available = sizesAvailable ? (parseInt(String(sizesAvailable[size])) || 0) : 0;
+
+      if (available < quantity) {
+        stockErrors.push(
+          `"${product.name}" talla ${size}: solo quedan ${available} unidades (solicitadas: ${quantity})`
+        );
+      }
+    }
+
+    if (stockErrors.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'Stock insuficiente',
+          details: stockErrors,
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Transform cart items to Stripe line items
     const lineItems = items.map((item: {
@@ -184,11 +227,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     if (discountCode && discountInfo) {
       try {
         // Calculate discount based on type
-        const subtotal = items.reduce((sum: number, item: any) => 
+        const subtotal = items.reduce((sum: number, item: { product: { price: number }; quantity: number }) => 
           sum + (item.product.price < 100 ? item.product.price * 100 : item.product.price) * item.quantity, 0
         );
         
-        let couponParams: any = {
+        let couponParams: Stripe.CouponCreateParams = {
           duration: 'once',
           name: `Descuento ${discountCode}`,
         };
@@ -213,7 +256,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     // Build checkout session options
-    const sessionOptions: any = {
+    const sessionOptions: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ['card'],
       customer_email: userEmail,
       line_items: lineItems,

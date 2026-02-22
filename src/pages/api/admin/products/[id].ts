@@ -72,9 +72,14 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       });
     }
 
-    // Verificar si es admin por email
-    const ADMIN_EMAIL = process.env.PUBLIC_ADMIN_EMAIL || 'joseluisgq17@gmail.com';
-    if (user.email !== ADMIN_EMAIL) {
+    // Verificar si es admin consultando user_profiles
+    const { data: adminProfile } = await serviceClient
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (!adminProfile?.is_admin) {
       return new Response(JSON.stringify({ error: 'No tienes permisos de administrador' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -128,8 +133,8 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     // Procesar sizes_available y calcular stock
     let processedSizes: Record<string, number> = {};
     if (sizes_available && typeof sizes_available === 'object') {
-      Object.entries(sizes_available).forEach(([size, qty]: [string, any]) => {
-        const quantity = parseInt(qty) || 0;
+      Object.entries(sizes_available).forEach(([size, qty]: [string, unknown]) => {
+        const quantity = parseInt(String(qty)) || 0;
         if (quantity > 0) {
           processedSizes[size] = quantity;
         }
@@ -258,7 +263,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   } catch (error) {
     console.error('[API] Catch error in PUT:', error);
     return new Response(
-      JSON.stringify({ error: (error as any)?.message || 'Internal server error' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

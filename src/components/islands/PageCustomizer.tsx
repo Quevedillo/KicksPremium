@@ -36,6 +36,7 @@ const SECTION_TYPES = [
   { value: 'categories', label: 'Colecciones', icon: '??', description: 'Grid de categorias' },
   { value: 'featured_products', label: 'Productos Destacados', icon: '?', description: 'Productos seleccionados manualmente' },
   { value: 'custom_products', label: 'Productos Personalizados', icon: '???', description: 'Seleccion personalizada de productos' },
+  { value: 'flash_offers', label: 'Ofertas Flash', icon: '⚡', description: 'Productos con descuento (original_price > price)' },
   { value: 'banner', label: 'Banner Promocional', icon: '??', description: 'Banner de promocion o anuncio' },
   { value: 'newsletter', label: 'Newsletter', icon: '??', description: 'Formulario de suscripcion' },
 ];

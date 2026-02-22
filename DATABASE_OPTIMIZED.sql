@@ -29,7 +29,7 @@
 -- ✅ Eliminado todo el sistema VIP
 -- ✅ Eliminados códigos de descuento VIP (VIP15, VIP20)
 --
--- TABLAS FINALES (11 tablas):
+-- TABLAS FINALES (12 tablas):
 -- 1.  user_profiles - Perfiles de usuarios y administradores
 -- 2.  brands - Marcas de sneakers
 -- 3.  categories - Categorías de productos
@@ -41,6 +41,7 @@
 -- 9.  newsletter_subscribers - Suscriptores newsletter
 -- 10. page_sections - Secciones de página personalizables
 -- 11. featured_product_selections - Productos destacados por sección
+-- 12. invoices - Facturas con numeración secuencial
 --
 -- INSTRUCCIONES:
 -- 1. Ir a Supabase Dashboard > SQL Editor > New Query
@@ -324,6 +325,42 @@ CREATE TABLE IF NOT EXISTS public.featured_product_selections (
 CREATE INDEX IF NOT EXISTS idx_featured_section ON featured_product_selections(section_id);
 CREATE INDEX IF NOT EXISTS idx_featured_product ON featured_product_selections(product_id);
 
+-- TABLA 12: invoices (Registro de facturas con numeración secuencial)
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START WITH 1;
+
+CREATE TABLE IF NOT EXISTS public.invoices (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  invoice_number TEXT NOT NULL UNIQUE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  type TEXT NOT NULL DEFAULT 'standard' CHECK (type IN ('standard', 'rectificativa')),
+  original_invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  amount INTEGER NOT NULL DEFAULT 0,  -- total en céntimos (negativo para rectificativas)
+  customer_email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_order ON invoices(order_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_number ON invoices(invoice_number);
+
+-- Función: Generar número de factura secuencial (F-2025-00001 / R-2025-00001)
+CREATE OR REPLACE FUNCTION generate_invoice_number(invoice_type TEXT DEFAULT 'standard')
+RETURNS TEXT AS $$
+DECLARE
+  next_num INTEGER;
+  year_prefix TEXT;
+  series_prefix TEXT;
+BEGIN
+  next_num := nextval('invoice_number_seq');
+  year_prefix := to_char(now(), 'YYYY');
+  IF invoice_type = 'rectificativa' THEN
+    series_prefix := 'R';
+  ELSE
+    series_prefix := 'F';
+  END IF;
+  RETURN series_prefix || '-' || year_prefix || '-' || lpad(next_num::text, 5, '0');
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
 -- SECCIÓN 7: ROW LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -340,6 +377,24 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.newsletter_subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.page_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.featured_product_selections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+
+-- POLÍTICAS: invoices (solo lectura para el usuario dueño del pedido, escritura via service_role)
+DROP POLICY IF EXISTS "users_read_own_invoices" ON public.invoices;
+CREATE POLICY "users_read_own_invoices" ON public.invoices
+  AS PERMISSIVE FOR SELECT TO public
+  USING (
+    EXISTS (
+      SELECT 1 FROM orders o WHERE o.id = order_id AND o.user_id = auth.uid()
+    )
+    OR (current_setting('role', true) = 'service_role')
+  );
+
+DROP POLICY IF EXISTS "service_role_manage_invoices" ON public.invoices;
+CREATE POLICY "service_role_manage_invoices" ON public.invoices
+  AS PERMISSIVE FOR ALL TO public
+  USING (current_setting('role', true) = 'service_role')
+  WITH CHECK (current_setting('role', true) = 'service_role');
 
 -- POLÍTICAS: user_profiles
 DROP POLICY IF EXISTS "users_read_own_profile" ON public.user_profiles;
@@ -405,8 +460,14 @@ CREATE POLICY "products_public_read" ON public.products
 DROP POLICY IF EXISTS "authenticated_manage_products" ON public.products;
 CREATE POLICY "authenticated_manage_products" ON public.products
   AS PERMISSIVE FOR ALL TO public
-  USING (auth.role() = 'authenticated')
-  WITH CHECK (auth.role() = 'authenticated');
+  USING (EXISTS (
+    SELECT 1 FROM user_profiles up
+    WHERE up.id = auth.uid() AND up.is_admin = true
+  ))
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM user_profiles up
+    WHERE up.id = auth.uid() AND up.is_admin = true
+  ));
 
 -- POLÍTICAS: discount_codes
 DROP POLICY IF EXISTS "anyone_can_validate_codes" ON public.discount_codes;
