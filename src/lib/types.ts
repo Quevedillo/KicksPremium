@@ -120,16 +120,6 @@ export interface DiscountCode {
   created_at: string;
 }
 
-export interface PageSection {
-  id: string;
-  section_key: string;
-  title?: string;
-  subtitle?: string;
-  content?: Record<string, unknown>;
-  is_active: boolean;
-  updated_at: string;
-}
-
 export interface NewsletterSubscriber {
   id: string;
   email: string;
