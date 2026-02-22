@@ -88,7 +88,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Crear suscriptor (solo campos que existen en la tabla)
-    console.log(`📧 Intentando suscribir: ${email}`);
+    console.log(`Intentando suscribir: ${email}`);
     const { data: subscriberData, error } = await supabase
       .from('newsletter_subscribers')
       .insert({
@@ -99,14 +99,14 @@ export const POST: APIRoute = async ({ request }) => {
       .select();
 
     if (error) {
-      console.error('❌ Error creating newsletter subscriber:', error);
+      console.error('Error creating newsletter subscriber:', error);
       console.error('Error code:', error.code);
       console.error('Error message:', error.message);
       console.error('Error details:', error.details);
       
       // Verificar si es error de duplicado (ya existe)
       if (error.code === '23505' || error.message?.includes('unique')) {
-        console.log(`⚠️ Email ${email} ya estaba suscrito`);
+        console.log(`Email ${email} ya estaba suscrito`);
         return new Response(
           JSON.stringify({
             success: true,
@@ -119,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
       
       // Verificar si es error de tabla no existente
       if (error.message?.includes('relation') || error.code === '42P01') {
-        console.error('❌ Tabla newsletter_subscribers no existe');
+        console.error('Tabla newsletter_subscribers no existe');
         return new Response(
           JSON.stringify({ error: 'Tabla de newsletter no configurada. Ejecuta el SQL en Supabase.' }),
           { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -127,24 +127,24 @@ export const POST: APIRoute = async ({ request }) => {
       }
       
       // Otros errores
-      console.error('❌ Error desconocido:', error);
+      console.error('Error desconocido:', error);
       return new Response(
         JSON.stringify({ error: `Error al suscribirse: ${error.message}` }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log(`✅ Suscriptor creado:`, subscriberData);
+    console.log(`Suscriptor creado:`, subscriberData);
     const subscriber = subscriberData?.[0] || null;
 
     // Enviar email de bienvenida con código de descuento
     let emailSent = false;
     try {
       const emailResult = await sendNewsletterWelcomeEmail(email, discountCode);
-      console.log(`✅ Email de bienvenida enviado a ${email}`);
+      console.log(`Email de bienvenida enviado a ${email}`);
       emailSent = true;
     } catch (emailError) {
-      console.error(`⚠️ Error enviando email a ${email}:`, emailError);
+      console.error(`Error enviando email a ${email}:`, emailError);
       if (emailError instanceof Error) {
         console.error('Detalles del error de email:', {
           message: emailError.message,
@@ -165,7 +165,7 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 201, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('❌ Error FATAL en POST /api/newsletter/subscribe:', error);
+    console.error('Error FATAL en POST /api/newsletter/subscribe:', error);
     if (error instanceof Error) {
       console.error('Mensaje:', error.message);
       console.error('Stack:', error.stack);

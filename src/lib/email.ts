@@ -12,7 +12,7 @@ const FROM_EMAIL_CONFIG = import.meta.env.FROM_EMAIL || SMTP_USER;
 
 if (!SMTP_USER || !SMTP_PASS) {
   console.error(
-    '❌ ERROR CRÍTICO: Credenciales SMTP no configuradas en .env\n' +
+    'ERROR CRÍTICO: Credenciales SMTP no configuradas en .env\n' +
     'Los emails NO serán enviados hasta que configures SMTP_USER y SMTP_PASS.\n' +
     'Usa una contraseña de aplicación de Gmail.'
   );
@@ -44,7 +44,7 @@ export async function sendEmailWithSMTP(options: {
   }>;
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   if (!SMTP_USER || !SMTP_PASS) {
-    console.warn('⚠️ Credenciales SMTP no configuradas. Email no será enviado.');
+    console.warn('Credenciales SMTP no configuradas. Email no será enviado.');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -69,10 +69,10 @@ export async function sendEmailWithSMTP(options: {
     }
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email enviado via SMTP:', info.messageId);
+    console.log('Email enviado via SMTP:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Error enviando email via SMTP:', error);
+    console.error('Error enviando email via SMTP:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : String(error) 
@@ -84,12 +84,12 @@ export async function sendEmailWithSMTP(options: {
 if (SMTP_USER && SMTP_PASS) {
   transporter.verify()
     .then(() => {
-      console.log('✅ Conexión SMTP verificada correctamente');
+      console.log('Conexión SMTP verificada correctamente');
       console.log(`   → Servidor: ${SMTP_HOST}:${SMTP_PORT}`);
       console.log(`   → Usuario: ${SMTP_USER}`);
     })
     .catch((error) => {
-      console.error('❌ Error verificando conexión SMTP:', error);
+      console.error('Error verificando conexión SMTP:', error);
     });
 }
 
@@ -136,7 +136,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
   try {
     // Validar que está configurado SMTP
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -153,7 +153,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
         (item) => `
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="padding: 16px; text-align: left; width: 80px; vertical-align: top;">
-            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;" />` : `<div style="width: 70px; height: 70px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px;">👟</div>`}
+            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;" />` : `<div style="width: 70px; height: 70px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px;"></div>`}
           </td>
           <td style="padding: 16px; text-align: left; vertical-align: top;">
             <div style="font-weight: 600; color: #1f2937; font-size: 15px;">${item.name}</div>
@@ -294,7 +294,7 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎉 ¡Pedido Confirmado!</h1>
+      <h1>¡Pedido Confirmado!</h1>
     </div>
 
     <div class="content">
@@ -406,14 +406,14 @@ export async function sendOrderConfirmationEmail(order: OrderDetails) {
     });
 
     if (!result.success) {
-      console.error('⚠️ Error enviando email de confirmación:', result.error);
+      console.error('Error enviando email de confirmación:', result.error);
       return { success: false, error: result.error };
     }
 
-    console.log('✅ Confirmation email sent:', result.messageId);
+    console.log('Confirmation email sent:', result.messageId);
     return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error('⚠️ Error sending order confirmation email (no-fail):', error);
+    console.error('Error sending order confirmation email (no-fail):', error);
     // NO lanzar error - el pedido ya fue creado
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -426,7 +426,7 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
   try {
     // Validar que está configurado SMTP
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email de newsletter no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email de newsletter no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -525,7 +525,7 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎉 ¡Bienvenido a Kicks Premium!</h1>
+      <h1>¡Bienvenido a Kicks Premium!</h1>
     </div>
 
     <div class="content">
@@ -543,10 +543,10 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
       <div class="section">
         <p>Te mantendremos informado sobre:</p>
         <ul class="benefits">
-          <li>✨ <strong>Nuevas Colecciones</strong> - Primero en saber sobre nuevos lanzamientos exclusivos</li>
-          <li>🎁 <strong>Ofertas Especiales</strong> - Descuentos exclusivos para suscriptores</li>
-          <li>🔥 <strong>Limited Editions</strong> - Acceso anticipado a ediciones limitadas</li>
-          <li>📰 <strong>Tendencias</strong> - Artículos sobre sneakers, marcas y cultura</li>
+          <li><strong>Nuevas Colecciones</strong> - Primero en saber sobre nuevos lanzamientos exclusivos</li>
+          <li><strong>Ofertas Especiales</strong> - Descuentos exclusivos para suscriptores</li>
+          <li><strong>Limited Editions</strong> - Acceso anticipado a ediciones limitadas</li>
+          <li><strong>Tendencias</strong> - Artículos sobre sneakers, marcas y cultura</li>
         </ul>
       </div>
 
@@ -575,19 +575,19 @@ export async function sendNewsletterWelcomeEmail(email: string, discountCode: st
 
     const result = await sendEmailWithSMTP({
       to: email,
-      subject: '🎁 ¡Tu código de descuento del 10% está aquí!',
+      subject: '¡Tu código de descuento del 10% está aquí!',
       html: htmlContent,
     });
 
     if (!result.success) {
-      console.error('⚠️ Error enviando email de newsletter:', result.error);
+      console.error('Error enviando email de newsletter:', result.error);
       return { success: false, error: result.error };
     }
 
-    console.log('✅ Newsletter welcome email sent:', result.messageId);
+    console.log('Newsletter welcome email sent:', result.messageId);
     return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error('⚠️ Error sending newsletter welcome email (no-fail):', error);
+    console.error('Error sending newsletter welcome email (no-fail):', error);
     // NO lanzar error - la suscripción ya fue creada
     // El usuario puede recibir el código por otro método
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -621,7 +621,7 @@ export async function sendNewProductEmail(
   try {
     // Validar que está configurado SMTP
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn(`⚠️ Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
+      console.warn(`Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
       throw new Error('Email service not configured');
     }
 
@@ -759,7 +759,7 @@ export async function sendNewProductEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>🔥 ¡NUEVO DROP!</h1>
+      <h1>¡NUEVO DROP!</h1>
       <span class="badge">Exclusivo para suscriptores</span>
     </div>
 
@@ -770,7 +770,7 @@ export async function sendNewProductEmail(
       
       <h2 class="product-name">
         ${product.name}
-        ${product.isLimitedEdition ? '<span class="limited-badge">⚡ Edición Limitada</span>' : ''}
+        ${product.isLimitedEdition ? '<span class="limited-badge">Edición Limitada</span>' : ''}
       </h2>
       
       ${product.category ? `<p style="color: #6b7280; font-size: 13px; margin: 0 0 16px 0;">Categoría: ${product.category}</p>` : ''}
@@ -786,7 +786,7 @@ export async function sendNewProductEmail(
       </a>
       
       <p style="text-align: center; color: #6b7280; font-size: 13px; margin-top: 16px;">
-        ¡No te lo pierdas! Los drops exclusivos vuelan rápido 🚀
+        ¡No te lo pierdas! Los drops exclusivos vuelan rápido 
       </p>
     </div>
 
@@ -806,7 +806,7 @@ export async function sendNewProductEmail(
 
     const result = await sendEmailWithSMTP({
       to: subscriberEmail,
-      subject: `🔥 ¡Nuevo Drop! ${product.name}`,
+      subject: `¡Nuevo Drop! ${product.name}`,
       html: htmlContent,
     });
 
@@ -878,7 +878,7 @@ export async function sendNewOfferEmail(
 ) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn(`⚠️ Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
+      console.warn(`Credenciales SMTP no configuradas. Email a ${subscriberEmail} no será enviado.`);
       throw new Error('Email service not configured');
     }
 
@@ -1028,7 +1028,7 @@ export async function sendNewOfferEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>🏷️ ¡NUEVA OFERTA!</h1>
+      <h1>¡NUEVA OFERTA!</h1>
       <span class="badge">${discountText} de descuento</span>
     </div>
 
@@ -1049,7 +1049,7 @@ export async function sendNewOfferEmail(
       </div>
       
       <a href="${productUrl}" class="button">
-        🛒 Comprar Ahora con Descuento →
+        Comprar Ahora con Descuento →
       </a>
       
       <p style="text-align: center; color: #6b7280; font-size: 13px; margin-top: 16px;">
@@ -1073,7 +1073,7 @@ export async function sendNewOfferEmail(
 
     const result = await sendEmailWithSMTP({
       to: subscriberEmail,
-      subject: `🏷️ ¡Oferta! ${product.name} ${discountText}`,
+      subject: `¡Oferta! ${product.name} ${discountText}`,
       html: htmlContent,
     });
 
@@ -1144,7 +1144,7 @@ export async function sendAdminNotification(
   try {
     // Validar que está configurado SMTP
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email a admin no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email a admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1207,7 +1207,7 @@ interface OrderCancellationData {
 export async function sendOrderCancellationEmail(data: OrderCancellationData) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email de cancelación no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email de cancelación no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1230,7 +1230,7 @@ export async function sendOrderCancellationEmail(data: OrderCancellationData) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>❌ Pedido Cancelado</h1>
+      <h1>Pedido Cancelado</h1>
     </div>
     <div class="content">
       <p>Hola ${data.customerName},</p>
@@ -1261,7 +1261,7 @@ export async function sendOrderCancellationEmail(data: OrderCancellationData) {
       html: htmlContent,
     });
 
-    console.log('✅ Cancellation email sent:', result);
+    console.log('Cancellation email sent:', result);
     return result;
   } catch (error) {
     console.error('Error sending cancellation email:', error);
@@ -1292,7 +1292,7 @@ interface ReturnRequestData {
 export async function sendReturnRequestEmail(data: ReturnRequestData) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email de devolución no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email de devolución no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1317,13 +1317,13 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>📦 Solicitud de Devolución</h1>
+      <h1>Solicitud de Devolución</h1>
     </div>
     <div class="content">
       <p>Hola ${data.customerName},</p>
       <p>Hemos recibido tu solicitud de devolución para el pedido <strong>#${data.orderId.substring(0, 8).toUpperCase()}</strong>.</p>
       
-      <h3 style="color: #1f2937; margin-top: 24px;">📋 Pasos para completar la devolución:</h3>
+      <h3 style="color: #1f2937; margin-top: 24px;">Pasos para completar la devolución:</h3>
       
       <ol class="steps">
         <li><strong>Empaqueta los productos</strong><br>Asegúrate de que estén en su embalaje original y en perfecto estado.</li>
@@ -1332,7 +1332,7 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
         <li><strong>Espera confirmación</strong><br>Te notificaremos cuando recibamos el paquete y procesemos el reembolso.</li>
       </ol>
       
-      <h3 style="color: #1f2937; margin-top: 24px;">📍 Dirección de devolución:</h3>
+      <h3 style="color: #1f2937; margin-top: 24px;">Dirección de devolución:</h3>
       <div class="address-box">
         <p style="margin: 0; font-weight: bold;">${data.returnAddress.name}</p>
         <p style="margin: 4px 0 0 0;">${data.returnAddress.line1}</p>
@@ -1359,7 +1359,7 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
       html: htmlContent,
     });
 
-    console.log('✅ Return instructions email sent:', result);
+    console.log('Return instructions email sent:', result);
     return result;
   } catch (error) {
     console.error('Error sending return email:', error);
@@ -1373,7 +1373,7 @@ export async function sendReturnRequestEmail(data: ReturnRequestData) {
 export async function sendAdminOrderNotification(order: OrderDetails) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email de notificación admin no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email de notificación admin no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1388,7 +1388,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
         (item) => `
         <tr>
           <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; width: 60px; vertical-align: top;">
-            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;" />` : `<div style="width: 50px; height: 50px; background: #f3f4f6; border-radius: 6px; text-align: center; line-height: 50px; font-size: 22px;">👟</div>`}
+            ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;" />` : `<div style="width: 50px; height: 50px; background: #f3f4f6; border-radius: 6px; text-align: center; line-height: 50px; font-size: 22px;"></div>`}
           </td>
           <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb;">
             <div style="font-weight: 500;">${item.name}</div>
@@ -1421,7 +1421,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-    <h1 style="margin: 0; font-size: 24px;">🎉 ¡Nuevo Pedido!</h1>
+    <h1 style="margin: 0; font-size: 24px;">¡Nuevo Pedido!</h1>
   </div>
   
   <div style="background: white; padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
@@ -1470,11 +1470,11 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
 
     const result = await sendEmailWithSMTP({
       to: ADMIN_EMAIL,
-      subject: `🎉 Nuevo Pedido #${order.orderId.substring(0, 8).toUpperCase()} - ${formatPrice(order.total)}`,
+      subject: `Nuevo Pedido #${order.orderId.substring(0, 8).toUpperCase()} - ${formatPrice(order.total)}`,
       html: htmlContent,
     });
 
-    console.log('✅ Admin notification email sent:', result);
+    console.log('Admin notification email sent:', result);
     return result;
   } catch (error) {
     console.error('Error sending admin notification email:', error);
@@ -1488,7 +1488,7 @@ export async function sendAdminOrderNotification(order: OrderDetails) {
 export async function sendAbandonedCartEmail(email: string) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas. Email de carrito abandonado no será enviado.');
+      console.warn('Credenciales SMTP no configuradas. Email de carrito abandonado no será enviado.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1512,7 +1512,7 @@ export async function sendAbandonedCartEmail(email: string) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🛒 ¿Olvidaste algo?</h1>
+      <h1>¿Olvidaste algo?</h1>
     </div>
     <div class="content">
       <p style="font-size: 18px;">¡Notamos que no completaste tu compra!</p>
@@ -1544,11 +1544,11 @@ export async function sendAbandonedCartEmail(email: string) {
 
     const result = await sendEmailWithSMTP({
       to: email,
-      subject: '🛒 ¿Olvidaste algo en tu carrito? - 10% de descuento',
+      subject: '¿Olvidaste algo en tu carrito? - 10% de descuento',
       html: htmlContent,
     });
 
-    console.log('✅ Abandoned cart email sent:', result);
+    console.log('Abandoned cart email sent:', result);
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error('Error sending abandoned cart email:', error);
@@ -1577,7 +1577,7 @@ interface CancellationWithInvoiceData {
 export async function sendCancellationWithInvoiceEmail(data: CancellationWithInvoiceData) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas.');
+      console.warn('Credenciales SMTP no configuradas.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1632,7 +1632,7 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
 <body>
   <div class="container">
     <div class="header">
-      <h1>❌ Pedido Cancelado</h1>
+      <h1>Pedido Cancelado</h1>
       <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">Tu pedido #${orderRef} ha sido cancelado</p>
     </div>
     <div class="content">
@@ -1640,7 +1640,7 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
       <p>Confirmamos que tu pedido ha sido cancelado correctamente.</p>
 
       <div class="refund-box">
-        <p style="margin: 0; font-size: 14px; color: #065f46; font-weight: 600;">💰 REEMBOLSO PROCESADO</p>
+        <p style="margin: 0; font-size: 14px; color: #065f46; font-weight: 600;">REEMBOLSO PROCESADO</p>
         <p class="refund-amount">${formatPrice(data.refundAmount)}</p>
         <p style="margin: 0; font-size: 13px; color: #047857;">Se devolverá a tu método de pago original en 5-10 días hábiles</p>
       </div>
@@ -1657,7 +1657,7 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
       </table>
 
       <p style="font-size: 13px; color: #6b7280; margin-top: 20px;">
-        📎 Adjuntamos la factura de cancelación en PDF para tus registros.
+        Adjuntamos la factura de cancelación en PDF para tus registros.
       </p>
 
       <div style="text-align: center;">
@@ -1674,7 +1674,7 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
 
     const result = await sendEmailWithSMTP({
       to: data.email,
-      subject: `❌ Pedido #${orderRef} cancelado - Reembolso de ${formatPrice(data.refundAmount)}`,
+      subject: `Pedido #${orderRef} cancelado - Reembolso de ${formatPrice(data.refundAmount)}`,
       html: htmlContent,
       attachments: [{
         filename: `Cancelacion_${orderRef}.pdf`,
@@ -1683,7 +1683,7 @@ export async function sendCancellationWithInvoiceEmail(data: CancellationWithInv
       }],
     });
 
-    console.log('✅ Cancellation email with invoice sent:', result);
+    console.log('Cancellation email with invoice sent:', result);
     return result;
   } catch (error) {
     console.error('Error sending cancellation email with invoice:', error);
@@ -1705,7 +1705,7 @@ interface AdminCancellationRequestData {
 export async function sendAdminCancellationRequestEmail(data: AdminCancellationRequestData) {
   try {
     if (!SMTP_USER || !SMTP_PASS) {
-      console.warn('⚠️ Credenciales SMTP no configuradas.');
+      console.warn('Credenciales SMTP no configuradas.');
       return { success: false, error: 'Email service not configured' };
     }
 
@@ -1731,7 +1731,7 @@ export async function sendAdminCancellationRequestEmail(data: AdminCancellationR
 <body>
   <div class="container">
     <div class="header">
-      <h1>⚠️ Solicitud de Cancelación</h1>
+      <h1>Solicitud de Cancelación</h1>
       <p style="margin: 8px 0 0; opacity: 0.9;">Pedido enviado - requiere aprobación</p>
     </div>
     <div class="content">
@@ -1769,11 +1769,11 @@ export async function sendAdminCancellationRequestEmail(data: AdminCancellationR
 
     const result = await sendEmailWithSMTP({
       to: ADMIN_EMAIL,
-      subject: `⚠️ [CANCELACIÓN] Pedido #${orderRef} - ${data.customerName} solicita cancelar (enviado)`,
+      subject: `[CANCELACIÓN] Pedido #${orderRef} - ${data.customerName} solicita cancelar (enviado)`,
       html: htmlContent,
     });
 
-    console.log('✅ Admin cancellation request email sent:', result);
+    console.log('Admin cancellation request email sent:', result);
     return result;
   } catch (error) {
     console.error('Error sending admin cancellation request:', error);

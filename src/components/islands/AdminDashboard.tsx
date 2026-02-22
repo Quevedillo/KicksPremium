@@ -273,7 +273,7 @@ export default function AdminDashboard() {
           {/* Stock Alerts */}
           <div className="bg-white rounded-xl border border-neutral-200">
             <div className="p-6 border-b border-neutral-200">
-              <h2 className="text-lg font-bold text-brand-black">⚠️ Alertas de Stock</h2>
+              <h2 className="text-lg font-bold text-brand-black">Alertas de Stock</h2>
             </div>
             
             <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
@@ -338,7 +338,7 @@ export default function AdminDashboard() {
           {/* Quick Actions */}
           <div className="bg-white rounded-xl border border-neutral-200">
             <div className="p-6 border-b border-neutral-200">
-              <h2 className="text-lg font-bold text-brand-black">🚀 Acciones Rápidas</h2>
+              <h2 className="text-lg font-bold text-brand-black">Acciones Rápidas</h2>
             </div>
             
             <div className="p-4 space-y-2">

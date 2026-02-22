@@ -194,7 +194,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       });
     }
 
-    console.log(`✅ User ${userId} fully deleted from profiles and auth`);
+    console.log(`User ${userId} fully deleted from profiles and auth`);
 
     return new Response(JSON.stringify({ success: true, message: 'Usuario eliminado correctamente' }), {
       status: 200,

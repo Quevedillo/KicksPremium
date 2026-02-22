@@ -100,10 +100,10 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
             amount: refund.amount,
             status: refund.status,
           };
-          console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
+          console.log(`Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
         } catch (refundError: unknown) {
           const errMsg = refundError instanceof Error ? refundError.message : String(refundError);
-          console.error('⚠️ Error procesando reembolso:', errMsg);
+          console.error('Error procesando reembolso:', errMsg);
           refundResult = {
             error: errMsg,
             status: 'failed',
@@ -134,14 +134,14 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
               });
 
             if (rpcError) {
-              console.error(`⚠️ RPC error restaurando stock de ${productId}:`, rpcError);
+              console.error(`RPC error restaurando stock de ${productId}:`, rpcError);
             } else if (rpcResult && !rpcResult.success) {
-              console.error(`⚠️ Error restaurando stock: ${rpcResult.error}`);
+              console.error(`Error restaurando stock: ${rpcResult.error}`);
             } else {
-              console.log(`✅ Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
+              console.log(`Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
             }
           } catch (stockError) {
-            console.error(`⚠️ Error restaurando stock de ${productId}:`, stockError);
+            console.error(`Error restaurando stock de ${productId}:`, stockError);
           }
         }
       }
@@ -176,9 +176,9 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
               amount: -(refundResult?.amount || currentOrder.total_amount || 0),
               customer_email: customerEmail,
             });
-            console.log(`✅ Rectificativa invoice: ${rectInvoiceNum}`);
+            console.log(`Rectificativa invoice: ${rectInvoiceNum}`);
           } catch (invErr) {
-            console.error('⚠️ Error creating rectificativa:', invErr);
+            console.error('Error creating rectificativa:', invErr);
             rectInvoiceNum = `R-${currentOrder.id.slice(0, 8).toUpperCase()}`;
           }
 
@@ -216,9 +216,9 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
             invoicePDF: cancellationPDF,
           });
 
-          console.log(`✅ Email de cancelación con factura enviado a ${customerEmail}`);
+          console.log(`Email de cancelación con factura enviado a ${customerEmail}`);
         } catch (emailError) {
-          console.error('⚠️ Error enviando email de cancelación:', emailError);
+          console.error('Error enviando email de cancelación:', emailError);
         }
       }
     }

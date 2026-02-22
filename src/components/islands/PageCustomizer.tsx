@@ -31,14 +31,14 @@ interface FeaturedSelection {
 }
 
 const SECTION_TYPES = [
-  { value: 'hero', label: 'Hero Banner', icon: '??', description: 'Banner principal de la pagina' },
-  { value: 'brands_bar', label: 'Barra de Marcas', icon: '???', description: 'Barra con nombres de marcas' },
-  { value: 'categories', label: 'Colecciones', icon: '??', description: 'Grid de categorias' },
-  { value: 'featured_products', label: 'Productos Destacados', icon: '?', description: 'Productos seleccionados manualmente' },
-  { value: 'custom_products', label: 'Productos Personalizados', icon: '???', description: 'Seleccion personalizada de productos' },
-  { value: 'flash_offers', label: 'Ofertas Flash', icon: '⚡', description: 'Productos con descuento (original_price > price)' },
-  { value: 'banner', label: 'Banner Promocional', icon: '??', description: 'Banner de promocion o anuncio' },
-  { value: 'newsletter', label: 'Newsletter', icon: '??', description: 'Formulario de suscripcion' },
+  { value: 'hero', label: 'Hero Banner', icon: '', description: 'Banner principal de la pagina' },
+  { value: 'brands_bar', label: 'Barra de Marcas', icon: '', description: 'Barra con nombres de marcas' },
+  { value: 'categories', label: 'Colecciones', icon: '', description: 'Grid de categorias' },
+  { value: 'featured_products', label: 'Productos Destacados', icon: '', description: 'Productos seleccionados manualmente' },
+  { value: 'custom_products', label: 'Productos Personalizados', icon: '', description: 'Seleccion personalizada de productos' },
+  { value: 'flash_offers', label: 'Ofertas Flash', icon: '', description: 'Productos con descuento (original_price > price)' },
+  { value: 'banner', label: 'Banner Promocional', icon: '', description: 'Banner de promocion o anuncio' },
+  { value: 'newsletter', label: 'Newsletter', icon: '', description: 'Formulario de suscripcion' },
 ];
 
 export default function PageCustomizer() {
@@ -241,7 +241,7 @@ export default function PageCustomizer() {
   );
 
   const getSectionIcon = (type: string) =>
-    SECTION_TYPES.find(t => t.value === type)?.icon || '??';
+    SECTION_TYPES.find(t => t.value === type)?.icon || '';
 
   const getSectionLabel = (type: string) =>
     SECTION_TYPES.find(t => t.value === type)?.label || type;
@@ -562,7 +562,7 @@ export default function PageCustomizer() {
                         {prod.images?.[0] ? (
                           <img src={prod.images[0]} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-lg">??</div>
+                          <div className="w-full h-full flex items-center justify-center text-sm text-neutral-500">Sin imagen</div>
                         )}
                       </div>
                       <button
@@ -873,7 +873,7 @@ export default function PageCustomizer() {
 
                 {sections.length === 0 && (
                   <div className="text-center py-8 md:py-12">
-                    <div className="text-3xl md:text-4xl mb-2 md:mb-3">🎨</div>
+                    <div className="text-3xl md:text-4xl mb-2 md:mb-3"></div>
                     <p className="text-neutral-400 text-xs md:text-sm font-medium">Pagina vacia</p>
                     <p className="text-neutral-600 text-[10px] md:text-xs mt-1">Anade secciones para disenar tu tienda</p>
                   </div>
@@ -910,7 +910,7 @@ export default function PageCustomizer() {
 
             {activePanel === 'editor' && !editingSection && (
               <div className="p-4 md:p-6 text-center">
-                <div className="text-2xl md:text-3xl mb-2">👈</div>
+                <div className="text-2xl md:text-3xl mb-2"></div>
                 <p className="text-neutral-400 text-xs md:text-sm">Selecciona una seccion para editar</p>
               </div>
             )}

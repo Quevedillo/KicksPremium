@@ -180,7 +180,7 @@ export default function AuthForm() {
             {/* Alerts */}
             {error && (
               <div className="mb-5 p-4 bg-red-900/20 border border-red-500/50 text-red-300 text-sm rounded-lg flex gap-3 items-start">
-                <span className="text-lg">⚠️</span>
+                <span className="text-lg"></span>
                 <span>{error}</span>
               </div>
             )}
@@ -254,9 +254,9 @@ export default function AuthForm() {
                     Procesando...
                   </span>
                 ) : isLogin ? (
-                  '🔓 Iniciar Sesión'
+                  'Iniciar Sesión'
                 ) : (
-                  '✨ Crear Cuenta'
+                  'Crear Cuenta'
                 )}
               </button>
             </form>
@@ -292,13 +292,13 @@ export default function AuthForm() {
           
           <div className="grid grid-cols-3 gap-2 text-xs">
             <a href="/productos" className="text-neutral-400 hover:text-white transition-colors py-2 px-3 bg-brand-dark rounded-lg border border-brand-gray/20 hover:border-brand-red/50">
-              📦 Catálogo
+              Catálogo
             </a>
             <a href="/categoria/travis-scott" className="text-neutral-400 hover:text-white transition-colors py-2 px-3 bg-brand-dark rounded-lg border border-brand-gray/20 hover:border-brand-red/50">
-              👟 Travis
+               Travis
             </a>
             <a href="/categoria/jordan-special" className="text-neutral-400 hover:text-white transition-colors py-2 px-3 bg-brand-dark rounded-lg border border-brand-gray/20 hover:border-brand-red/50">
-              🏀 Jordan
+              Jordan
             </a>
           </div>
         </div>

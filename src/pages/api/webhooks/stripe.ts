@@ -180,9 +180,9 @@ export const POST: APIRoute = async ({ request }) => {
             amount: total,
             customer_email: guestEmail || session.customer_email || null,
           });
-          console.log(`✅ Invoice record created: ${invoiceNum}`);
+          console.log(`Invoice record created: ${invoiceNum}`);
         } catch (invErr) {
-          console.error('⚠️ Error creating invoice record:', invErr);
+          console.error('Error creating invoice record:', invErr);
           invoiceNum = session.id.slice(-8).toUpperCase();
         }
 
@@ -211,10 +211,10 @@ export const POST: APIRoute = async ({ request }) => {
                 .update({ current_uses: (codeData.current_uses || 0) + 1 })
                 .eq('id', codeData.id);
 
-              console.log(`✅ Discount code usage tracked: ${discountCode}`);
+              console.log(`Discount code usage tracked: ${discountCode}`);
             }
           } catch (discountTrackError) {
-            console.error('⚠️ Error tracking discount usage:', discountTrackError);
+            console.error('Error tracking discount usage:', discountTrackError);
           }
         }
 
@@ -291,9 +291,9 @@ export const POST: APIRoute = async ({ request }) => {
                 total,
                 orderStatus: 'Pagado',
               });
-              console.log(`✅ Invoice PDF generated for order ${order.id}`);
+              console.log(`Invoice PDF generated for order ${order.id}`);
             } catch (pdfError) {
-              console.error(`⚠️ Failed to generate invoice PDF (will not block):`, pdfError);
+              console.error(`Failed to generate invoice PDF (will not block):`, pdfError);
             }
 
             const orderDetails = {
@@ -318,16 +318,16 @@ export const POST: APIRoute = async ({ request }) => {
 
             try {
               await sendOrderConfirmationEmail(orderDetails);
-              console.log(`✅ Order confirmation email sent to ${emailRecipient}`);
+              console.log(`Order confirmation email sent to ${emailRecipient}`);
             } catch (confirmError) {
-              console.error(`⚠️ Failed to send confirmation (will not block):`, confirmError);
+              console.error(`Failed to send confirmation (will not block):`, confirmError);
             }
 
             try {
               await sendAdminOrderNotification(orderDetails);
-              console.log(`✅ Admin notification email sent`);
+              console.log(`Admin notification email sent`);
             } catch (adminEmailError) {
-              console.error('⚠️ Failed to send admin notification (will not block):', adminEmailError);
+              console.error('Failed to send admin notification (will not block):', adminEmailError);
             }
           }
         } catch (emailError) {

@@ -127,10 +127,10 @@ const hasFilters = brandFilter || colorFilter || categoryFilter || collectionFil
 
 // Collections/editions options (mejores opciones que los estilos)
 const collections = [
-  { value: 'limited', label: 'Ediciones Limitadas', icon: '⭐' },
-  { value: 'new', label: 'Nuevos Lanzamientos', icon: '✨' },
-  { value: 'restock', label: 'Restocks', icon: '🔄' },
-  { value: 'offers', label: 'Ofertas', icon: '🏷️' },
+  { value: 'limited', label: 'Ediciones Limitadas', icon: '' },
+  { value: 'new', label: 'Nuevos Lanzamientos', icon: '' },
+  { value: 'restock', label: 'Restocks', icon: '' },
+  { value: 'offers', label: 'Ofertas', icon: '' },
 ];
 
 // Price ranges in EUR
@@ -530,7 +530,7 @@ function buildUrl(params: Record<string, string | null>) {
         </div>
       ) : (
         <div class="text-center py-20">
-          <div class="text-6xl mb-4">🔍</div>
+          <div class="text-6xl mb-4"></div>
           <p class="text-neutral-500 text-lg">
             {searchQuery 
               ? `No hay sneakers que coincidan con "${searchQuery}".`

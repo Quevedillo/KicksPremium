@@ -219,7 +219,7 @@ export default function LiveSearch() {
           ) : (
             /* No hay resultados */
             <div className="p-6 text-center">
-              <div className="text-4xl mb-2">🔍</div>
+              <div className="text-4xl mb-2"></div>
               <p className="text-neutral-400 text-sm">
                 No se encontraron resultados para "<span className="text-white">{query}</span>"
               </p>

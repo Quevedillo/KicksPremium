@@ -103,7 +103,7 @@ export default function NewsletterPopup({
 
         {/* Header con gradiente */}
         <div className="bg-gradient-to-br from-brand-navy to-brand-navy/80 text-white p-8 text-center">
-          <div className="text-5xl mb-3">👟</div>
+          <div className="text-5xl mb-3"></div>
           <h2 className="text-2xl font-display font-bold mb-2">
             ¡{discountPercent}% DE DESCUENTO!
           </h2>

@@ -32,7 +32,7 @@ export const SizePicker: React.FC<SizePickerProps> = ({
   if (allSizes.length === 0) {
     return (
       <div className="bg-red-50 border border-red-200 rounded p-4 text-center">
-        <p className="text-sm text-red-900 font-semibold">❌ Producto Agotado</p>
+        <p className="text-sm text-red-900 font-semibold">Producto Agotado</p>
       </div>
     );
   }

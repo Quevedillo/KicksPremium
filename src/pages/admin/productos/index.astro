@@ -198,7 +198,7 @@ const formatCurrency = (price: number) => {
                         {/* Advertencia si no está visible en tienda */}
                         {product.stock === 0 && (
                           <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded border border-red-300">
-                            ⚠️ NO VISIBLE EN TIENDA
+                            NO VISIBLE EN TIENDA
                           </span>
                         )}
                       </div>
@@ -224,7 +224,7 @@ const formatCurrency = (price: number) => {
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-green-100 text-green-800'
                       }`}>
-                        {product.stock === 0 ? '❌ SIN STOCK' : `${product.stock} uds`}
+                        {product.stock === 0 ? 'SIN STOCK' : `${product.stock} uds`}
                       </span>
                       {/* Mostrar tallas disponibles */}
                       {product.sizes_available && Object.keys(product.sizes_available).length > 0 && (

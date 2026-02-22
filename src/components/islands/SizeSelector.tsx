@@ -91,7 +91,7 @@ export const SizeSelector: React.FC<SizeSelectorProps> = ({ initialSizes, onSize
       {/* Stock info calculado automáticamente */}
       <div className={`border rounded-lg p-4 ${totalStock > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
         <p className={`text-sm font-medium ${totalStock > 0 ? 'text-green-900' : 'text-red-900'}`}>
-          📦 Stock Total: <strong>{totalStock}</strong> pares
+          Stock Total: <strong>{totalStock}</strong> pares
           {totalStock === 0 && ' — Este producto NO será visible en la tienda'}
         </p>
       </div>

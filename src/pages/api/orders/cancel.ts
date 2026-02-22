@@ -24,14 +24,14 @@ async function restoreOrderStock(serviceClient: SupabaseClient, items: Normalize
           });
 
         if (rpcError) {
-          console.error(`⚠️ RPC error restaurando stock de ${productId}:`, rpcError);
+          console.error(`RPC error restaurando stock de ${productId}:`, rpcError);
         } else if (rpcResult && !rpcResult.success) {
-          console.error(`⚠️ Error restaurando stock: ${rpcResult.error}`);
+          console.error(`Error restaurando stock: ${rpcResult.error}`);
         } else {
-          console.log(`✅ Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
+          console.log(`Stock restaurado atómicamente: ${productId} talla ${size} +${quantity}`);
         }
       } catch (stockError) {
-        console.error(`⚠️ Error restaurando stock de ${productId}:`, stockError);
+        console.error(`Error restaurando stock de ${productId}:`, stockError);
       }
     }
   }
@@ -138,10 +138,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             amount: refund.amount,
             status: refund.status,
           };
-          console.log(`✅ Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
+          console.log(`Reembolso procesado: ${refund.id} - ${refund.amount / 100}€`);
         } catch (refundError: unknown) {
           const errMsg = refundError instanceof Error ? refundError.message : String(refundError);
-          console.error('⚠️ Error procesando reembolso:', errMsg);
+          console.error('Error procesando reembolso:', errMsg);
           refundResult = { error: errMsg, status: 'failed' };
         }
       }
@@ -174,9 +174,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             amount: -(refundResult?.amount || order.total_amount || 0),
             customer_email: userEmail || order.billing_email || null,
           });
-          console.log(`✅ Rectificativa invoice created: ${rectInvoiceNum} (ref: ${originalInvoice?.invoice_number || 'N/A'})`);
+          console.log(`Rectificativa invoice created: ${rectInvoiceNum} (ref: ${originalInvoice?.invoice_number || 'N/A'})`);
         } catch (invErr) {
-          console.error('⚠️ Error creating rectificativa invoice:', invErr);
+          console.error('Error creating rectificativa invoice:', invErr);
           rectInvoiceNum = `R-${order.id.slice(0, 8).toUpperCase()}`;
         }
 

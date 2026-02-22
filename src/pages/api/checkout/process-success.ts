@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
     // Enrich cart items from DB (Stripe metadata uses compact format {id, n, p, q, s})
     // This fetches full product name, brand, and image for each item
     const enrichedItems = await enrichOrderItems(supabase, cartItems);
-    console.log(`✅ Items enriched: ${enrichedItems.map(i => i.name).join(', ')}`);
+    console.log(`Items enriched: ${enrichedItems.map(i => i.name).join(', ')}`);
 
     // Create order in Supabase with enriched items
     const { data: order, error: orderError } = await supabase
@@ -75,10 +75,10 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    console.log(`✅ Order created: ${order.id}`);
+    console.log(`Order created: ${order.id}`);
 
     // Decrement stock using atomic RPC (prevents race conditions)
-    console.log(`\n📦 Starting atomic stock decrement for ${enrichedItems.length} items...`);
+    console.log(`\nStarting atomic stock decrement for ${enrichedItems.length} items...`);
     let stockErrors = [];
 
     for (const item of enrichedItems) {
@@ -102,22 +102,22 @@ export const POST: APIRoute = async ({ request }) => {
           });
 
         if (rpcError) {
-          console.error(`    ❌ RPC error:`, rpcError);
+          console.error(`    RPC error:`, rpcError);
           stockErrors.push(`RPC error for ${item.name}: ${rpcError.message}`);
         } else if (rpcResult && !rpcResult.success) {
-          console.warn(`    ⚠️ Stock insufficient: ${rpcResult.error}`);
+          console.warn(`    Stock insufficient: ${rpcResult.error}`);
           stockErrors.push(`Stock insufficient for ${item.name} size ${size}`);
         } else {
-          console.log(`    ✅ Stock updated atomically`);
+          console.log(`    Stock updated atomically`);
         }
       } catch (err) {
-        console.error(`    ❌ Error processing item:`, err);
+        console.error(`    Error processing item:`, err);
         stockErrors.push(`Error processing ${item.name}`);
       }
     }
 
     // Send emails
-    console.log(`\n📧 Sending emails...`);
+    console.log(`\nSending emails...`);
     // Transform enriched items to match OrderItem interface
     const orderItems = enrichedItems.map((item: NormalizedOrderItem) => ({
       id: item.id || '',
@@ -144,9 +144,9 @@ export const POST: APIRoute = async ({ request }) => {
         shippingAddress: shippingAddress,
         stripeSessionId: sessionId,
       });
-      console.log(`✅ Order confirmation email sent to ${billingEmail}`);
+      console.log(`Order confirmation email sent to ${billingEmail}`);
     } catch (emailError) {
-      console.error(`❌ Error sending order confirmation email:`, emailError);
+      console.error(`Error sending order confirmation email:`, emailError);
     }
 
     try {
@@ -162,9 +162,9 @@ export const POST: APIRoute = async ({ request }) => {
         shippingAddress: shippingAddress,
         stripeSessionId: sessionId,
       });
-      console.log(`✅ Admin notification sent`);
+      console.log(`Admin notification sent`);
     } catch (emailError) {
-      console.error(`❌ Error sending admin notification:`, emailError);
+      console.error(`Error sending admin notification:`, emailError);
     }
 
     console.log(`\n===== CHECKOUT PROCESSING COMPLETE =====\n`);

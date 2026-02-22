@@ -90,7 +90,7 @@ export default function SizeRecommender({ availableSizes }: SizeRecommenderProps
         className="w-full flex items-center justify-between px-4 py-3 bg-brand-gray hover:bg-brand-gray/80 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-lg">📏</span>
+          <span className="text-lg"></span>
           <span className="text-white font-bold text-sm uppercase tracking-wider">
             ¿No sabes tu talla? Mide tu pie
           </span>
@@ -167,7 +167,7 @@ export default function SizeRecommender({ availableSizes }: SizeRecommenderProps
           {result && (
             <div className={`rounded-lg p-4 ${result.available ? 'bg-green-900/30 border border-green-700/50' : 'bg-yellow-900/30 border border-yellow-700/50'}`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">{result.available ? '✅' : '⚠️'}</span>
+                <span className="text-2xl font-bold">{result.available ? '✓' : '!'}</span>
                 <div>
                   <p className="text-white font-bold text-lg">
                     Talla recomendada: <span className="text-brand-red">{result.recommended} EU</span>
@@ -182,7 +182,7 @@ export default function SizeRecommender({ availableSizes }: SizeRecommenderProps
               <p className="text-neutral-300 text-sm">{result.note}</p>
               {!result.available && (
                 <p className="text-yellow-400 text-sm mt-2 font-semibold">
-                  ⚠️ Esta talla no está disponible actualmente para este producto. Revisa las tallas disponibles arriba.
+                  Esta talla no está disponible actualmente para este producto. Revisa las tallas disponibles arriba.
                 </p>
               )}
               {result.available && (

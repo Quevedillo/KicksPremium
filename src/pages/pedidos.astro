@@ -132,7 +132,7 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
       {/* Check if not logged in and no guest lookup */}
       {!userId && !isGuestLookup && (
         <div class="bg-brand-dark rounded-lg p-8 text-center">
-          <div class="text-6xl mb-4 text-neutral-500">📦</div>
+          <div class="text-6xl mb-4 text-neutral-500"></div>
           <p class="text-neutral-400 text-lg mb-6">
             Inicia sesión o busca tus pedidos con tu email
           </p>
@@ -170,7 +170,7 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
       {/* Guest lookup with no results */}
       {isGuestLookup && userOrders.length === 0 && !fetchError && (
         <div class="bg-brand-dark rounded-lg p-8 text-center">
-          <div class="text-6xl mb-4 text-neutral-500">🔍</div>
+          <div class="text-6xl mb-4 text-neutral-500"></div>
           <p class="text-neutral-400 text-lg mb-4">
             No se encontraron pedidos para <span class="text-white font-bold">{guestEmailParam}</span>
           </p>
@@ -345,7 +345,7 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
                     data-order-id={order.id}
                     data-guest-email={isGuestLookup ? guestEmailParam : undefined}
                   >
-                    📄 Descargar Factura
+                    Descargar Factura
                   </button>
 
                   {/* Cancel button - different text based on status */}
@@ -356,7 +356,7 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
                       data-order-id={order.id}
                       data-order-status={order.status}
                     >
-                      {(order.status === 'paid' || order.status === 'completed') ? '❌ Cancelar y Reembolsar' : '📋 Solicitar Cancelación'}
+                      {(order.status === 'paid' || order.status === 'completed') ? 'Cancelar y Reembolsar' : 'Solicitar Cancelación'}
                     </button>
                   )}
                   {/* Show pending message for processing orders with cancellation */}
@@ -474,7 +474,7 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
       const orderStatus = btn.getAttribute('data-order-status');
       const isPaid = orderStatus === 'paid' || orderStatus === 'completed';
       
-      const title = isPaid ? '❌ Cancelar y Reembolsar' : '📋 Solicitar Cancelación';
+      const title = isPaid ? 'Cancelar y Reembolsar' : 'Solicitar Cancelación';
       const message = isPaid
         ? 'Se cancelará tu pedido y se procesará el reembolso automáticamente. Recibirás un email de confirmación con la factura de cancelación.'
         : 'Tu pedido ya ha sido enviado. Se enviará una solicitud de cancelación al equipo de administración para su aprobación.';
@@ -497,9 +497,9 @@ const hasPendingCancellation = (order: any) => order.status === 'processing' && 
           }
           // Show success message based on action taken
           if (data.action === 'pending_admin') {
-            alert('✅ Solicitud de cancelación enviada. El equipo de administración la revisará pronto.');
+            alert('Solicitud de cancelación enviada. El equipo de administración la revisará pronto.');
           } else {
-            alert('✅ Pedido cancelado. El reembolso se ha procesado y recibirás un email con la factura de cancelación.');
+            alert('Pedido cancelado. El reembolso se ha procesado y recibirás un email con la factura de cancelación.');
           }
         }
       );

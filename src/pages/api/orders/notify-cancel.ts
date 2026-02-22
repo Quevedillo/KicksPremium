@@ -19,9 +19,9 @@ export const POST: APIRoute = async ({ request }) => {
     // Send abandoned cart / cancellation notification
     try {
       await sendAbandonedCartEmail(email);
-      console.log(`✅ Notificación de cancelación enviada a ${email}`);
+      console.log(`Notificación de cancelación enviada a ${email}`);
     } catch (emailError) {
-      console.error('⚠️ Error enviando email de cancelación:', emailError);
+      console.error('Error enviando email de cancelación:', emailError);
       // Don't fail the request if email fails
     }
 

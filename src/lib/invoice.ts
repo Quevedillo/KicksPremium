@@ -316,13 +316,13 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
             doc
               .roundedRect(col1X, itemY, 42, 42, 4)
               .fill(COLORS.bgAccent);
-            doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+            doc.fontSize(16).fillColor(COLORS.lightGray).text('', col1X + 10, itemY + 12);
           }
         } else {
           doc
             .roundedRect(col1X, itemY, 42, 42, 4)
             .fill(COLORS.bgAccent);
-          doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+          doc.fontSize(16).fillColor(COLORS.lightGray).text('', col1X + 10, itemY + 12);
         }
 
         // Nombre del producto
@@ -695,11 +695,11 @@ export function generateCancellationInvoicePDF(data: CancellationInvoiceData): P
             });
           } catch (e) {
             doc.roundedRect(col1X, itemY, 42, 42, 4).fill(COLORS.bgAccent);
-            doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+            doc.fontSize(16).fillColor(COLORS.lightGray).text('', col1X + 10, itemY + 12);
           }
         } else {
           doc.roundedRect(col1X, itemY, 42, 42, 4).fill(COLORS.bgAccent);
-          doc.fontSize(16).fillColor(COLORS.lightGray).text('👟', col1X + 10, itemY + 12);
+          doc.fontSize(16).fillColor(COLORS.lightGray).text('', col1X + 10, itemY + 12);
         }
 
         // Nombre (tachado visual usando color gris)

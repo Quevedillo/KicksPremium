@@ -106,7 +106,7 @@ export default function CartSlideOver() {
       const data = await response.json();
 
       if (!response.ok || !data.valid) {
-        setDiscountMessage(`❌ ${data.error || 'Código inválido o expirado'}`);
+        setDiscountMessage(`${data.error || 'Código inválido o expirado'}`);
         removeDiscountCode();
         setApplyingDiscount(false);
         return;
@@ -121,7 +121,7 @@ export default function CartSlideOver() {
       };
 
       applyDiscountCode(discount);
-      setDiscountMessage(`✅ Código "${discountCode.toUpperCase()}" aplicado correctamente`);
+      setDiscountMessage(`Código "${discountCode.toUpperCase()}" aplicado correctamente`);
       setDiscountCode('');
     } catch (err) {
       console.error('Error applying discount:', err);
@@ -451,7 +451,7 @@ export default function CartSlideOver() {
                 
                 {discountMessage && (
                   <p className={`text-xs px-2 py-1 ${
-                    discountMessage.startsWith('✅') 
+                    discountMessage.includes('aplicado') 
                       ? 'text-green-400' 
                       : 'text-red-400'
                   }`}>
@@ -510,7 +510,7 @@ export default function CartSlideOver() {
                   {showPasswordField && (
                     <div className="space-y-2 mt-2 p-3 bg-yellow-900/30 border border-yellow-600/50 rounded">
                       <p className="text-sm text-yellow-300">
-                        ⚠️ Este email ya tiene una cuenta registrada. Introduce tu contraseña para continuar.
+                        Este email ya tiene una cuenta registrada. Introduce tu contraseña para continuar.
                       </p>
                       <input
                         type="password"

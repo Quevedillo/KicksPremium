@@ -106,7 +106,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
     return (
       <div className="space-y-6">
         <div className="p-4 bg-red-100 border border-red-300 rounded-lg">
-          <p className="text-red-800 font-bold text-center">❌ Producto Agotado</p>
+          <p className="text-red-800 font-bold text-center">Producto Agotado</p>
         </div>
       </div>
     );

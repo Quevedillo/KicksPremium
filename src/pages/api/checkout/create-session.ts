@@ -248,9 +248,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         
         const coupon = await stripe.coupons.create(couponParams);
         stripeCouponId = coupon.id;
-        console.log(`✅ Created Stripe coupon: ${coupon.id} for code ${discountCode}`);
+        console.log(`Created Stripe coupon: ${coupon.id} for code ${discountCode}`);
       } catch (couponError) {
-        console.error('⚠️ Error creating Stripe coupon:', couponError);
+        console.error('Error creating Stripe coupon:', couponError);
         // Continue without discount if coupon creation fails
       }
     }

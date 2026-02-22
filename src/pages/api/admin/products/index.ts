@@ -305,18 +305,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         if (hasDiscount) {
           sendNewOfferToAllSubscribers(subscribers, productData)
             .then((result) => {
-              console.log(`✅ Newsletter OFERTA enviado para ${product.slug}:`, result);
+              console.log(`Newsletter OFERTA enviado para ${product.slug}:`, result);
             })
             .catch((emailError) => {
-              console.error(`❌ Error enviando newsletter oferta para ${product.slug}:`, emailError);
+              console.error(`Error enviando newsletter oferta para ${product.slug}:`, emailError);
             });
         } else {
           sendNewProductToAllSubscribers(subscribers, productData)
             .then((result) => {
-              console.log(`✅ Newsletter enviado para producto ${product.slug}:`, result);
+              console.log(`Newsletter enviado para producto ${product.slug}:`, result);
             })
             .catch((emailError) => {
-              console.error(`❌ Error enviando newsletter para ${product.slug}:`, emailError);
+              console.error(`Error enviando newsletter para ${product.slug}:`, emailError);
             });
         }
 

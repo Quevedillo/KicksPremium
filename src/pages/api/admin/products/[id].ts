@@ -240,10 +240,10 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
 
           sendNewOfferToAllSubscribers(subscribers, productData)
             .then((result) => {
-              console.log(`✅ Newsletter OFERTA enviado para ${updatedProduct.slug}:`, result);
+              console.log(`Newsletter OFERTA enviado para ${updatedProduct.slug}:`, result);
             })
             .catch((emailError) => {
-              console.error(`❌ Error enviando newsletter oferta para ${updatedProduct.slug}:`, emailError);
+              console.error(`Error enviando newsletter oferta para ${updatedProduct.slug}:`, emailError);
             });
 
           newsletterResult = {
