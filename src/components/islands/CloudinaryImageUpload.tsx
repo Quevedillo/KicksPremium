@@ -73,6 +73,46 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
     try {
       const newImages: ImageData[] = [];
 
+      // Obtener token de Supabase desde localStorage
+      let accessToken = '';
+      try {
+        // Supabase guarda la sesión en sb-auth-token como string JSON
+        const storedSession = localStorage.getItem('sb-auth-token');
+        if (storedSession) {
+          const parsed = JSON.parse(storedSession);
+          // El formato puede variar: directamente access_token o dentro de session
+          accessToken = parsed.access_token || parsed.session?.access_token || '';
+        }
+        
+        // También intentar con el formato alternativo de Supabase
+        if (!accessToken) {
+          // Buscar cualquier clave que empiece con sb- y contenga token
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes('sb-') || key.includes('supabase'))) {
+              try {
+                const value = localStorage.getItem(key);
+                if (value) {
+                  const data = JSON.parse(value);
+                  if (data.access_token) {
+                    accessToken = data.access_token;
+                    break;
+                  }
+                  if (data.session?.access_token) {
+                    accessToken = data.session.access_token;
+                    break;
+                  }
+                }
+              } catch {
+                // Ignorar si no es JSON válido
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo obtener token de localStorage:', e);
+      }
+
       for (const file of validFiles) {
         if (uploadedImages.length + newImages.length >= currentMaxFiles) {
           setError(`Máximo ${currentMaxFiles} imágenes permitidas`);
@@ -82,10 +122,16 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
+        const headers: HeadersInit = {};
+        if (accessToken) {
+          headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
         const response = await fetch('/api/upload/image', {
           method: 'POST',
           body: formData,
-          credentials: 'include', // Incluir cookies de autenticación
+          credentials: 'include', // Incluir cookies como fallback
+          headers,
         });
 
         if (!response.ok) {

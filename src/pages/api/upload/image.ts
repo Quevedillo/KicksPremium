@@ -13,17 +13,22 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Obtener tokens de sesión
-    const accessToken = context.cookies.get('sb-access-token')?.value;
-    const refreshToken = context.cookies.get('sb-refresh-token')?.value;
+    // Obtener token de sesión - primero de header, luego de cookies
+    const authHeader = context.request.headers.get('Authorization');
+    let accessToken = authHeader?.replace('Bearer ', '');
+    
+    // Fallback a cookies si no hay header
+    if (!accessToken) {
+      accessToken = context.cookies.get('sb-access-token')?.value;
+    }
 
-    console.log('[Upload] Tokens disponibles:', { 
-      hasAccessToken: !!accessToken, 
-      hasRefreshToken: !!refreshToken 
+    console.log('[Upload] Token disponible:', { 
+      hasAccessToken: !!accessToken,
+      source: authHeader ? 'header' : 'cookie'
     });
 
-    if (!accessToken || !refreshToken) {
-      console.error('[Upload] Error: No hay tokens de sesión');
+    if (!accessToken) {
+      console.error('[Upload] Error: No hay token de sesión');
       return new Response(
         JSON.stringify({ error: 'No autenticado - Por favor inicia sesión' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -54,7 +59,20 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Verificar que sea admin usando service role (bypass RLS)
-    const serviceClient = getSupabaseServiceClient();
+    let serviceClient;
+    try {
+      serviceClient = getSupabaseServiceClient();
+    } catch (serviceError) {
+      console.error('[Upload] Error al obtener service client:', serviceError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Error de configuración del servidor',
+          debug: 'SUPABASE_SERVICE_ROLE_KEY no configurada'
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: profile, error: profileError } = await serviceClient
       .from('user_profiles')
       .select('is_admin')
@@ -71,6 +89,8 @@ export const POST: APIRoute = async (context) => {
       email: user.email,
       isAdmin: isAdmin,
       profileIsAdmin: profile?.is_admin,
+      adminEmailEnv: adminEmail,
+      profileFound: !!profile,
       error: profileError?.message 
     });
 
@@ -83,9 +103,22 @@ export const POST: APIRoute = async (context) => {
     }
 
     if (!isAdmin) {
-      console.warn('[Upload] Acceso denegado: usuario no es admin', user.id);
+      console.warn('[Upload] Acceso denegado: usuario no es admin', {
+        userId: user.id,
+        email: user.email,
+        profileIsAdmin: profile?.is_admin,
+        adminEmailEnv: adminEmail ? '(configurado)' : '(no configurado)'
+      });
       return new Response(
-        JSON.stringify({ error: 'No autorizado: solo administradores pueden subir imágenes' }),
+        JSON.stringify({ 
+          error: 'No autorizado: solo administradores pueden subir imágenes',
+          debug: {
+            userEmail: user.email,
+            profileFound: !!profile,
+            profileIsAdmin: profile?.is_admin,
+            adminEmailConfigured: !!adminEmail
+          }
+        }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
       );
     }
