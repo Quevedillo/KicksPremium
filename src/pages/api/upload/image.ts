@@ -80,7 +80,8 @@ export const POST: APIRoute = async (context) => {
       .maybeSingle();
 
     // También verificar si es el email admin de la configuración
-    const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL;
+    // Usar ADMIN_EMAIL (runtime) como prioridad, luego PUBLIC_ADMIN_EMAIL (build-time)
+    const adminEmail = import.meta.env.ADMIN_EMAIL || import.meta.env.PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
     const isAdmin = profile?.is_admin === true || 
       (adminEmail && user.email?.toLowerCase() === adminEmail.toLowerCase());
 

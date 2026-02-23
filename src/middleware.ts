@@ -60,7 +60,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
           .eq("id", context.locals.user.id)
           .maybeSingle();
 
-        const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL;
+        const adminEmail = import.meta.env.ADMIN_EMAIL || import.meta.env.PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
         const isAdmin = profile?.is_admin === true ||
           (adminEmail && context.locals.user.email.toLowerCase() === adminEmail.toLowerCase());
 
@@ -96,7 +96,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
           .eq("id", context.locals.user.id)
           .maybeSingle();
 
-        const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL;
+        const adminEmail = import.meta.env.ADMIN_EMAIL || import.meta.env.PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
         const isAdmin = profile?.is_admin === true ||
           (adminEmail && context.locals.user.email.toLowerCase() === adminEmail.toLowerCase());
 
