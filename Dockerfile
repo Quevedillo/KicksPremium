@@ -44,6 +44,9 @@ RUN npm install --only=production
 # Copiar archivos compilados desde el builder
 COPY --from=builder /app/dist ./dist
 
+# Copiar archivos .env para variables de entorno en runtime (SSR)
+COPY .env* ./
+
 # Expose port
 EXPOSE 4321
 
