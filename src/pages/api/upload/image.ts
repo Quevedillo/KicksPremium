@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getCloudinary } from '@lib/cloudinary';
-import { supabase } from '@lib/supabase';
+import { getSupabaseServiceClient } from '@lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export const POST: APIRoute = async (context) => {
   try {
@@ -29,39 +30,51 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Validar sesión
-    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
+    // Validar sesión usando cliente temporal con anon key
+    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+    
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
 
-    console.log('[Upload] Sesión validada:', { 
-      userId: sessionData?.user?.id,
-      error: sessionError?.message 
+    const { data: { user }, error: userError } = await authClient.auth.getUser(accessToken);
+
+    console.log('[Upload] Usuario verificado:', { 
+      userId: user?.id,
+      error: userError?.message 
     });
 
-    if (!sessionData?.user) {
-      console.error('[Upload] Error: Sesión inválida', sessionError);
+    if (!user || userError) {
+      console.error('[Upload] Error: Token inválido', userError);
       return new Response(
         JSON.stringify({ error: 'Sesión inválida - Por favor inicia sesión de nuevo' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Verificar que sea admin
-    const { data: profile, error: profileError } = await supabase
+    // Verificar que sea admin usando service role (bypass RLS)
+    const serviceClient = getSupabaseServiceClient();
+    const { data: profile, error: profileError } = await serviceClient
       .from('user_profiles')
       .select('is_admin')
-      .eq('id', sessionData.user.id)
-      .single();
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // También verificar si es el email admin de la configuración
+    const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL;
+    const isAdmin = profile?.is_admin === true || 
+      (adminEmail && user.email?.toLowerCase() === adminEmail.toLowerCase());
 
     console.log('[Upload] Perfil verificado:', { 
-      userId: sessionData.user.id,
-      isAdmin: profile?.is_admin,
+      userId: user.id,
+      email: user.email,
+      isAdmin: isAdmin,
+      profileIsAdmin: profile?.is_admin,
       error: profileError?.message 
     });
 
-    if (profileError) {
+    if (profileError && profileError.code !== 'PGRST116') {
       console.error('[Upload] Error al obtener perfil:', profileError);
       return new Response(
         JSON.stringify({ error: 'Error al verificar permisos' }),
@@ -69,8 +82,8 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    if (!profile?.is_admin) {
-      console.warn('[Upload] Acceso denegado: usuario no es admin', sessionData.user.id);
+    if (!isAdmin) {
+      console.warn('[Upload] Acceso denegado: usuario no es admin', user.id);
       return new Response(
         JSON.stringify({ error: 'No autorizado: solo administradores pueden subir imágenes' }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
