@@ -3,9 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Endpoint temporal de diagnóstico - ELIMINAR DESPUÉS DE RESOLVER EL PROBLEMA
- * Muestra el estado de las variables de entorno y la verificación de admin
+ * Soporta GET y POST para verificar que ambos métodos funcionan
  */
-export const GET: APIRoute = async (context) => {
+
+async function handleDiagnostic(context: Parameters<APIRoute>[0]) {
+  const method = context.request.method;
+  
   // Obtener token
   const authHeader = context.request.headers.get('Authorization');
   let accessToken = authHeader?.replace('Bearer ', '');
@@ -23,6 +26,13 @@ export const GET: APIRoute = async (context) => {
     SUPABASE_SERVICE_ROLE_KEY_process: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     hasAccessToken: !!accessToken,
     tokenSource: authHeader ? 'header' : accessToken ? 'cookie' : 'ninguno',
+    requestMethod: method,
+    requestHeaders: {
+      origin: context.request.headers.get('Origin'),
+      referer: context.request.headers.get('Referer'),
+      contentType: context.request.headers.get('Content-Type'),
+      host: context.request.headers.get('Host'),
+    },
   };
 
   let userInfo: any = { checked: false };
@@ -47,7 +57,6 @@ export const GET: APIRoute = async (context) => {
           error: error?.message,
         };
 
-        // Check profile with service role
         const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (user && serviceKey) {
           const serviceClient = createClient(supabaseUrl, serviceKey, {
@@ -80,4 +89,7 @@ export const GET: APIRoute = async (context) => {
     JSON.stringify({ env, user: userInfo, profile: profileInfo }, null, 2),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
-};
+}
+
+export const GET: APIRoute = async (context) => handleDiagnostic(context);
+export const POST: APIRoute = async (context) => handleDiagnostic(context);

@@ -122,21 +122,46 @@ export const CloudinaryImageUpload: React.FC<ImageUploadProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
-        const headers: HeadersInit = {};
+        const headers: HeadersInit = {
+          'X-Requested-With': 'XMLHttpRequest', // Evita bloqueos CSRF de proxies
+        };
         if (accessToken) {
           headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
+        console.log('[Upload] Enviando imagen:', { 
+          hasToken: !!accessToken, 
+          fileName: file.name, 
+          fileSize: file.size 
+        });
+
         const response = await fetch('/api/upload/image', {
           method: 'POST',
           body: formData,
-          credentials: 'include', // Incluir cookies como fallback
+          credentials: 'include',
           headers,
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al subir la imagen');
+          // Capturar el texto crudo de la respuesta para diagnosticar
+          let errorMessage = `Error ${response.status}`;
+          try {
+            const rawText = await response.text();
+            console.error('[Upload] Respuesta del servidor:', response.status, rawText);
+            try {
+              const errorData = JSON.parse(rawText);
+              errorMessage = errorData.error || errorData.message || errorMessage;
+              if (errorData.debug) {
+                console.error('[Upload] Debug info:', errorData.debug);
+              }
+            } catch {
+              // La respuesta no es JSON - probablemente viene del proxy
+              errorMessage = `Error ${response.status}: ${rawText.substring(0, 200)}`;
+            }
+          } catch {
+            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
 
         const data = await response.json();

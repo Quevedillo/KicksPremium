@@ -3,15 +3,21 @@ import { getCloudinary } from '@lib/cloudinary';
 import { getSupabaseServiceClient } from '@lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 
+// Headers comunes para todas las respuestas
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+};
+
+// Responder a preflight OPTIONS
+export const OPTIONS: APIRoute = async () => {
+  return new Response(null, { status: 204, headers: corsHeaders });
+};
+
 export const POST: APIRoute = async (context) => {
   try {
-    // Validar que sea una solicitud POST con FormData
-    if (context.request.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-        status: 405,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
 
     // Obtener token de sesión - primero de header, luego de cookies
     const authHeader = context.request.headers.get('Authorization');
@@ -31,7 +37,7 @@ export const POST: APIRoute = async (context) => {
       console.error('[Upload] Error: No hay token de sesión');
       return new Response(
         JSON.stringify({ error: 'No autenticado - Por favor inicia sesión' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -54,7 +60,7 @@ export const POST: APIRoute = async (context) => {
       console.error('[Upload] Error: Token inválido', userError);
       return new Response(
         JSON.stringify({ error: 'Sesión inválida - Por favor inicia sesión de nuevo' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -69,7 +75,7 @@ export const POST: APIRoute = async (context) => {
           error: 'Error de configuración del servidor',
           debug: 'SUPABASE_SERVICE_ROLE_KEY no configurada'
         }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -99,7 +105,7 @@ export const POST: APIRoute = async (context) => {
       console.error('[Upload] Error al obtener perfil:', profileError);
       return new Response(
         JSON.stringify({ error: 'Error al verificar permisos' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -120,7 +126,7 @@ export const POST: APIRoute = async (context) => {
             adminEmailConfigured: !!adminEmail
           }
         }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: corsHeaders }
       );
     }
 
@@ -132,7 +138,7 @@ export const POST: APIRoute = async (context) => {
       console.error('[Upload] Error: No file provided');
       return new Response(
         JSON.stringify({ error: 'No file provided' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -146,7 +152,7 @@ export const POST: APIRoute = async (context) => {
         JSON.stringify({
           error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.',
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -155,7 +161,7 @@ export const POST: APIRoute = async (context) => {
       console.error('[Upload] Archivo demasiado grande:', file.size);
       return new Response(
         JSON.stringify({ error: 'File size must be less than 10MB' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -195,13 +201,13 @@ export const POST: APIRoute = async (context) => {
         width: (result as any).width,
         height: (result as any).height,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: corsHeaders }
     );
     } catch (error) {
       console.error('[Upload] Error general:', error);
       return new Response(
         JSON.stringify({ error: 'Error al subir imagen' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
   };
